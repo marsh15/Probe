@@ -35,7 +35,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 
 | Task | Title | Status |
 |---|---|---|
-| T00 | Bootstrap (package, CI, docs, spec snapshots) | todo |
+| T00 | Bootstrap (package, CI, docs, spec snapshots) | done |
 | T01 | Core models and utilities | todo |
 | T02 | Wire: JSON-RPC, stdio transport, recorder | todo |
 | T03 | Wire: HTTP transport and SSE | todo |
