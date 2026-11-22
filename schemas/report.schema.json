@@ -1,0 +1,882 @@
+{
+  "$defs": {
+    "CrashEvent": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Case Id"
+        },
+        "check_id": {
+          "title": "Check Id",
+          "type": "string"
+        },
+        "exit_code": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Exit Code"
+        },
+        "oom_killed": {
+          "title": "Oom Killed",
+          "type": "boolean"
+        },
+        "stderr_tail": {
+          "title": "Stderr Tail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check_id",
+        "case_id",
+        "exit_code",
+        "oom_killed",
+        "stderr_tail"
+      ],
+      "title": "CrashEvent",
+      "type": "object"
+    },
+    "DisclosureTier": {
+      "enum": [
+        "public",
+        "private"
+      ],
+      "title": "DisclosureTier",
+      "type": "string"
+    },
+    "EraInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "enum": [
+            "modern",
+            "legacy",
+            "dual"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "negotiated_version": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Negotiated Version"
+        },
+        "supported_versions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Supported Versions",
+          "type": "array"
+        }
+      },
+      "required": [
+        "kind",
+        "negotiated_version",
+        "supported_versions"
+      ],
+      "title": "EraInfo",
+      "type": "object"
+    },
+    "Evidence": {
+      "additionalProperties": false,
+      "properties": {
+        "excerpt": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Excerpt"
+        },
+        "observations": {
+          "additionalProperties": true,
+          "title": "Observations",
+          "type": "object"
+        },
+        "request_refs": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Request Refs",
+          "type": "array"
+        },
+        "response_refs": {
+          "items": {
+            "type": "integer"
+          },
+          "title": "Response Refs",
+          "type": "array"
+        },
+        "summary": {
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "request_refs",
+        "response_refs",
+        "observations"
+      ],
+      "title": "Evidence",
+      "type": "object"
+    },
+    "Family": {
+      "enum": [
+        "protocol",
+        "schema",
+        "behavior",
+        "safety",
+        "operability"
+      ],
+      "title": "Family",
+      "type": "string"
+    },
+    "FamilyScore": {
+      "additionalProperties": false,
+      "properties": {
+        "applicable_weight": {
+          "title": "Applicable Weight",
+          "type": "integer"
+        },
+        "failed_weight": {
+          "title": "Failed Weight",
+          "type": "integer"
+        },
+        "score": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Score"
+        }
+      },
+      "required": [
+        "score",
+        "applicable_weight",
+        "failed_weight"
+      ],
+      "title": "FamilyScore",
+      "type": "object"
+    },
+    "Finding": {
+      "additionalProperties": false,
+      "properties": {
+        "check_id": {
+          "title": "Check Id",
+          "type": "string"
+        },
+        "disclosure": {
+          "$ref": "#/$defs/DisclosureTier"
+        },
+        "evidence": {
+          "$ref": "#/$defs/Evidence"
+        },
+        "family": {
+          "$ref": "#/$defs/Family"
+        },
+        "finding_id": {
+          "title": "Finding Id",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "repro": {
+          "$ref": "#/$defs/ReproCase"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "tool": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Tool"
+        }
+      },
+      "required": [
+        "finding_id",
+        "check_id",
+        "family",
+        "severity",
+        "tool",
+        "title",
+        "message",
+        "evidence",
+        "repro",
+        "disclosure"
+      ],
+      "title": "Finding",
+      "type": "object"
+    },
+    "LlmStats": {
+      "additionalProperties": false,
+      "properties": {
+        "cache_hits": {
+          "title": "Cache Hits",
+          "type": "integer"
+        },
+        "cases": {
+          "title": "Cases",
+          "type": "integer"
+        },
+        "cost_usd": {
+          "title": "Cost Usd",
+          "type": "number"
+        },
+        "lift": {
+          "title": "Lift",
+          "type": "number"
+        },
+        "model": {
+          "title": "Model",
+          "type": "string"
+        },
+        "recovery_rate": {
+          "title": "Recovery Rate",
+          "type": "number"
+        }
+      },
+      "required": [
+        "model",
+        "recovery_rate",
+        "lift",
+        "cases",
+        "cache_hits",
+        "cost_usd"
+      ],
+      "title": "LlmStats",
+      "type": "object"
+    },
+    "PackageInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "ecosystem": {
+          "title": "Ecosystem",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "version": {
+          "title": "Version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "ecosystem",
+        "name",
+        "version"
+      ],
+      "title": "PackageInfo",
+      "type": "object"
+    },
+    "ReproCase": {
+      "additionalProperties": false,
+      "properties": {
+        "case_id": {
+          "title": "Case Id",
+          "type": "string"
+        },
+        "command": {
+          "title": "Command",
+          "type": "string"
+        },
+        "expect": {
+          "additionalProperties": true,
+          "title": "Expect",
+          "type": "object"
+        },
+        "steps": {
+          "items": {
+            "additionalProperties": true,
+            "type": "object"
+          },
+          "title": "Steps",
+          "type": "array"
+        }
+      },
+      "required": [
+        "case_id",
+        "steps",
+        "expect",
+        "command"
+      ],
+      "title": "ReproCase",
+      "type": "object"
+    },
+    "ResultSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "calls": {
+          "title": "Calls",
+          "type": "integer"
+        },
+        "check_id": {
+          "title": "Check Id",
+          "type": "string"
+        },
+        "duration_ms": {
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "family": {
+          "$ref": "#/$defs/Family"
+        },
+        "finding_ids": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Finding Ids",
+          "type": "array"
+        },
+        "reason": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Reason"
+        },
+        "severity": {
+          "$ref": "#/$defs/Severity"
+        },
+        "spec_refs": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Spec Refs",
+          "type": "array"
+        },
+        "status": {
+          "$ref": "#/$defs/Status"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "check_id",
+        "family",
+        "title",
+        "severity",
+        "status",
+        "reason",
+        "spec_refs",
+        "duration_ms",
+        "calls",
+        "finding_ids"
+      ],
+      "title": "ResultSummary",
+      "type": "object"
+    },
+    "ScanInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "duration_ms": {
+          "title": "Duration Ms",
+          "type": "integer"
+        },
+        "finished_at": {
+          "format": "date-time",
+          "title": "Finished At",
+          "type": "string"
+        },
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "mode": {
+          "title": "Mode",
+          "type": "string"
+        },
+        "platform": {
+          "title": "Platform",
+          "type": "string"
+        },
+        "runtime": {
+          "enum": [
+            "runc",
+            "runsc",
+            "none"
+          ],
+          "title": "Runtime",
+          "type": "string"
+        },
+        "sandboxed": {
+          "title": "Sandboxed",
+          "type": "boolean"
+        },
+        "scan_key": {
+          "title": "Scan Key",
+          "type": "string"
+        },
+        "seed": {
+          "title": "Seed",
+          "type": "integer"
+        },
+        "started_at": {
+          "format": "date-time",
+          "title": "Started At",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "completed",
+            "target_unavailable",
+            "aborted"
+          ],
+          "title": "Status",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "scan_key",
+        "status",
+        "started_at",
+        "finished_at",
+        "duration_ms",
+        "mode",
+        "seed",
+        "sandboxed",
+        "platform",
+        "runtime"
+      ],
+      "title": "ScanInfo",
+      "type": "object"
+    },
+    "Score": {
+      "additionalProperties": false,
+      "properties": {
+        "caps_applied": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Caps Applied",
+          "type": "array"
+        },
+        "coverage": {
+          "title": "Coverage",
+          "type": "number"
+        },
+        "families": {
+          "additionalProperties": {
+            "$ref": "#/$defs/FamilyScore"
+          },
+          "propertyNames": {
+            "$ref": "#/$defs/Family"
+          },
+          "title": "Families",
+          "type": "object"
+        },
+        "grade": {
+          "anyOf": [
+            {
+              "enum": [
+                "A",
+                "B",
+                "C",
+                "D",
+                "F"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Grade"
+        },
+        "overall": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Overall"
+        }
+      },
+      "required": [
+        "overall",
+        "grade",
+        "coverage",
+        "caps_applied",
+        "families"
+      ],
+      "title": "Score",
+      "type": "object"
+    },
+    "Severity": {
+      "enum": [
+        "critical",
+        "high",
+        "medium",
+        "low",
+        "info"
+      ],
+      "title": "Severity",
+      "type": "string"
+    },
+    "Stats": {
+      "additionalProperties": false,
+      "properties": {
+        "bytes_in": {
+          "title": "Bytes In",
+          "type": "integer"
+        },
+        "bytes_out": {
+          "title": "Bytes Out",
+          "type": "integer"
+        },
+        "calls": {
+          "title": "Calls",
+          "type": "integer"
+        },
+        "crashes": {
+          "items": {
+            "$ref": "#/$defs/CrashEvent"
+          },
+          "title": "Crashes",
+          "type": "array"
+        },
+        "phase_ms": {
+          "additionalProperties": {
+            "type": "integer"
+          },
+          "title": "Phase Ms",
+          "type": "object"
+        },
+        "protocol_errors": {
+          "title": "Protocol Errors",
+          "type": "integer"
+        },
+        "restarts": {
+          "title": "Restarts",
+          "type": "integer"
+        },
+        "tool_errors": {
+          "title": "Tool Errors",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "calls",
+        "protocol_errors",
+        "tool_errors",
+        "restarts",
+        "crashes",
+        "bytes_in",
+        "bytes_out",
+        "phase_ms"
+      ],
+      "title": "Stats",
+      "type": "object"
+    },
+    "Status": {
+      "enum": [
+        "pass",
+        "fail",
+        "not_applicable",
+        "error",
+        "skipped"
+      ],
+      "title": "Status",
+      "type": "string"
+    },
+    "TargetInfo": {
+      "additionalProperties": false,
+      "properties": {
+        "capabilities": {
+          "additionalProperties": true,
+          "title": "Capabilities",
+          "type": "object"
+        },
+        "era": {
+          "$ref": "#/$defs/EraInfo"
+        },
+        "extensions": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Extensions",
+          "type": "array"
+        },
+        "image_digest": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Image Digest"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "package": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/PackageInfo"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "profile_hash": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "title": "Profile Hash"
+        },
+        "server_info": {
+          "additionalProperties": true,
+          "title": "Server Info",
+          "type": "object"
+        },
+        "transport": {
+          "$ref": "#/$defs/Transport"
+        }
+      },
+      "required": [
+        "name",
+        "transport",
+        "era",
+        "server_info",
+        "package",
+        "image_digest",
+        "profile_hash",
+        "capabilities",
+        "extensions"
+      ],
+      "title": "TargetInfo",
+      "type": "object"
+    },
+    "ToolSummary": {
+      "additionalProperties": false,
+      "properties": {
+        "annotations": {
+          "additionalProperties": true,
+          "title": "Annotations",
+          "type": "object"
+        },
+        "cases_run": {
+          "title": "Cases Run",
+          "type": "integer"
+        },
+        "classification_reason": {
+          "title": "Classification Reason",
+          "type": "string"
+        },
+        "classification_source": {
+          "enum": [
+            "profile",
+            "annotations",
+            "heuristic"
+          ],
+          "title": "Classification Source",
+          "type": "string"
+        },
+        "flags": {
+          "items": {
+            "enum": [
+              "url_param",
+              "path_param",
+              "sql_param",
+              "command_param",
+              "paginated",
+              "sensitive_param"
+            ],
+            "type": "string"
+          },
+          "title": "Flags",
+          "type": "array"
+        },
+        "input_schema_hash": {
+          "title": "Input Schema Hash",
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "read",
+            "write",
+            "destructive",
+            "exec",
+            "unknown"
+          ],
+          "title": "Kind",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "kind",
+        "flags",
+        "classification_source",
+        "classification_reason",
+        "annotations",
+        "input_schema_hash",
+        "cases_run"
+      ],
+      "title": "ToolSummary",
+      "type": "object"
+    },
+    "Transport": {
+      "enum": [
+        "stdio",
+        "http"
+      ],
+      "title": "Transport",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "catalog_version": {
+      "title": "Catalog Version",
+      "type": "string"
+    },
+    "findings": {
+      "items": {
+        "$ref": "#/$defs/Finding"
+      },
+      "title": "Findings",
+      "type": "array"
+    },
+    "honesty": {
+      "default": "No issues found by Probe v1.0 checks is not a security guarantee.",
+      "title": "Honesty",
+      "type": "string"
+    },
+    "limitations": {
+      "items": {
+        "type": "string"
+      },
+      "title": "Limitations",
+      "type": "array"
+    },
+    "llm": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/LlmStats"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "probe_version": {
+      "title": "Probe Version",
+      "type": "string"
+    },
+    "results": {
+      "items": {
+        "$ref": "#/$defs/ResultSummary"
+      },
+      "title": "Results",
+      "type": "array"
+    },
+    "scan": {
+      "$ref": "#/$defs/ScanInfo"
+    },
+    "schema_version": {
+      "const": "1.0",
+      "default": "1.0",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "score": {
+      "$ref": "#/$defs/Score"
+    },
+    "scoring_version": {
+      "title": "Scoring Version",
+      "type": "string"
+    },
+    "stats": {
+      "$ref": "#/$defs/Stats"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetInfo"
+    },
+    "tools": {
+      "items": {
+        "$ref": "#/$defs/ToolSummary"
+      },
+      "title": "Tools",
+      "type": "array"
+    }
+  },
+  "required": [
+    "probe_version",
+    "catalog_version",
+    "scoring_version",
+    "scan",
+    "target",
+    "tools",
+    "results",
+    "findings",
+    "score",
+    "stats"
+  ],
+  "title": "ScanReport",
+  "type": "object"
+}
