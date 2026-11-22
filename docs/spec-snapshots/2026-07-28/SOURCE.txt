@@ -1,0 +1,4 @@
+Repository: https://github.com/modelcontextprotocol/modelcontextprotocol
+Commit: 862397cec702e8f828713071da501cf56158e8fc (committed 2026-11-21)
+Paths: schema/2026-07-28/{schema.json,schema.ts}, docs/specification/2026-07-28/
+Downloaded: 2026-11-22

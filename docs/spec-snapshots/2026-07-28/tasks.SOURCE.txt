@@ -1,0 +1,4 @@
+Repository: https://github.com/modelcontextprotocol/ext-tasks
+Commit: cc9aaac1047a9440b07486e38f37060bbebeef4c
+Path: specification/2026-07-28/tasks.md
+Downloaded: 2026-11-22
