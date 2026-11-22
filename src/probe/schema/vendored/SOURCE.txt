@@ -1,0 +1,6 @@
+Vendored copies of the official MCP JSON Schemas, one per protocol era.
+Repository: https://github.com/modelcontextprotocol/modelcontextprotocol
+Commit: 862397cec702e8f828713071da501cf56158e8fc (committed 2026-11-21)
+mcp-2025-11-25.schema.json <- schema/2025-11-25/schema.json
+mcp-2026-07-28.schema.json <- schema/2026-07-28/schema.json
+Downloaded: 2026-11-22
