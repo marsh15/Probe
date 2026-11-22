@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check:
+    name: Check (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Run checks
+        run: make check
+        env:
+          UV_PYTHON: ${{ matrix.python-version }}
+
+  smoke-test:
+    name: Smoke Test (macOS, Python 3.13)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+      - name: Run checks
+        run: make check
+        env:
+          UV_PYTHON: 3.13
