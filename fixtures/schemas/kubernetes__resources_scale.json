@@ -1,0 +1,30 @@
+{
+  "properties": {
+    "apiVersion": {
+      "description": "apiVersion of the resource (examples of valid apiVersion are apps/v1)",
+      "type": "string"
+    },
+    "kind": {
+      "description": "kind of the resource (examples of valid kind are: StatefulSet, Deployment)",
+      "type": "string"
+    },
+    "name": {
+      "description": "Name of the resource",
+      "type": "string"
+    },
+    "namespace": {
+      "description": "Optional Namespace to get/update the namespaced resource scale from (ignored in case of cluster scoped resources). If not provided, will get/update resource scale from configured namespace",
+      "type": "string"
+    },
+    "scale": {
+      "description": "Optional scale to update the resources scale to. If not provided, will return the current scale of the resource, and not update it",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "apiVersion",
+    "kind",
+    "name"
+  ],
+  "type": "object"
+}

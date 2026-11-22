@@ -1,0 +1,12 @@
+{
+  "type": "object",
+  "properties": {
+    "selector": {
+      "type": "string",
+      "description": "CSS selector for element to click"
+    }
+  },
+  "required": [
+    "selector"
+  ]
+}

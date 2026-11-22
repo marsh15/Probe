@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The directory to search under. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories."
+    },
+    "pattern": {
+      "type": "string",
+      "description": "Glob matched against each entry's path relative to path, never its content: '*.ts' matches directly under path, '**/*.ts' at any depth."
+    },
+    "excludePatterns": {
+      "default": [],
+      "description": "Patterns for entries to leave out, with their contents, matched against each entry's path relative to path. A pattern with no '*' matches that name at any depth ('node_modules' leaves out every node_modules directory); a pattern with '*' is a glob matched as written, and one ending in '/**' also leaves out the directory it names.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "path",
+    "pattern"
+  ]
+}

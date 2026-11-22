@@ -1,0 +1,22 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "The query to perform retrieval on"
+    },
+    "knowledgeBaseId": {
+      "type": "string",
+      "description": "The ID of the AWS Knowledge Base"
+    },
+    "n": {
+      "type": "number",
+      "default": 3,
+      "description": "Number of results to retrieve"
+    }
+  },
+  "required": [
+    "query",
+    "knowledgeBaseId"
+  ]
+}

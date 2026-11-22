@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "topic": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "The research topic to investigate (at most 1,000 characters; the task keeps it until it expires)"
+    },
+    "ambiguous": {
+      "default": false,
+      "description": "Simulate an ambiguous query that requires clarification (triggers input_required status)",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "topic"
+  ]
+}

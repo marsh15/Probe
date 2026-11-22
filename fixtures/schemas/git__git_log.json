@@ -1,0 +1,18 @@
+{
+  "properties": {
+    "repo_path": {
+      "title": "Repo Path",
+      "type": "string"
+    },
+    "max_count": {
+      "default": 10,
+      "title": "Max Count",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "repo_path"
+  ],
+  "title": "GitLog",
+  "type": "object"
+}

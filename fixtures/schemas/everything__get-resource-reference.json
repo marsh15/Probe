@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "resourceType": {
+      "default": "Text",
+      "description": "Whether to reference a text resource or a blob resource",
+      "type": "string",
+      "enum": [
+        "Text",
+        "Blob"
+      ]
+    },
+    "resourceId": {
+      "default": 1,
+      "description": "ID of the text or blob resource to fetch, a positive integer",
+      "type": "number"
+    }
+  }
+}

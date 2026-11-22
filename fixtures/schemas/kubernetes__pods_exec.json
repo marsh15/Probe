@@ -1,0 +1,28 @@
+{
+  "properties": {
+    "command": {
+      "description": "Command to execute in the Pod container. The first item is the command to be run, and the rest are the arguments to that command. Example: [\"ls\", \"-l\", \"/tmp\"]",
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "container": {
+      "description": "Name of the Pod container where the command will be executed (Optional)",
+      "type": "string"
+    },
+    "name": {
+      "description": "Name of the Pod where the command will be executed",
+      "type": "string"
+    },
+    "namespace": {
+      "description": "Namespace of the Pod where the command will be executed",
+      "type": "string"
+    }
+  },
+  "required": [
+    "name",
+    "command"
+  ],
+  "type": "object"
+}

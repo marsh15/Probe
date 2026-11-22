@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "path": {
+      "type": "string",
+      "description": "The text file to edit. Absolute, or relative to an allowed directory; it must resolve inside the allowed directories."
+    },
+    "edits": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "oldText": {
+            "type": "string",
+            "description": "Text to search for - must match exactly"
+          },
+          "newText": {
+            "type": "string",
+            "description": "Text to replace with"
+          }
+        },
+        "required": [
+          "oldText",
+          "newText"
+        ]
+      },
+      "description": "The replacements to make, applied in order, each to the result of the ones before it. If any one has no match, none is written."
+    },
+    "dryRun": {
+      "default": false,
+      "description": "Preview changes using git-style diff format",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "path",
+    "edits"
+  ]
+}

@@ -1,0 +1,33 @@
+{
+  "type": "object",
+  "properties": {
+    "origins": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of origin addresses or coordinates"
+    },
+    "destinations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Array of destination addresses or coordinates"
+    },
+    "mode": {
+      "type": "string",
+      "description": "Travel mode (driving, walking, bicycling, transit)",
+      "enum": [
+        "driving",
+        "walking",
+        "bicycling",
+        "transit"
+      ]
+    }
+  },
+  "required": [
+    "origins",
+    "destinations"
+  ]
+}

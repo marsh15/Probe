@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "properties": {
+    "query": {
+      "type": "string",
+      "description": "Local search query (e.g. 'pizza near Central Park')"
+    },
+    "count": {
+      "type": "number",
+      "description": "Number of results (1-20, default 5)",
+      "default": 5
+    }
+  },
+  "required": [
+    "query"
+  ]
+}

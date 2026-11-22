@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "location": {
+      "type": "string",
+      "enum": [
+        "New York",
+        "Chicago",
+        "Los Angeles"
+      ],
+      "description": "Choose city"
+    }
+  },
+  "required": [
+    "location"
+  ]
+}
