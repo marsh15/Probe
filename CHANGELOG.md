@@ -11,3 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Initial project bootstrap
 - CLI structure with version command
 - Project documentation and governance files
+- JSON-RPC stdio client with bounded shutdown, queues and server-request handling
+- Redacted, size-limited traces and stderr artifacts
+- Regression tests for hostile server output, late replies and trace-write failures
