@@ -116,6 +116,7 @@ class EraServer:
                     "supportedVersions": self._supported(),
                     "capabilities": {"tools": {}},
                     "instructions": "scripted",
+                    "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "modern-fake"}},
                     "ttlMs": 0,
                     "cacheScope": "public",
                 },

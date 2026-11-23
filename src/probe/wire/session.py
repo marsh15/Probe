@@ -37,6 +37,7 @@ _LEGACY_HEADER_SINCE = "2025-06-18"
 META_VERSION = "io.modelcontextprotocol/protocolVersion"
 META_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
 META_CLIENT_INFO = "io.modelcontextprotocol/clientInfo"
+META_SERVER_INFO = "io.modelcontextprotocol/serverInfo"
 
 HEADER_MISMATCH = -32020
 MISSING_CAPABILITY = -32021
@@ -304,7 +305,8 @@ class Session:
                     "discover_result_invalid", "supportedVersions is missing or not a string list"
                 )
             self.server_capabilities = _mapping(result.get("capabilities"))
-            self.server_info = _mapping(result.get("serverInfo"))
+            # Modern servers stamp their identity into the result's _meta; there is no initialize.
+            self.server_info = _mapping(_mapping(result.get("_meta")).get(META_SERVER_INFO))
             instructions = result.get("instructions")
             self.instructions = instructions if isinstance(instructions, str) else None
         elif result is not None:

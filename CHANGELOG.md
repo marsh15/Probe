@@ -16,4 +16,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regression tests for hostile server output, late replies and trace-write failures
 - Corpus of 60 MCP tool input schemas with pinned sources and upstream license texts
 - Streamable HTTP client with an incremental SSE parser, size and event limits, and raw HTTP access for negative tests
+- Oracle tests comparing Probe's client with the official SDK client on the reference server
 - Session layer: modern/legacy era detection, `_meta` and HTTP header building, `x-mcp-header` mirroring

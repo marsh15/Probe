@@ -87,7 +87,9 @@ transport. In `auto` mode it sends `server/discover` first:
   not answer at all (connection refused) is an error, not a legacy server.
 - `era="modern"` never falls back (discover is best effort); `era="legacy"` skips discover.
 
-`session.negotiation` lists each step and its outcome. The legacy handshake accepts the
+`session.negotiation` lists each step and its outcome. `server_info`, `server_capabilities`
+and `instructions` come from the discover result (modern; the identity is in its `_meta`) or
+from the `initialize` result (legacy). The legacy handshake accepts the
 server's version only if it is one of 2025-11-25, 2025-06-18, 2025-03-26 or 2024-11-05.
 Over HTTP, a 404 for a session the server forgot re-initializes once per request.
 

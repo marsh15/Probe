@@ -76,6 +76,7 @@ async def test_modern_only_server(connect: Connect) -> None:
     assert session.supported_versions == ("2026-07-28",)
     assert session.server_capabilities == {"tools": {}}
     assert session.instructions == "scripted"
+    assert session.server_info == {"name": "modern-fake"}  # stamped into discover's _meta
     assert server.methods() == ["server/discover"]  # no initialize, ever
 
 
