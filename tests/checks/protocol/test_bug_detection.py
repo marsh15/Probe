@@ -1,15 +1,14 @@
-"""Each protocol check must catch its injected refserver bug (and only be satisfied without it).
+"""Each protocol check must catch its injected refserver bug.
 
-The bugs are implemented by task T11 (b05, b06, b51 need the HTTP relay of T15). Until then the
-server refuses to start with them, so these tests are strict xfails that name the bug: when a
-bug lands the test XPASSes and fails the run, which is the cue to delete its xfail mark.
+Every check has a clean-server test elsewhere, so a pass here means the check separates the bug
+from the clean server rather than failing everything. The HTTP-only bugs (b05, b06, b51) run
+against a local HTTP server; the sandboxed run of the same bugs comes with the relay in T15.
 """
 
 import sys
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -34,43 +33,46 @@ Prepare = Callable[[Scan], Awaitable[None]]
 
 
 async def provoke_invalid_params(scan: Scan) -> None:
-    """Passive checks read the trace, so make the server produce an invalid-params error."""
-    await scan.ctx.exchange(
-        "tools/call", {"name": "notes_get", "arguments": {"id": "not-a-number"}}
-    )
+    """Passive checks read the trace, so make the server produce a JSON-RPC invalid-params error.
+
+    A tools/call without a name does; a bad argument is a tool error, not a protocol error.
+    """
+    await scan.ctx.exchange("tools/call", {})
 
 
 @dataclass(frozen=True)
 class Case:
     bug: str
     check: type[Check]
-    transport: str  # "stdio" or "http"
+    transports: tuple[str, ...] = ("stdio",)
     prepare: Prepare | None = None
-    needs: str = "T11"
 
 
+STDIO, HTTP, BOTH = ("stdio",), ("http",), ("stdio", "http")
+# b08 also exists over HTTP, where it kills the server; Probe cannot restart a URL target, so
+# that run needs the sandbox relay (T15).
 CASES = [
-    Case("b01", DiscoverImplemented, "stdio"),
-    Case("b02", UnsupportedVersionError, "stdio"),
-    Case("b03", ResultTypePresent, "stdio"),
-    Case("b04", ErrorCodeRanges, "stdio", provoke_invalid_params),
-    Case("b05", HeaderMismatchRejected, "http", needs="T15"),
-    Case("b06", OriginValidated, "http", needs="T15"),
-    Case("b07", StdoutClean, "stdio"),
-    Case("b08", MalformedJsonrpcHandled, "stdio"),
-    Case("b50", EraParity, "stdio"),
-    Case("b51", RequiredHeadersEnforced, "http", needs="T15"),
-    Case("b52", UnknownMethodError, "stdio"),
+    Case("b01", DiscoverImplemented, BOTH),
+    Case("b02", UnsupportedVersionError, BOTH),
+    Case("b03", ResultTypePresent, BOTH),
+    Case("b04", ErrorCodeRanges, BOTH, provoke_invalid_params),
+    Case("b05", HeaderMismatchRejected, HTTP),
+    Case("b06", OriginValidated, HTTP),
+    Case("b07", StdoutClean, STDIO),
+    Case("b08", MalformedJsonrpcHandled, STDIO),
+    Case("b50", EraParity, STDIO),
+    Case("b51", RequiredHeadersEnforced, HTTP),
+    Case("b52", UnknownMethodError, STDIO),
+]
+PARAMS = [
+    pytest.param(c, t, id=f"{c.bug}-{c.check.meta.id}-{t}") for c in CASES for t in c.transports
 ]
 
 
-def case_param(case: Case) -> Any:
-    mark = pytest.mark.xfail(strict=True, reason=f"{case.bug} lands in {case.needs}")
-    return pytest.param(case, id=f"{case.bug}-{case.check.meta.id}", marks=mark)
-
-
-@pytest.mark.parametrize("case", [case_param(c) for c in CASES])
-async def test_the_injected_bug_is_detected(case: Case, seeded_data: Path, tmp_path: Path) -> None:
+@pytest.mark.parametrize(("case", "transport"), PARAMS)
+async def test_the_injected_bug_is_detected(
+    case: Case, transport: str, seeded_data: Path, tmp_path: Path
+) -> None:
     async def detect(scan: Scan) -> None:
         if case.prepare is not None:
             await case.prepare(scan)
@@ -78,7 +80,7 @@ async def test_the_injected_bug_is_detected(case: Case, seeded_data: Path, tmp_p
         assert result.status is Status.FAIL, (result.status, result.reason)
         assert result.findings
 
-    if case.transport == "stdio":
+    if transport == "stdio":
         argv = [sys.executable, "-m", "refserver", "stdio"]
         async with stdio_scan(argv, tmp_path, env=refserver_env(seeded_data, case.bug)) as scan:
             await detect(scan)

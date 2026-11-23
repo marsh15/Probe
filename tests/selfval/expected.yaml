@@ -1,0 +1,99 @@
+# What `probe selfval` must see for each injected reference-server bug.
+#   transports:         where the bug runs ("S,H" bugs must be detected on both)
+#   primary:            checks that must FAIL
+#   allowed_collateral: other checks that may also FAIL, each with a one-line reason below
+# Any other failing check is either a check bug (fix it) or must be justified and added here.
+# `clean` must produce zero FAIL statuses on both transports.
+clean:
+  transports: [stdio, http]
+  primary: []
+
+b01:
+  transports: [stdio, http]
+  primary: [protocol.discover_implemented]
+  allowed_collateral: []
+b02:
+  transports: [stdio, http]
+  primary: [protocol.unsupported_version_error]
+  allowed_collateral: []
+b03:
+  transports: [stdio, http]
+  primary: [protocol.result_type_present]
+  allowed_collateral: [schema.tools_list_valid, protocol.discover_implemented]
+  justification:
+    schema.tools_list_valid: "the vendored schema requires resultType on a ListToolsResult"
+    protocol.discover_implemented: "a DiscoverResult without resultType is incomplete by that check's own definition"
+b04:
+  transports: [stdio, http]
+  primary: [protocol.error_code_ranges]
+  allowed_collateral: []
+b05:
+  transports: [http]
+  primary: [protocol.header_mismatch_rejected]
+  allowed_collateral: []
+b06:
+  transports: [http]
+  primary: [protocol.origin_validated]
+  allowed_collateral: []
+b07:
+  transports: [stdio]
+  primary: [protocol.stdout_clean]
+  allowed_collateral: []
+b08:
+  transports: [stdio, http]
+  primary: [protocol.malformed_jsonrpc_handled]
+  allowed_collateral: [behavior.survives_campaign]
+  justification:
+    behavior.survives_campaign: "the crash is the bug"
+b10:
+  transports: [stdio]
+  primary: [schema.input_schema_valid]
+  allowed_collateral: [schema.tools_list_valid]
+  justification:
+    schema.tools_list_valid: "the vendored Tool schema requires inputSchema.type to be \"object\""
+b11:
+  transports: [stdio]
+  primary: [schema.refs_resolvable]
+  allowed_collateral: []
+b12:
+  transports: [stdio]
+  primary: [schema.tool_order_deterministic]
+  allowed_collateral: []
+b13:
+  transports: [stdio]
+  primary: [schema.cache_fields_present]
+  allowed_collateral: [schema.tools_list_valid]
+  justification:
+    schema.tools_list_valid: "the vendored schema requires ttlMs"
+b15:
+  transports: [stdio]
+  primary: [schema.tool_names_valid]
+  allowed_collateral: []
+b16:
+  transports: [stdio]
+  primary: [schema.descriptions_present]
+  allowed_collateral: []
+b50:
+  transports: [stdio]
+  primary: [protocol.era_parity]
+  allowed_collateral: []
+b51:
+  transports: [http]
+  primary: [protocol.required_headers_enforced]
+  allowed_collateral: []
+b52:
+  transports: [stdio]
+  primary: [protocol.unknown_method_error]
+  allowed_collateral: []
+b53:
+  transports: [stdio]
+  primary: [schema.tools_list_valid]
+  allowed_collateral: []
+b55:
+  transports: [stdio]
+  primary: [schema.cache_ttl_sane]
+  allowed_collateral: []
+b56:
+  transports: [stdio]
+  primary: [schema.x_mcp_header_valid]
+  allowed_collateral: []

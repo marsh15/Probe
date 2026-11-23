@@ -1,13 +1,12 @@
 """Each schema check must catch its injected refserver bug.
 
-The bugs land in task T11. Until then the server refuses to start with them, so these are strict
-xfails naming the bug; when one lands the test XPASSes and fails the run: delete its xfail mark.
+Every check also has a clean-server test, so a pass here means the check separates the bug from
+the clean server rather than failing everything.
 """
 
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
 
 import pytest
 
@@ -46,12 +45,7 @@ CASES = [
 ]
 
 
-def case_param(case: Case) -> Any:
-    mark = pytest.mark.xfail(strict=True, reason=f"{case.bug} lands in T11")
-    return pytest.param(case, id=f"{case.bug}-{case.check.meta.id}", marks=mark)
-
-
-@pytest.mark.parametrize("case", [case_param(c) for c in CASES])
+@pytest.mark.parametrize("case", [pytest.param(c, id=f"{c.bug}-{c.check.meta.id}") for c in CASES])
 async def test_the_injected_bug_is_detected(case: Case, seeded_data: Path, tmp_path: Path) -> None:
     argv = [sys.executable, "-m", "refserver", "stdio"]
     async with stdio_scan(argv, tmp_path, env=refserver_env(seeded_data, case.bug)) as scan:

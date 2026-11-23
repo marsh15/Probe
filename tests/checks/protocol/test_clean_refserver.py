@@ -53,6 +53,7 @@ HTTP_MODERN = {
 }
 HTTP_LEGACY = {
     **{check: NA for check in HTTP_MODERN},
+    "protocol.discover_implemented": P,  # a new connection shows modern requests and discover work
     "protocol.unknown_method_error": P,
     "protocol.malformed_jsonrpc_handled": P,
     "protocol.origin_validated": P,

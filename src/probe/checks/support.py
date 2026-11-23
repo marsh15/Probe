@@ -13,6 +13,8 @@ from probe.util.redact import redact_headers
 from probe.wire.jsonrpc import ResultResponse
 from probe.wire.session import Era as EraName
 from probe.wire.session import Session
+from probe.wire.transport_base import Transport
+from probe.wire.transport_http import HttpTransport
 
 ALL_MODES: frozenset[Mode] = frozenset({"quick", "standard", "deep"})
 _MAX_PAGES = 100
@@ -86,9 +88,13 @@ async def open_fresh(ctx: ScanContext, era: EraName, label: str) -> Session | No
     Its traffic is labeled so that passive checks on the main instance ignore it. The caller
     closes it with ``close_fresh``.
     """
-    if not ctx.second_instance_supported:
-        return None
-    transport = await ctx.runner.second_instance()
+    main = ctx.client.transport
+    if isinstance(main, HttpTransport):
+        transport: Transport | None = main.clone()  # stateless: a new connection will do
+    elif ctx.second_instance_supported:
+        transport = await ctx.runner.second_instance()
+    else:
+        transport = None
     if transport is None:
         return None
     transport.instance = label
