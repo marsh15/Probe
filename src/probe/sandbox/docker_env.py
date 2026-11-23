@@ -268,6 +268,8 @@ class DockerEnv:
         self.lease: SubnetLease | None = None
         self.networks: dict[str, Any] = {}
         self.volume: Any = None
+        self.seed_volume: Any = None
+        self.seed_name = f"probe-seed-{self.scan_id}"
         self.containers: list[Any] = []
         self.ready = False
 
@@ -358,6 +360,7 @@ class DockerEnv:
         *,
         api_aliases: Sequence[str] = (),
         target_port: int | None = None,
+        seeded_routes: bool = False,
     ) -> Any:
         """Start a fixture with a listener bound to an alias present ONLY on ctl."""
         aliases = list(api_aliases)
@@ -430,6 +433,11 @@ class DockerEnv:
             raise ValueError("fixture mode must be fakehttp, canary, or relay")
         spec = target_spec(self.scan_id, self.fixtures_image, command=argv, created=self.created)
         spec.pop("volumes")
+        if seeded_routes:
+            if mode != "fakehttp" or self.seed_volume is None:
+                raise ValueError("seeded routes require fakehttp and a populated seed volume")
+            spec["command"] += ["--routes", "/seed/http/routes.yaml"]
+            spec["volumes"] = {self.seed_name: {"bind": "/seed", "mode": "ro"}}
         spec["stdin_open"] = False
         spec["network"] = self.names[net]
         # High-level containers.create expects the raw endpoint mapping. Passing
@@ -447,7 +455,9 @@ class DockerEnv:
             raise
         return container
 
-    def create_inspector(self, args: Sequence[str], *, writable: bool = False) -> Any:
+    def create_inspector(
+        self, args: Sequence[str], *, writable: bool = False, seed: bool = False
+    ) -> Any:
         spec = target_spec(
             self.scan_id,
             self.fixtures_image,
@@ -458,7 +468,47 @@ class DockerEnv:
         spec["network_mode"] = "none"
         spec["stdin_open"] = False
         spec["volumes"][self.names["data"]]["mode"] = "rw" if writable else "ro"
+        if seed:
+            if self.seed_volume is None:
+                raise RuntimeError("seed volume has not been populated")
+            spec["volumes"][self.seed_name] = {"bind": "/seed", "mode": "ro"}
         return self._container("inspect", spec)
+
+    def populate_seed(self, archive: bytes, *, routes: bytes | None = None) -> None:
+        """Upload captured seeds once via a networkless helper, never a host bind mount."""
+        if not self.ready or self.seed_volume is not None:
+            raise RuntimeError("seed population requires a ready sandbox without a seed")
+        try:
+            self.client.volumes.get(self.seed_name)
+        except docker.errors.NotFound:
+            pass
+        else:
+            raise RuntimeError("sandbox seed volume already exists")
+        self.seed_volume = self.client.volumes.create(name=self.seed_name, labels=self.labels)
+        self.seed_volume.reload()
+        if not owned(self.seed_volume, self.scan_id):
+            self.seed_volume = None
+            raise RuntimeError("seed volume ownership mismatch")
+        spec = target_spec(
+            self.scan_id,
+            self.fixtures_image,
+            command=["python", "-c", "import os; os.chown('/seed', 10001, 10001)"],
+            created=self.created,
+        )
+        spec.pop("network")
+        spec.update(network_mode="none", user="0:0", cap_add=["CHOWN"], stdin_open=False)
+        spec["volumes"] = {self.seed_name: {"bind": "/seed", "mode": "rw"}}
+        helper = self._container("init", spec)
+        try:
+            if not helper.put_archive("/seed", archive):
+                raise RuntimeError("seed archive upload failed")
+            if routes is not None and not helper.put_archive("/seed", routes):
+                raise RuntimeError("routes archive upload failed")
+            helper.start()
+            if helper.wait(timeout=10)["StatusCode"] != 0:
+                raise RuntimeError("seed volume initialization failed")
+        finally:
+            self.remove_container(helper)
 
     def initialize_data(self, image: str) -> None:
         """Give UID 10001 an empty named volume; never recursively touch target content.
@@ -517,6 +567,12 @@ class DockerEnv:
                 self.volume = None
             except Exception as exc:
                 errors.append(f"{self.names['data']}: {exc}")
+        if self.seed_volume is not None:
+            try:
+                remove_owned(self.seed_volume, self.scan_id)
+                self.seed_volume = None
+            except Exception as exc:
+                errors.append(f"{self.seed_name}: {exc}")
         if not errors and self.lease is not None:
             self.allocator.release(self.lease)
             self.lease = None

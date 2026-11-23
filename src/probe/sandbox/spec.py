@@ -63,7 +63,7 @@ def owned(resource: Any, scan_id: str | None = None) -> bool:
     except (ValueError, KeyError, TypeError):
         return False
     name = resource.name
-    if name in names(scan).values():
+    if name in names(scan).values() or name == f"probe-seed-{scan}":
         return True
     return (
         re.fullmatch(
