@@ -56,12 +56,19 @@ def test_unlisted_values_such_as_fixture_fake_secrets_are_kept() -> None:
 
 def test_redact_json_walks_nested_structures() -> None:
     redactor = Redactor(["hunter2!"])
-    data = {"a": ["x hunter2! y", {"b": "hunter2!"}], "n": 5, "ok": None, "hunter2!": "key kept"}
+    data = {"a": ["x hunter2! y", {"b": "hunter2!"}], "n": 5, "ok": None}
     assert redactor.redact_json(data) == {
         "a": [f"x {REDACTED} y", {"b": REDACTED}],
         "n": 5,
         "ok": None,
-        "hunter2!": "key kept",
+    }
+
+
+def test_secrets_in_object_keys_are_redacted_too() -> None:
+    redactor = Redactor(["hunter2!"])
+    assert redactor.redact_json({"token-hunter2!": 1, "plain": 2}) == {
+        f"token-{REDACTED}": 1,
+        "plain": 2,
     }
 
 

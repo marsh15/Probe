@@ -35,11 +35,11 @@ class Redactor:
         return text
 
     def redact_json(self, value: Any) -> Any:
-        """Return a copy of ``value`` with secrets replaced in every string (keys are kept)."""
+        """Return a copy of ``value`` with secrets replaced in every string and key."""
         if isinstance(value, str):
             return self.redact_text(value)
         if isinstance(value, dict):
-            return {key: self.redact_json(item) for key, item in value.items()}
+            return {self.redact_text(key): self.redact_json(item) for key, item in value.items()}
         if isinstance(value, list):
             return [self.redact_json(item) for item in value]
         return value
