@@ -23,6 +23,13 @@ STARTUP_TIMEOUT_S = 30.0
 SHUTDOWN_GRACE_S = 2.0
 SHUTDOWN_KILL_AFTER_S = 5.0
 
+# One HTTP response stream: a hostile server must not be able to feed us forever.
+MAX_STREAM_BYTES = 16 * MiB
+MAX_STREAM_EVENTS = 10_000
+HTTP_CONNECT_TIMEOUT_S = 10.0
+# Notifications and replies have no caller-supplied deadline (requests do).
+HTTP_SEND_TIMEOUT_S = 30.0
+
 TRACE_BODY_MAX_BYTES = 64 * KiB
 TRACE_SCAN_MAX_BYTES = 200 * MiB
 STDERR_RING_BYTES = 1 * MiB

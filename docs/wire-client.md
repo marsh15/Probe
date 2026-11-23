@@ -1,9 +1,11 @@
 # Wire client
 
-The wire layer sends and receives JSON-RPC over a child process's standard streams.
-`StdioTransport.spawn()` starts a process; `StdioTransport(process)` wraps an existing
-process with piped stdin and stdout. `request()` returns a response object whose
-`unwrap()` method returns the result or raises `JsonRpcError`.
+The wire layer sends and receives JSON-RPC over a child process's standard streams
+(`StdioTransport`) or over MCP streamable HTTP (`HttpTransport`). `StdioTransport.spawn()`
+starts a process; `StdioTransport(process)` wraps an existing process with piped stdin and
+stdout. `request()` returns a response object whose `unwrap()` method returns the result or
+raises `JsonRpcError`. Both transports share the same request, notification, server-request
+and recording behavior; the rules below apply to both unless a section says otherwise.
 
 ## Request and shutdown rules
 
@@ -40,5 +42,34 @@ also enable it. The artifact defaults to a 200 MiB limit and uses streaming reda
 including secrets split across reads. The in-memory stderr tail retains the last 1 MiB.
 Trace-write failures are exposed through `recording_error` and a `trace_write_failed`
 event while response handling continues. Stderr artifact failures have their own events.
+
+## HTTP transport
+
+`HttpTransport(url, headers=...)` sends every message as a new POST with
+`Accept: application/json, text/event-stream`. The reply is read as JSON or as an SSE
+stream; both may carry notifications and server requests before the response. A server
+request is answered with a separate POST of the reply.
+
+- `request()` needs its response on the same POST. If the POST ends without a response
+  carrying that ID, it raises `HttpRequestFailed` at once (with the status and a
+  `RawHttpResult`) rather than waiting for the timeout. A JSON-RPC error body on a non-2xx
+  status still counts as a response, so a `400` carrying `-32022` returns normally.
+- `post(message, headers=..., timeout=...)` sends one message and returns a
+  `RawHttpResult` (status, headers, body prefix, parsed responses, timing, and any abort
+  or connection error) without raising for HTTP failures. Use it when the status matters.
+- `raw_http(headers, body, method=...)` sends exactly what it is given: no default
+  headers, no session ID, no validation. It is recorded like any other exchange.
+- Redirects are never followed and proxy environment variables are ignored. `Content-Encoding`
+  is never decoded, so a compressed body is read as raw bytes and stopped at the size limit.
+- A JSON body over the 16 MiB message limit, or an SSE stream over 16 MiB or 10,000 events,
+  is aborted and the connection closed. That is also how cancellation reaches the server.
+- SSE event types other than `message`, non-JSON event data and a stream that ends
+  mid-event are reported as events and do not stop the stream. Empty events (resumption
+  primers) are skipped. A timeout closes the stream.
+- `Mcp-Session-Id` from a 2xx response is captured in `session_id` and sent on later
+  `post()` calls (legacy era). `raw_http()` neither sends nor captures it.
+
+`SseParser` (`probe.wire.sse`) frames events per the WHATWG rules, including CR, LF and
+CRLF endings split across chunks. It enforces no limits; the transport counts bytes first.
 
 Run the wire acceptance suite with `uv run pytest tests/wire -q`.

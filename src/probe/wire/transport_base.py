@@ -48,7 +48,7 @@ from probe.wire.limits import (
     MAX_SERVER_REQUESTS,
     MAX_TIMEOUT_HISTORY,
 )
-from probe.wire.recorder import Direction, Recorder
+from probe.wire.recorder import Direction, HttpMeta, Recorder
 
 # Returns the JSON-RPC result; raise JsonRpcError to answer with an error instead.
 ServerRequestHandler = Callable[[Request], Awaitable[Any]]
@@ -171,10 +171,10 @@ class Transport(ABC):
         """Let higher layers (session, era logic) add a violation to the event stream."""
         self._emit(ProtocolViolation(rule=rule, detail=detail))
 
-    def _record(self, direction: Direction, body: Any) -> None:
+    def _record(self, direction: Direction, body: Any, http: HttpMeta | None = None) -> None:
         if self.recorder is not None:
             try:
-                self.recorder.record(direction, self.name, body)
+                self.recorder.record(direction, self.name, body, http=http)
             except (OSError, ValueError, RuntimeError, TypeError) as exc:
                 self._recording_failed(exc)
 
@@ -205,9 +205,9 @@ class Transport(ABC):
             self.events_dropped += 1
         self._record("event", fields)
 
-    def _receive(self, parsed: ParsedLine) -> None:
+    def _receive(self, parsed: ParsedLine, http: HttpMeta | None = None) -> None:
         if parsed.is_json:
-            self._record("s2c", parsed.value)
+            self._record("s2c", parsed.value, http)
         if parsed.event is not None:
             self._emit(parsed.event)
         message = parsed.message

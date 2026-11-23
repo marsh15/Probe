@@ -38,7 +38,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T00 | Bootstrap (package, CI, docs, spec snapshots) | done |
 | T01 | Core models and utilities | done |
 | T02 | Wire: JSON-RPC, stdio transport, recorder | done |
-| T03 | Wire: HTTP transport and SSE | todo |
+| T03 | Wire: HTTP transport and SSE | done |
 | T04 | Session and era negotiation | todo |
 | T05 | Reference server (clean) and bug framework | todo |
 | T06 | Oracle tests against the official SDK | todo |
