@@ -8,8 +8,9 @@
     line between the real stdin/stdout and those pipes, passing it through
     `STDIO_HOOKS` first. With no hooks every line is relayed byte-for-byte.
 
-Both hook lists are empty until bugs are implemented; a bug registers its hook
-here, gated on `bugs.is_on(...)`.
+Both lists are empty on the clean server. Which bugs do what is in `mutations.py` (response
+rewrites, shared by both transports) and in the hook classes below (request-side bugs, stdout
+noise, crashes).
 """
 
 from __future__ import annotations
@@ -18,11 +19,13 @@ import json
 import os
 import sys
 from collections.abc import Callable
-from typing import IO, TYPE_CHECKING, Literal
+from typing import IO, TYPE_CHECKING, Any, Literal
 
 import anyio
 import anyio.to_thread
 from mcp.server.stdio import stdio_server
+
+from refserver import bugs, mutations
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
@@ -34,13 +37,86 @@ StdioHook = Callable[[Direction, bytes], list[bytes]]
 HttpHook = Callable[["ASGIApp"], "ASGIApp"]
 
 
+STDOUT_NOISE = b"DEBUG: handling request\n"
+CRASH_EXIT_CODE = 3
+
+
+def _parse(data: bytes) -> Any:
+    try:
+        return json.loads(data)
+    except ValueError:
+        return _UNPARSEABLE
+
+
+_UNPARSEABLE = object()
+
+
+def is_unparseable(data: bytes) -> bool:
+    return data.strip() != b"" and _parse(data) is _UNPARSEABLE
+
+
+class StdioMutationHook:
+    """Applies the response bugs, b07 (stdout noise) and b08 (crash on invalid JSON) to stdio."""
+
+    def __init__(self, active: frozenset[str]) -> None:
+        self.active = active
+        self.state = mutations.MutationState()
+
+    def answer(self, line: bytes) -> bytes | None:
+        """A reply to send straight to the client instead of forwarding the request, or None.
+
+        b01: the server has no server/discover. The SDK pins a connection to the modern era the
+        moment it sees one, so merely rewriting its reply would leave a client that falls back
+        to the legacy handshake refused; the request must never reach it.
+        """
+        if "b01" not in self.active:
+            return None
+        info = mutations.request_info(_parse(line))
+        if info is None or info.method != "server/discover":
+            return None
+        reply = {
+            "jsonrpc": "2.0",
+            "id": _parse(line)["id"],
+            "error": {"code": -32601, "message": "Method not found"},
+        }
+        return json.dumps(reply, separators=(",", ":")).encode() + b"\n"
+
+    def __call__(self, direction: Direction, line: bytes) -> list[bytes]:
+        message = _parse(line)
+        if direction == "client_to_server":
+            if message is _UNPARSEABLE:
+                if "b08" in self.active and line.strip():
+                    os._exit(CRASH_EXIT_CODE)  # the bug: a parse failure takes the process down
+                return [line]
+            info = mutations.request_info(message)
+            if info is not None:
+                self.state.pending[message["id"]] = info
+            return [line]
+        if message is _UNPARSEABLE or not isinstance(message, dict):
+            return [line]
+        info = self.state.pending.pop(message.get("id"), None) if "id" in message else None
+        changed = mutations.mutate_response(self.active, info, message, self.state)
+        out = line
+        if changed is not message:
+            out = json.dumps(changed, separators=(",", ":")).encode() + b"\n"
+        if "b07" in self.active and "id" in message:
+            return [STDOUT_NOISE, out]  # a debug print on the protocol stream
+        return [out]
+
+
 def stdio_hooks() -> list[StdioHook]:
-    """Hooks for the active bugs, in application order (none implemented yet)."""
+    """Hooks for the active bugs, in application order."""
+    active = bugs.active()
+    if active & (mutations.RESPONSE_BUGS | {"b07", "b08"}):
+        return [StdioMutationHook(active)]
     return []
 
 
 def http_hooks() -> list[HttpHook]:
-    """ASGI wrappers for the active bugs, innermost first (none implemented yet)."""
+    """ASGI wrappers for the active bugs, innermost first."""
+    active = bugs.active()
+    if active & (mutations.RESPONSE_BUGS | {"b05", "b06", "b08", "b51"}):
+        return [lambda app: HttpMutationMiddleware(app, active)]
     return []
 
 
@@ -63,6 +139,138 @@ class WireBugMiddleware:
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         await self.app(scope, receive, send)
+
+
+def _set_header(headers: list[tuple[bytes, bytes]], name: bytes, value: bytes) -> None:
+    headers[:] = [(k, v) for k, v in headers if k.lower() != name]
+    headers.append((name, value))
+
+
+def _drop_header(headers: list[tuple[bytes, bytes]], name: bytes) -> None:
+    headers[:] = [(k, v) for k, v in headers if k.lower() != name]
+
+
+def _has_header(headers: list[tuple[bytes, bytes]], name: bytes) -> bool:
+    return any(k.lower() == name for k, _ in headers)
+
+
+class HttpMutationMiddleware:
+    """Applies the HTTP request bugs (b05, b06, b08, b51) and the response bugs to POSTs."""
+
+    def __init__(self, app: ASGIApp, active: frozenset[str]) -> None:
+        self.app = app
+        self.active = active
+        self.state = mutations.MutationState()
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or scope["method"] != "POST":
+            await self.app(scope, receive, send)
+            return
+        body = b""
+        while True:
+            event = await receive()
+            if event["type"] == "http.disconnect":
+                return
+            body += event.get("body", b"")
+            if not event.get("more_body"):
+                break
+        message = _parse(body)
+        if message is _UNPARSEABLE and "b08" in self.active:
+            os._exit(CRASH_EXIT_CODE)
+        info = mutations.request_info(message)
+        headers = list(scope["headers"])
+        self._rewrite_request_headers(headers, message)
+
+        sent = False
+
+        async def replay() -> dict[str, Any]:
+            nonlocal sent
+            if not sent:
+                sent = True
+                return {"type": "http.request", "body": body, "more_body": False}
+            return await receive()  # the real client's disconnect, whenever it comes
+
+        await self.app({**scope, "headers": headers}, replay, self._mutating_send(send, info))
+
+    def _rewrite_request_headers(self, headers: list[tuple[bytes, bytes]], message: Any) -> None:
+        if "b06" in self.active:
+            _drop_header(headers, b"origin")  # the bug: Origin is never validated
+        if not isinstance(message, dict):
+            return
+        params = message.get("params")
+        meta = params.get("_meta") if isinstance(params, dict) else None
+        version = meta.get(mutations.PROTOCOL_VERSION_META) if isinstance(meta, dict) else None
+        if "b05" in self.active:
+            # The bug: the server trusts the body, so headers that disagree with it are repaired
+            # before validation ever sees them. (Missing headers are still missing.)
+            if isinstance(message.get("method"), str) and _has_header(headers, b"mcp-method"):
+                _set_header(headers, b"mcp-method", message["method"].encode())
+            if isinstance(version, str) and _has_header(headers, b"mcp-protocol-version"):
+                _set_header(headers, b"mcp-protocol-version", version.encode())
+        no_version_header = not _has_header(headers, b"mcp-protocol-version")
+        if "b51" in self.active and isinstance(version, str) and no_version_header:
+            _set_header(headers, b"mcp-protocol-version", version.encode())
+
+    def _mutating_send(self, send: Send, info: mutations.RequestInfo | None) -> Send:
+        if not self.active & mutations.RESPONSE_BUGS:
+            return send
+        start: dict[str, Any] | None = None
+        chunks: list[bytes] = []
+
+        def content_type(message: dict[str, Any]) -> bytes:
+            return next(
+                (v for k, v in message.get("headers", []) if k.lower() == b"content-type"), b""
+            )
+
+        async def wrapped(event: dict[str, Any]) -> None:
+            nonlocal start
+            if event["type"] == "http.response.start":
+                if b"application/json" in content_type(event):
+                    start = event  # held back: the body length may change
+                else:
+                    await send(event)
+                return
+            if event["type"] != "http.response.body":
+                await send(event)
+                return
+            if start is None:  # not JSON: rewrite SSE data lines, pass everything else through
+                await send(self._rewrite_sse(event, info))
+                return
+            chunks.append(event.get("body", b""))
+            if event.get("more_body"):
+                return
+            payload = self._rewrite_json(b"".join(chunks), info)
+            headers = [(k, v) for k, v in start["headers"] if k.lower() != b"content-length"]
+            headers.append((b"content-length", str(len(payload)).encode()))
+            await send({**start, "headers": headers})
+            await send({"type": "http.response.body", "body": payload})
+
+        return wrapped
+
+    def _rewrite_json(self, payload: bytes, info: mutations.RequestInfo | None) -> bytes:
+        parsed = _parse(payload)
+        if parsed is _UNPARSEABLE:
+            return payload
+        mutated = (
+            [mutations.mutate_response(self.active, info, m, self.state) for m in parsed]
+            if isinstance(parsed, list)
+            else mutations.mutate_response(self.active, info, parsed, self.state)
+        )
+        return json.dumps(mutated, separators=(",", ":")).encode()
+
+    def _rewrite_sse(
+        self, event: dict[str, Any], info: mutations.RequestInfo | None
+    ) -> dict[str, Any]:
+        body = event.get("body", b"")
+        if b"data:" not in body:
+            return event
+        lines = []
+        for line in body.split(b"\n"):
+            if line.startswith(b"data:"):
+                lines.append(b"data: " + self._rewrite_json(line[5:].strip(), info))
+            else:
+                lines.append(line)
+        return {**event, "body": b"\n".join(lines)}
 
 
 def invalid_message_reply(line: bytes) -> bytes | None:
@@ -111,8 +319,20 @@ async def _pump(
             line = await anyio.to_thread.run_sync(source.readline, abandon_on_cancel=True)
             if not line:
                 return
-            if reply_to is not None and (reply := invalid_message_reply(line)) is not None:
-                if reply:
+            if reply_to is not None:
+                for hook in hooks:
+                    answer = getattr(hook, "answer", None)
+                    if answer is not None and (direct := answer(line)) is not None:
+                        reply_to.write(direct)
+                        reply_to.flush()
+                        break
+                else:
+                    direct = None
+                if direct is not None:
+                    continue
+            shim = reply_to is not None and not bugs.is_on("b08")
+            if shim and (reply := invalid_message_reply(line)) is not None:
+                if reply and reply_to is not None:
                     reply_to.write(reply)
                     reply_to.flush()
                 continue
