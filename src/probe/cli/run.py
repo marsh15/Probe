@@ -1,6 +1,7 @@
 """``probe run``: scan one MCP server and report what was found."""
 
 import asyncio
+import math
 from pathlib import Path
 from typing import Annotated
 
@@ -58,7 +59,7 @@ def run(
     ] = "json",
     fail_on: Annotated[str, typer.Option(help="critical, high, medium, low or none.")] = "high",
     min_score: Annotated[
-        float | None, typer.Option(help="Needs scoring (not available yet).")
+        float | None, typer.Option(help="Minimum overall score (0..100); ungraded scans fail.")
     ] = None,
     timeout_scale: Annotated[float, typer.Option(help="Multiply every timeout.")] = 1.0,
     image: Annotated[
@@ -84,8 +85,9 @@ def run(
 ) -> None:
     """Scan an MCP server. Put the server command after `--`; probe options go before it.
 
-    Exit codes: 0 ok, 1 findings at or above --fail-on, 2 usage error, 3 target did not start or
-    answer, 4 internal error.
+    Exit codes: 0 ok, 1 findings at or above --fail-on or --min-score unmet (including null
+    scores), 2 usage error, 3 target did not start or answer, 4 internal error,
+    5 sandbox unavailable.
     """
     command = list(ctx.args) or None
     if mode not in MODES:
@@ -94,8 +96,8 @@ def run(
         raise _fail(f"unknown era {era!r}; choose auto, modern or legacy")
     if fail_on not in FAIL_ON:
         raise _fail(f"unknown --fail-on {fail_on!r}; choose {', '.join(FAIL_ON)}")
-    if min_score is not None:
-        raise _fail("--min-score needs scoring, which this build does not have yet")
+    if min_score is not None and (not math.isfinite(min_score) or not 0 <= min_score <= 100):
+        raise _fail("--min-score must be a finite number from 0 to 100")
     formats = [f.strip() for f in output_format.split(",") if f.strip()]
     unknown = [f for f in formats if f not in AVAILABLE_FORMATS]
     if unknown or not formats:
@@ -139,4 +141,4 @@ def run(
     path = write_report(report, out)
     render_summary(report, console, verbose=verbose, quiet=quiet)
     console.print(f"report: {path}", highlight=False)
-    raise typer.Exit(exit_code_for(report, fail_on))
+    raise typer.Exit(exit_code_for(report, fail_on, min_score))

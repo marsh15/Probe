@@ -37,8 +37,10 @@ async def test_a_scan_produces_a_valid_complete_report(tmp_path: Path) -> None:
     assert report.target.era.kind == "dual"  # the mini server lists a legacy version too
     assert report.target.era.negotiated_version == "2026-07-28"
     assert report.stats.calls > 0 and report.stats.bytes_in > 0 and report.stats.bytes_out > 0
-    assert report.score.grade is None  # scoring is not part of this build
-    assert any("scoring" in note for note in report.limitations)
+    assert report.score.grade is not None and report.score.overall is not None
+    assert report.scoring_profile == "full"
+    assert 0 < report.score.coverage < 100
+    assert not any("scoring" in note for note in report.limitations)
     assert len(report.results) == 22  # every registered check is accounted for
 
 
@@ -301,3 +303,41 @@ async def test_tool_override_globs_reach_the_classifier(tmp_path: Path) -> None:
     )
     tool = (await run_scan(cfg)).tools[0]
     assert (tool.kind, tool.classification_source) == ("read", "profile")
+
+
+async def test_public_interim_is_recorded_without_removing_private_findings(tmp_path: Path) -> None:
+    from probe.checks.registry import REGISTRY
+    from probe.engine.outcomes import CheckResult
+    from probe.scoring import compute_score
+
+    scanned = await run_scan(config(tmp_path, scoring_profile="public-interim"))
+    assert scanned.scoring_profile == "public-interim"
+    assert ScanReport.model_validate_json(scanned.model_dump_json()) == scanned
+    # Reconstruct the public scoring input from the complete, unredacted result report.
+    by_id = {f.finding_id: f for f in scanned.findings}
+    rows = [
+        CheckResult(
+            check_id=r.check_id, status=r.status, findings=[by_id[i] for i in r.finding_ids]
+        )
+        for r in scanned.results
+    ]
+    assert scanned.score == compute_score(
+        [c.meta for c in REGISTRY], rows, scanned.target.transport, scoring_profile="public-interim"
+    )
+    assert len(scanned.results) == len(REGISTRY)
+
+
+async def test_unavailable_interim_report_stays_ungraded(tmp_path: Path) -> None:
+    scanned = await run_scan(
+        RunConfig(
+            out_dir=tmp_path / "out", command=["/no/such/binary"], scoring_profile="public-interim"
+        )
+    )
+    assert scanned.scoring_profile == "public-interim"
+    assert (scanned.score.overall, scanned.score.grade, scanned.score.coverage) == (None, None, 0)
+
+
+async def test_invalid_scoring_profile_is_usage_error_before_start(tmp_path: Path) -> None:
+    with pytest.raises(UsageError, match="scoring_profile"):
+        await run_scan(config(tmp_path, scoring_profile="bogus"))
+    assert not (tmp_path / "out").exists()

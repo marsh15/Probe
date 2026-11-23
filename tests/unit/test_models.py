@@ -283,3 +283,42 @@ def test_scan_times_must_be_timezone_aware() -> None:
             platform="p",
             runtime="none",
         )
+
+
+@pytest.mark.parametrize("field", ["overall", "coverage"])
+@pytest.mark.parametrize("value", [-0.1, 100.1, float("nan"), float("inf"), -float("inf")])
+def test_score_rejects_invalid_percentages(field: str, value: float) -> None:
+    values = dict(overall=90.0, grade="A", coverage=50.0, caps_applied=[], families={})
+    values[field] = value
+    with pytest.raises(ValidationError):
+        Score(**values)
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        dict(score=101, applicable_weight=1, failed_weight=0),
+        dict(score=float("nan"), applicable_weight=1, failed_weight=0),
+        dict(score=0, applicable_weight=1, failed_weight=2),
+        dict(score=100, applicable_weight=-1, failed_weight=0),
+        dict(score=100, applicable_weight=0, failed_weight=0),
+        dict(score=None, applicable_weight=1, failed_weight=0),
+    ],
+)
+def test_family_score_rejects_impossible_weights_and_nulls(values: dict[str, Any]) -> None:
+    with pytest.raises(ValidationError):
+        FamilyScore(**values)
+
+
+@pytest.mark.parametrize(("overall", "grade"), [(None, "A"), (90.0, None)])
+def test_score_and_grade_are_null_together(overall: float | None, grade: str | None) -> None:
+    with pytest.raises(ValidationError):
+        Score(overall=overall, grade=grade, coverage=0, caps_applied=[], families={})
+
+
+def test_report_records_scoring_profile_with_a_backwards_compatible_default() -> None:
+    assert make_report().scoring_profile == "full"
+    scanned = make_report(scoring_profile="public-interim")
+    assert ScanReport.model_validate_json(scanned.model_dump_json()) == scanned
+    with pytest.raises(ValidationError):
+        make_report(scoring_profile="unknown")

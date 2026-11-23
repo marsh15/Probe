@@ -38,7 +38,6 @@ from probe.engine.scan import run_checks
 from probe.engine.versions import CATALOG_VERSION, SCORING_VERSION
 from probe.report.json_out import (
     all_findings,
-    interim_score,
     result_summaries,
     tool_summaries,
 )
@@ -46,6 +45,7 @@ from probe.report.models import (
     EraInfo,
     ScanInfo,
     ScanReport,
+    ScoringProfile,
     Stats,
     TargetInfo,
 )
@@ -56,6 +56,7 @@ from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
 from probe.sandbox.docker_env import DockerEnv
 from probe.sandbox.fixtures import FixtureSet
+from probe.scoring import compute_score
 from probe.util.hashing import scan_key
 from probe.util.redact import Redactor
 from probe.util.sanitize_console import sanitize_console
@@ -91,6 +92,7 @@ class RunConfig:
     command: Sequence[str] | None = None
     url: str | None = None
     profile: Profile = field(default_factory=Profile)
+    scoring_profile: ScoringProfile = "full"
     mode: Mode = "standard"
     seed: int = 0
     era: EraChoice = "auto"
@@ -264,6 +266,8 @@ def _key(cfg: RunConfig, profile_hash: str, sandboxed: bool) -> str:
 
 
 async def run_scan(cfg: RunConfig) -> ScanReport:
+    if cfg.scoring_profile not in ("full", "public-interim"):
+        raise UsageError(f"unknown scoring_profile {cfg.scoring_profile!r}")
     settings = settings_for(cfg.mode, cfg.timeout_scale)
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
     resolved, environ = _resolve(cfg)
@@ -393,6 +397,7 @@ async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime, scan_id: st
         probe_version=__version__,
         catalog_version=CATALOG_VERSION,
         scoring_version=SCORING_VERSION,
+        scoring_profile=cfg.scoring_profile,
         scan=_scan_info(cfg, started, finished, "completed", profile_hash, scan_id, ctx.runner),
         target=TargetInfo(
             name=_target_name(cfg),
@@ -410,7 +415,12 @@ async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime, scan_id: st
         tools=tool_summaries(ctx.tools),
         results=rows,
         findings=all_findings(results),
-        score=interim_score(rows),
+        score=compute_score(
+            (c.meta for c in REGISTRY),
+            results,
+            ctx.runner.transport_kind,
+            scoring_profile=cfg.scoring_profile,
+        ),
         stats=_stats(ctx, results),
         limitations=_limitations(cfg, ctx, results),
     )
@@ -489,7 +499,6 @@ def _limitations(cfg: RunConfig, ctx: ScanContext, results: list[CheckResult]) -
     if ctx.listing is not None and not ctx.listing.complete:
         notes.append(f"tools/list was incomplete: {ctx.listing.error}")
     notes += [f"plugin {name} failed to load: {why}" for name, why in REGISTRY.plugin_errors]
-    notes.append("scoring is not implemented in this build: no grade is reported")
     return notes
 
 
@@ -509,6 +518,7 @@ def _unavailable_report(
         probe_version=__version__,
         catalog_version=CATALOG_VERSION,
         scoring_version=SCORING_VERSION,
+        scoring_profile=cfg.scoring_profile,
         scan=_scan_info(
             cfg, started, finished, "target_unavailable", profile_hash, scan_id, runner
         ),
@@ -526,7 +536,12 @@ def _unavailable_report(
         tools=[],
         results=[],
         findings=[],
-        score=interim_score([]),
+        score=compute_score(
+            (c.meta for c in REGISTRY),
+            [],
+            runner.transport_kind,
+            scoring_profile=cfg.scoring_profile,
+        ),
         stats=Stats(
             calls=0,
             protocol_errors=0,

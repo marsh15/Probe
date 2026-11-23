@@ -1,8 +1,8 @@
 """The scan report (report.json). Shape and field names follow the report schema v1.0."""
 
-from typing import Any, Literal
+from typing import Annotated, Any, Literal, Self
 
-from pydantic import AwareDatetime, Field
+from pydantic import AwareDatetime, Field, model_validator
 
 from probe.engine.outcomes import (
     CrashEvent,
@@ -82,18 +82,37 @@ class ResultSummary(StrictModel):
     finding_ids: list[str]
 
 
+Percentage = Annotated[float, Field(ge=0, le=100, allow_inf_nan=False)]
+Grade = Literal["A", "B", "C", "D", "F"]
+ScoringProfile = Literal["full", "public-interim"]
+
+
 class FamilyScore(StrictModel):
-    score: float | None
-    applicable_weight: int
-    failed_weight: int
+    score: Percentage | None
+    applicable_weight: int = Field(ge=0, strict=True)
+    failed_weight: int = Field(ge=0, strict=True)
+
+    @model_validator(mode="after")
+    def _consistent_weights(self) -> Self:
+        if self.failed_weight > self.applicable_weight:
+            raise ValueError("failed weight cannot exceed applicable weight")
+        if (self.score is None) != (self.applicable_weight == 0):
+            raise ValueError("family score must be null exactly when applicable weight is zero")
+        return self
 
 
 class Score(StrictModel):
-    overall: float | None
-    grade: Literal["A", "B", "C", "D", "F"] | None
-    coverage: float
+    overall: Percentage | None
+    grade: Grade | None
+    coverage: Percentage
     caps_applied: list[str]
     families: dict[Family, FamilyScore]
+
+    @model_validator(mode="after")
+    def _consistent_grade(self) -> Self:
+        if (self.overall is None) != (self.grade is None):
+            raise ValueError("overall and grade must be null together")
+        return self
 
 
 class Stats(StrictModel):
@@ -121,6 +140,7 @@ class ScanReport(StrictModel):
     probe_version: str
     catalog_version: str
     scoring_version: str
+    scoring_profile: ScoringProfile = "full"
     scan: ScanInfo
     target: TargetInfo
     tools: list[ToolSummary]

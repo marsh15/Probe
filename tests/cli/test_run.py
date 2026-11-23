@@ -63,7 +63,6 @@ def test_an_unavailable_target_exits_3_with_a_report(tmp_path: Path) -> None:
         (["--mode", "warp"], "unknown mode"),
         (["--era", "ancient"], "unknown era"),
         (["--fail-on", "sometimes"], "--fail-on"),
-        (["--min-score", "80"], "scoring"),
         (["--format", "html"], "not available yet"),
         (["--format", ""], "not available yet"),
         (["--target-env", "NOEQUALS"], "KEY=VALUE"),
@@ -135,6 +134,10 @@ def test_the_clean_reference_server_passes(tmp_path: Path, stdio_command: Any) -
     assert result.exit_code == 0, result.output
     data = report(tmp_path)
     assert data["target"]["era"]["negotiated_version"] == "2026-07-28"
+    assert "Grade A" in result.output
+    assert data["score"]["overall"] == 100.0
+    assert 0 < data["score"]["coverage"] < 100
+    assert data["scoring_profile"] == "full"
     assert not [r for r in data["results"] if r["status"] in ("fail", "error")]
 
 
@@ -168,3 +171,60 @@ def test_server_text_cannot_inject_terminal_hyperlinks_or_markup(tmp_path: Path)
     text = out.getvalue()
     assert "\x1b]8;" not in text  # no OSC 8 hyperlink was created
     assert "[link=https://evil.test]" in text  # the markup is shown literally instead
+
+
+@pytest.mark.parametrize("value", ["-1", "101", "nan", "NaN", "inf", "-inf"])
+def test_min_score_requires_a_finite_percentage_before_launch(tmp_path: Path, value: str) -> None:
+    result = run(tmp_path, "--min-score", value, target=["/no/such/binary"])
+    assert result.exit_code == 2
+    assert "--min-score" in result.output and "finite" in result.output
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize(
+    ("minimum", "fail_on", "code"), [("0", "none", 0), ("100", "none", 1), ("0", "high", 1)]
+)
+def test_min_score_and_fail_on_both_apply(
+    tmp_path: Path, minimum: str, fail_on: str, code: int
+) -> None:
+    result = run(tmp_path, "--min-score", minimum, "--fail-on", fail_on)
+    assert result.exit_code == code, result.output
+    score = report(tmp_path)["score"]
+    assert 0 < score["overall"] < 100
+    assert f"Grade {score['grade']}" in result.output
+    assert "coverage" in result.output and "caps" in result.output
+
+
+def test_null_score_fails_even_a_zero_threshold_but_unavailable_keeps_exit_3(
+    tmp_path: Path,
+) -> None:
+    empty = run(tmp_path, "--only", "nothing.*", "--min-score", "0", "--fail-on", "none")
+    assert empty.exit_code == 1, empty.output
+    assert report(tmp_path)["score"]["overall"] is None
+    assert "ungraded" in empty.output and "coverage 0.0%" in empty.output
+    unavailable = run(tmp_path / "u", "--min-score", "100", target=["/no/such/binary"])
+    assert unavailable.exit_code == 3, unavailable.output
+    assert report(tmp_path / "u")["score"]["grade"] is None
+
+
+def test_null_score_without_a_threshold_is_ok(tmp_path: Path) -> None:
+    result = run(tmp_path, "--only", "nothing.*", "--fail-on", "none")
+    assert result.exit_code == 0
+    assert report(tmp_path)["score"]["coverage"] == 0
+
+
+@pytest.mark.parametrize("kind,code", [("sandbox", 5), ("internal", 4), ("usage", 2)])
+def test_min_score_keeps_error_exit_precedence(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, kind: str, code: int
+) -> None:
+    from importlib import import_module
+
+    from probe.engine.runscan import SandboxUnavailable, UsageError
+
+    async def broken_scan(config: Any) -> Any:
+        errors = {"sandbox": SandboxUnavailable, "internal": RuntimeError, "usage": UsageError}
+        raise errors[kind]("test error")
+
+    monkeypatch.setattr(import_module("probe.cli.run"), "run_scan", broken_scan)
+    result = run(tmp_path, "--min-score", "100")
+    assert result.exit_code == code

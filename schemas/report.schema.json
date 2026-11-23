@@ -165,16 +165,20 @@
       "additionalProperties": false,
       "properties": {
         "applicable_weight": {
+          "minimum": 0,
           "title": "Applicable Weight",
           "type": "integer"
         },
         "failed_weight": {
+          "minimum": 0,
           "title": "Failed Weight",
           "type": "integer"
         },
         "score": {
           "anyOf": [
             {
+              "maximum": 100,
+              "minimum": 0,
               "type": "number"
             },
             {
@@ -506,6 +510,8 @@
           "type": "array"
         },
         "coverage": {
+          "maximum": 100,
+          "minimum": 0,
           "title": "Coverage",
           "type": "number"
         },
@@ -540,6 +546,8 @@
         "overall": {
           "anyOf": [
             {
+              "maximum": 100,
+              "minimum": 0,
               "type": "number"
             },
             {
@@ -853,6 +861,15 @@
     },
     "score": {
       "$ref": "#/$defs/Score"
+    },
+    "scoring_profile": {
+      "default": "full",
+      "enum": [
+        "full",
+        "public-interim"
+      ],
+      "title": "Scoring Profile",
+      "type": "string"
     },
     "scoring_version": {
       "title": "Scoring Version",

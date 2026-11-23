@@ -14,9 +14,7 @@ from probe.engine.outcomes import (
     ToolInfo,
 )
 from probe.report.models import (
-    FamilyScore,
     ResultSummary,
-    Score,
     ToolSummary,
 )
 from probe.util.hashing import canonical_hash
@@ -67,22 +65,6 @@ def result_summaries(results: Iterable[CheckResult], registry: Registry) -> list
 
 def all_findings(results: Iterable[CheckResult]) -> list[Finding]:
     return [f for r in results for f in r.findings]
-
-
-def interim_score(rows: Iterable[ResultSummary]) -> Score:
-    """Placeholder until scoring exists: no grade, and coverage is the share of checks judged."""
-    rows = list(rows)
-    judged = sum(1 for r in rows if r.status in (Status.PASS, Status.FAIL))
-    return Score(
-        overall=None,
-        grade=None,
-        coverage=round(judged / len(rows), 4) if rows else 0.0,
-        caps_applied=[],
-        families={
-            family: FamilyScore(score=None, applicable_weight=0, failed_weight=0)
-            for family in Family
-        },
-    )
 
 
 def status_counts(rows: Iterable[ResultSummary]) -> dict[Family, Counter[Status]]:

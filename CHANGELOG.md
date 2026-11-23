@@ -37,3 +37,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bounded fixture listeners, atomic rejected writes, monotonic collection IDs, and fixture tests included in `make check`
 - Hardened per-scan Docker networks, data volumes, and stdio container runner with deadline enforcement and cancellation-safe cleanup
 - Atomic subnet reservations, ownership-checked garbage collection, and `probe sandbox doctor` / `probe sandbox gc` commands
+- Weighted scan scores, transport coverage, grade caps, and full/public-interim scoring profiles that exclude private checks and private finding caps from interim scores
+- Grade, score and coverage in reports and console output, with finite `--min-score` thresholds and documented ungraded-scan behavior

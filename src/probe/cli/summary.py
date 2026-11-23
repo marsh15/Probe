@@ -32,10 +32,15 @@ EXIT_OK, EXIT_THRESHOLD, EXIT_USAGE, EXIT_UNAVAILABLE, EXIT_INTERNAL = 0, 1, 2, 
 EXIT_SANDBOX = 5
 
 
-def exit_code_for(report: ScanReport, fail_on: str) -> int:
-    """0 if nothing at or above ``fail_on`` was found, 1 if something was, 3 if no target."""
+def exit_code_for(report: ScanReport, fail_on: str, min_score: float | None = None) -> int:
+    """Unavailability wins; otherwise either finding or score threshold can fail the scan.
+
+    A null overall fails any requested minimum, including zero; without a minimum it is neutral.
+    """
     if report.scan.status == "target_unavailable":
         return EXIT_UNAVAILABLE
+    if min_score is not None and (report.score.overall is None or report.score.overall < min_score):
+        return EXIT_THRESHOLD
     if fail_on == "none":
         return EXIT_OK
     threshold = _RANK[Severity(fail_on)]
@@ -65,6 +70,17 @@ def render_summary(
         for note in report.limitations:
             console.print(f"[red]{_clean(note)}[/red]", highlight=False)
         return
+    score = report.score
+    headline = (
+        f"Grade {score.grade}; overall {score.overall:.1f}/100"
+        if score.overall is not None
+        else "ungraded; overall n/a"
+    )
+    caps = ", ".join(score.caps_applied) or "none"
+    console.print(
+        f"{_clean(headline)}; coverage {score.coverage:.1f}%; caps {_clean(caps)}",
+        highlight=False,
+    )
     counts = status_counts(report.results)
     table = Table("family", "pass", "fail", "n/a", "skipped", "error", box=None)
     for family in Family:
