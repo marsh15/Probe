@@ -9,6 +9,7 @@ from typing import Any
 import jsonschema
 import pytest
 
+from probe.checks.docs import builtin_checks
 from probe.config.profile import parse_profile
 from probe.engine.outcomes import Status
 from probe.engine.runscan import RunConfig, UsageError, run_scan, select_checks
@@ -41,7 +42,7 @@ async def test_a_scan_produces_a_valid_complete_report(tmp_path: Path) -> None:
     assert report.scoring_profile == "full"
     assert 0 < report.score.coverage < 100
     assert not any("scoring" in note for note in report.limitations)
-    assert len(report.results) == 22  # every registered check is accounted for
+    assert len(report.results) == len(builtin_checks())  # every registered check is accounted for
 
 
 async def test_results_are_in_phase_then_id_order_and_findings_match(tmp_path: Path) -> None:
@@ -151,7 +152,7 @@ async def test_secret_env_values_are_redacted_in_artifacts(tmp_path: Path) -> No
 def test_select_checks_matches_globs_exactly() -> None:
     selected, excluded = select_checks(["protocol.discover_*"], [])
     assert [c.meta.id for c in selected] == ["protocol.discover_implemented"]
-    assert len(excluded) == 21
+    assert len(excluded) == len(builtin_checks()) - 1
     none_selected, _ = select_checks(["nope.*"], [])
     assert none_selected == []
     skipped, why = select_checks([], ["schema.*", "protocol.stdout_clean"])

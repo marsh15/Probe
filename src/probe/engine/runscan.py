@@ -215,7 +215,13 @@ def _make_runner(
     if command is None and cfg.url is None and resolved.profile.target.image is None:
         command = resolved.profile.target.command
     if cfg.url is not None and command is None:
-        return UrlRunner(cfg.url, i_have_permission=cfg.i_have_permission, recorder=recorder)
+        profile = resolved.profile
+        headers = {}
+        if profile.auth.type == "bearer":  # the first identity is the baseline user
+            headers["Authorization"] = f"Bearer {profile.auth.identities[0].token}"
+        return UrlRunner(
+            cfg.url, i_have_permission=cfg.i_have_permission, headers=headers, recorder=recorder
+        )
     if command is not None and cfg.url is None:
         return LocalStdioRunner(command, env={**resolved.env, **cfg.target_env}, recorder=recorder)
     raise UsageError("give either --url or a target command after --, not both or neither")
@@ -360,6 +366,7 @@ async def _connect(
         profile=resolved.profile,
         trace=recorder,
         fixtures=fixtures,
+        auth_identities=[i.name for i in resolved.profile.auth.identities],
         second_instance_supported=_has_second_instance(runner),
     )
 

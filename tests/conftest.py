@@ -47,14 +47,16 @@ def stdio_command(seeded_data: Path) -> tuple[list[str], dict[str, str]]:
 
 
 @contextmanager
-def launch_http(data: Path, bugs: str = "") -> Iterator[str]:
+def launch_http(
+    data: Path, bugs: str = "", extra_env: dict[str, str] | None = None
+) -> Iterator[str]:
     """Run ``refserver http`` on a free port (optionally with injected bugs); yield its /mcp URL."""
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     server = subprocess.Popen(  # noqa: S603 - fixed argv, test interpreter
         [sys.executable, "-m", "refserver", "http", "--host", "127.0.0.1", "--port", str(port)],
-        env=refserver_env(data, bugs),
+        env={**refserver_env(data, bugs), **(extra_env or {})},
         stderr=subprocess.PIPE,
     )
     try:

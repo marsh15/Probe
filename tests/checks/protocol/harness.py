@@ -164,13 +164,21 @@ async def http_scan(
 
 @asynccontextmanager
 async def url_scan(
-    url: str, tmp_path: Path, *, era: str = "auto", mode: str = "deep"
+    url: str,
+    tmp_path: Path,
+    *,
+    era: str = "auto",
+    mode: str = "deep",
+    headers: dict[str, str] | None = None,
+    **ctx_kwargs: Any,
 ) -> AsyncIterator[Scan]:
     """A real HTTP server at ``url`` (the full endpoint URL)."""
     recorder = new_recorder(tmp_path)
-    runner = UrlRunner(url, recorder=recorder)
+    runner = UrlRunner(url, headers=headers, recorder=recorder)
     try:
-        ctx = await _context(runner, recorder, era=era, mode=mode, second_instance_supported=False)
+        ctx = await _context(
+            runner, recorder, era=era, mode=mode, second_instance_supported=False, **ctx_kwargs
+        )
         yield Scan(ctx, runner, recorder)
     finally:
         await runner.stop()

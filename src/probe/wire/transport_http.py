@@ -147,13 +147,14 @@ class HttpTransport(Transport):
         reason = result.aborted or result.error or "no response with the request id"
         raise HttpRequestFailed(result.status, reason, result)
 
-    def clone(self) -> "HttpTransport":
+    def clone(self, headers: Mapping[str, str] | None = None) -> "HttpTransport":
         """A new transport to the same endpoint (own connection, own legacy session), sharing
         the recorder and limits. HTTP servers are stateless per request, so this is as good as a
-        fresh instance for probing a different protocol era."""
+        fresh instance for probing a different protocol era. ``headers`` replace the configured
+        ones of the same name (e.g. to ask as another identity)."""
         return HttpTransport(
             self._url,
-            headers=self._headers,
+            headers=_merge(self._headers, headers or {}),
             recorder=self.recorder,
             max_message_bytes=self._max_message_bytes,
             max_stream_bytes=self._max_stream_bytes,

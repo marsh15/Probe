@@ -24,12 +24,14 @@ MODERN = {
     "schema.descriptions_present": P,
     "schema.x_mcp_header_valid": P,
     "schema.input_schema_strict": P,  # passes with an information finding about loose schemas
+    "schema.cache_scope_correct": NA,  # needs two identities (see test_cache_scope.py)
 }
 LEGACY = {
     **MODERN,
     "schema.cache_fields_present": NA,  # modern-only fields
     "schema.cache_ttl_sane": NA,
     "schema.x_mcp_header_valid": NA,
+    "schema.cache_scope_correct": NA,
 }
 
 

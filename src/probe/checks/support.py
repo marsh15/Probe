@@ -82,15 +82,17 @@ def raw_stdio_step(line: bytes) -> dict[str, Any]:
     return {"kind": "raw_stdio", "line": line.decode("utf-8", "replace")}
 
 
-async def open_fresh(ctx: ScanContext, era: EraName, label: str) -> Session | None:
+async def open_fresh(
+    ctx: ScanContext, era: EraName, label: str, *, headers: Mapping[str, str] | None = None
+) -> Session | None:
     """A session on a brand-new instance of the target, or None if the runner cannot make one.
 
     Its traffic is labeled so that passive checks on the main instance ignore it. The caller
-    closes it with ``close_fresh``.
+    closes it with ``close_fresh``. On an HTTP target ``headers`` replace the configured ones.
     """
     main = ctx.client.transport
     if isinstance(main, HttpTransport):
-        transport: Transport | None = main.clone()  # stateless: a new connection will do
+        transport: Transport | None = main.clone(headers)  # stateless: a new connection will do
     elif ctx.second_instance_supported:
         transport = await ctx.runner.second_instance()
     else:

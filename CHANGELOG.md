@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `schema.cache_scope_correct`: lists a server marks `cacheScope: public` must be identical for every profile identity; `probe run --url` now sends the first identity's bearer token
 - Deterministic valid input generation with fixture-aware values, original-schema validation, mode caps, and killable per-tool budgets
 - Deterministic boundary and malformed schema mutators with mode caps, sampling diagnostics, bounded work, and original-dialect validation of every malformed case
 - Per-scan FixtureSet orchestration with isolated pristine seeds, sentinel layout, filesystem/SQLite/backend diffs, canary observation and phase resets
