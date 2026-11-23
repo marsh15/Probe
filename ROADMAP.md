@@ -40,7 +40,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T02 | Wire: JSON-RPC, stdio transport, recorder | done |
 | T03 | Wire: HTTP transport and SSE | done |
 | T04 | Session and era negotiation | done |
-| T05 | Reference server (clean) and bug framework | done, Docker build not yet verified |
+| T05 | Reference server (clean) and bug framework | done (Docker build and both stdio eras verified) |
 | T06 | Oracle tests against the official SDK | done |
 | T07 | Check framework and scan engine | done |
 | T08 | Runners: local stdio and URL | done |
@@ -49,6 +49,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T11 | Reference server bugs, batch 1 (20) | todo |
 | T12 | `probe run` CLI and JSON report | todo |
 | T13 | `probe checks list/show` and generated docs | todo |
+| T14 | Hardened Docker sandbox and container runner | done (98 unit/CLI tests; eight Docker gates passed) |
 | T16 | Fixture services and inspector runtime | done (63 tests; Docker build, size and service smoke gates passed) |
 | T19a | Collect 60 real tool schemas (independent preparation for M2) | done |
 | T19b | Tool classifier (independent preparation for M2) | done (57/60 corpus agreement; three misses documented) |

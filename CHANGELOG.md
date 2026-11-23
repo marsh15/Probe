@@ -24,3 +24,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standalone tool classifier with profile and annotation precedence, parameter-role detection, and risk heuristics evaluated on 60 schema fixtures
 - Standalone Docker fixture runtime with fake HTTP collections and faults, private canary, TCP relay, and confined filesystem/SQLite inspection and reset
 - Bounded fixture listeners, atomic rejected writes, monotonic collection IDs, and fixture tests included in `make check`
+- Hardened per-scan Docker networks, data volumes, and stdio container runner with deadline enforcement and cancellation-safe cleanup
+- Atomic subnet reservations, ownership-checked garbage collection, and `probe sandbox doctor` / `probe sandbox gc` commands
