@@ -42,7 +42,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T04 | Session and era negotiation | done |
 | T05 | Reference server (clean) and bug framework | done, Docker build not yet verified |
 | T06 | Oracle tests against the official SDK | done |
-| T07 | Check framework and scan engine | todo |
+| T07 | Check framework and scan engine | done |
 | T08 | Runners: local stdio and URL | todo |
 | T09 | Protocol checks | todo |
 | T10 | Schema checks | todo |
