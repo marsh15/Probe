@@ -146,3 +146,24 @@ async def test_finding_ids_are_stable_and_depend_on_the_target() -> None:
     assert make({"package": "a"}) != make({"package": "b"})
     assert make({"package": "a"}) != make({"package": "a"}, case="c2")
     assert make({"package": "a"}) != make({"package": "a"}, tool=None)
+
+
+async def test_read_tools_are_callable_but_writers_need_permission_or_a_sandbox() -> None:
+    tools = [
+        tool("r"),
+        tool("w", kind="write"),
+        tool("d", kind="destructive"),
+        tool("e", kind="exec"),
+        tool("u", kind="unknown"),
+    ]
+    ctx, _ = await make_context(tools=tools)
+    assert [t.name for t in ctx.callable_tools()] == ["r"]
+    assert ctx.side_effects_allowed is False
+
+    allowed, _ = await make_context(tools=tools, config=ScanConfig(allow_side_effects=True))
+    assert [t.name for t in allowed.callable_tools()] == ["r", "w", "d", "e", "u"]
+
+    sandboxed = FakeRunner()
+    sandboxed.sandboxed = True  # type: ignore[misc]
+    boxed, _ = await make_context(tools=tools, runner=sandboxed)
+    assert len(boxed.callable_tools()) == 5

@@ -44,3 +44,12 @@ is true; otherwise let it propagate (ERROR, crash still counted by
 
 Compare results with `normalize_volatile` (timestamps, ids, durations) and `stable_equal`,
 which reruns a mismatch once before believing it.
+
+## Side effects
+
+Use `ctx.callable_tools()` rather than `ctx.tools` when a check makes calls: read tools are
+always callable, but tools that may write (destructive, exec, write, and unknown, which counts
+as write) only when the run has `--allow-side-effects` or a sandbox. Local and URL targets have
+no fixtures, so a check that needs them lists `fixtures` in `requires` and is skipped there.
+A URL target is never restarted or stopped by Probe, and Probe refuses non-local hosts unless
+`--i-have-permission` is given.

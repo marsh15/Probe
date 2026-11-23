@@ -80,7 +80,7 @@ def _skipped(meta: CheckMeta, ctx: "ScanContext") -> str | None:
     needs = meta.requires
     if "fixtures" in needs and ctx.fixtures is None:
         return "requires sandbox (fixtures)"
-    if "side_effects" in needs and not (ctx.config.allow_side_effects or ctx.runner.sandboxed):
+    if "side_effects" in needs and not ctx.side_effects_allowed:
         return "requires --allow-side-effects or a sandbox"
     if "llm" in needs and ctx.llm is None:
         return "requires --llm"

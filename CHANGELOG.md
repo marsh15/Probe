@@ -17,5 +17,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Corpus of 60 MCP tool input schemas with pinned sources and upstream license texts
 - Streamable HTTP client with an incremental SSE parser, size and event limits, and raw HTTP access for negative tests
 - Check framework and scan engine: registry with plugin loading, status rules, phase gating, budget, baselines, crash and restart policy, liveness probe
+- Local stdio and URL runners; URL targets must be local or private unless permission is asserted; calls to writing tools need `--allow-side-effects` or a sandbox
 - Oracle tests comparing Probe's client with the official SDK client on the reference server
 - Session layer: modern/legacy era detection, `_meta` and HTTP header building, `x-mcp-header` mirroring

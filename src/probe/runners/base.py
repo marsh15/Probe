@@ -35,3 +35,7 @@ class Runner(Protocol):
     async def stop(self) -> None:
         """Graceful (close stdin or SIGTERM), then kill after 5 s."""
         ...
+
+
+class TargetUnavailable(Exception):
+    """The target cannot be started or reached. The scan reports ``target_unavailable``."""

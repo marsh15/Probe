@@ -123,6 +123,20 @@ class ScanContext:
         extensions = self.client.server_capabilities.get("extensions")
         return frozenset(extensions) if isinstance(extensions, dict) else frozenset()
 
+    @property
+    def side_effects_allowed(self) -> bool:
+        """Calls that may change state are fine in a sandbox or with --allow-side-effects."""
+        return self.config.allow_side_effects or bool(self.runner.sandboxed)
+
+    def callable_tools(self) -> list[ToolInfo]:
+        """The tools checks may call: read tools always; the rest only if side effects are allowed.
+
+        Unknown-kind tools count as writing tools.
+        """
+        if self.side_effects_allowed:
+            return list(self.tools)
+        return [t for t in self.tools if t.kind == "read"]
+
     def tool(self, name: str) -> ToolInfo | None:
         return next((t for t in self.tools if t.name == name), None)
 

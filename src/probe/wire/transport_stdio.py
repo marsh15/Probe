@@ -142,6 +142,11 @@ class StdioTransport(Transport):
     def alive(self) -> bool:
         return self._closed is None and self._process.returncode is None
 
+    @property
+    def returncode(self) -> int | None:
+        """The process exit code, or None while it is still running."""
+        return self._process.returncode
+
     def stderr_tail(self, n: int = 4096) -> str:
         tail = bytes(self._stderr[-n:]) if n > 0 else b""
         return sanitize_console(tail.decode("utf-8", errors="replace"))
