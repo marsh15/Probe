@@ -66,3 +66,12 @@ from analysis of the main instance (`main_records` in the protocol helpers does 
 
 When a malformed input makes the server stop answering, do not fail on the crash alone: use
 `ctx.survives(...)` to re-send the same input after the restart, and fail only if it dies again.
+
+## Reading the server's own definitions
+
+Static checks read `ctx.listing` (every raw `tools/list` page, captured at discovery) rather
+than `ctx.tools`, so they see what the server really sent, including tools too broken to
+classify. Return `Applicability.no(...)` when there is no listing. `probe.schema.jsonschema_tools`
+(meta-validation, `$ref` resolution without any network access) and `probe.schema.spec` (the
+vendored official schemas) do the heavy lifting; produce one finding per offending tool with
+`tool_findings`, which caps a run at 25 findings plus a summary.

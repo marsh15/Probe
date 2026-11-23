@@ -61,7 +61,8 @@ HTTP_LEGACY = {
 
 
 async def statuses(scan: Scan) -> dict[str, Status]:
-    results = await run_checks(scan.ctx, list(REGISTRY))
+    checks = [c for c in REGISTRY if c.meta.family.value == "protocol"]
+    results = await run_checks(scan.ctx, checks)
     failing = [(r.check_id, r.reason, [f.message for f in r.findings]) for r in results
                if r.status in (Status.FAIL, Status.ERROR)]  # fmt: skip
     assert not failing, failing

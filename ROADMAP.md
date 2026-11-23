@@ -45,7 +45,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T07 | Check framework and scan engine | done |
 | T08 | Runners: local stdio and URL | done |
 | T09 | Protocol checks | done (bug-detection tests are xfail until T11 and T15) |
-| T10 | Schema checks | todo |
+| T10 | Schema checks | done (bug-detection tests are xfail until T11) |
 | T11 | Reference server bugs, batch 1 (20) | todo |
 | T12 | `probe run` CLI and JSON report | todo |
 | T13 | `probe checks list/show` and generated docs | todo |

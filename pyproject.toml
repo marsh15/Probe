@@ -79,6 +79,11 @@ strict = true
 python_version = "3.12"
 warn_unused_configs = true
 
+[[tool.mypy.overrides]]
+# These libraries ship no type information.
+module = ["jsonschema", "jsonschema.*", "jsonschema_specifications"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]

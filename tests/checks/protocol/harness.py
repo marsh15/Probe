@@ -46,9 +46,13 @@ class ToolsServer(EraServer):
         self,
         tools: list[dict[str, Any]] | None = None,
         legacy_tools: list[dict[str, Any]] | None = None,
+        list_extra: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> None:
         super().__init__(**kwargs)
+        # Fields a modern tools/list result carries besides the tools (None removes them).
+        self.list_extra = {"ttlMs": 60_000, "cacheScope": "public"}
+        self.list_extra.update(list_extra or {})
         self.tools = (
             tools if tools is not None else [{"name": "a", "inputSchema": {"type": "object"}}]
         )
@@ -57,7 +61,11 @@ class ToolsServer(EraServer):
     def _modern(self, id_: Any, method: str, *rest: Any) -> Any:
         reply = super()._modern(id_, method, *rest)
         if method == "tools/list" and reply and reply.body and "result" in reply.body:
-            reply.body["result"]["tools"] = self.tools
+            result = reply.body["result"]
+            result["tools"] = self.tools
+            result.update(self.list_extra)
+            for key in [k for k, v in result.items() if v is None]:
+                del result[key]
         return reply
 
     def _legacy(self, id_: Any, method: str, headers: Any) -> Any:
@@ -160,3 +168,13 @@ async def url_scan(
     finally:
         await runner.stop()
         recorder.close()
+
+
+async def with_listing(scan: Scan) -> Scan:
+    """Capture tools/list into the context, as discovery does at the start of a scan."""
+    from probe.engine.discovery import list_tools, tool_infos
+
+    listing = await list_tools(scan.ctx.client)
+    scan.ctx.listing = listing
+    scan.ctx.tools = tool_infos(listing.tools)
+    return scan

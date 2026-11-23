@@ -13,6 +13,7 @@ from typing import Any, Protocol
 
 from probe.engine.budget import Budget
 from probe.engine.crash import CrashTracker, TargetCrashed, TargetUnstable
+from probe.engine.discovery import ToolListing
 from probe.engine.outcomes import CrashEvent, Mode, ToolInfo
 from probe.engine.outcomes import Era as EraEnum
 from probe.wire.errors import RequestTimeout, TransportClosed, WireEvent
@@ -85,11 +86,14 @@ class ScanContext:
         trace: Recorder | None = None,
         auth_identities: Sequence[str] = (),
         second_instance_supported: bool = True,
+        listing: ToolListing | None = None,
     ) -> None:
         self.client = session
         self.runner = runner
         self.config = config
         self.tools = list(tools)
+        # The raw tools/list pages, for checks that validate the server's own output.
+        self.listing = listing
         self.budget = budget
         self.fixtures = fixtures
         self.profile = profile
