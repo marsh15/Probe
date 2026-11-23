@@ -33,6 +33,14 @@ _STDERR_TAIL_BYTES = 4096
 
 
 class Fixtures(Protocol):
+    @property
+    def token(self) -> str: ...
+
+    @property
+    def canary_ip(self) -> str: ...
+
+    async def canary_hits(self, since: int = 0) -> list[dict[str, Any]]: ...
+
     async def reset(self) -> None: ...
 
     async def snapshot(self) -> "FixtureState": ...
@@ -269,14 +277,16 @@ class ScanContext:
             self._baselines[tool] = result
 
     async def establish_baseline(
-        self, tool: ToolInfo, arguments: Mapping[str, Any]
+        self, tool: ToolInfo, arguments: Mapping[str, Any], *, reuse: bool = True
     ) -> CallResult | None:
-        """Make one valid call; remember it if it succeeded. A failed attempt is not repeated."""
-        if tool.name in self._baselines:
+        """Remember a valid call. Disable reuse when a check needs a specific fixture baseline."""
+        if reuse and tool.name in self._baselines:
             return self._baselines[tool.name]
         result = await self.call(tool.name, arguments, case_id=f"{tool.name}:baseline")
-        self._baselines[tool.name] = result if result.ok else None
-        return self._baselines[tool.name]
+        successful = result if result.ok else None
+        if self._baselines.get(tool.name) is None:
+            self._baselines[tool.name] = successful
+        return successful
 
     # --- crashes and liveness ----------------------------------------------------------
 

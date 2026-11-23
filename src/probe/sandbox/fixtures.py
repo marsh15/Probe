@@ -299,6 +299,15 @@ class FixtureSet:
         self._services: dict[str, str] = {}
         self._started = False
         self._log_cursor = 0
+        self._canary: Any = None
+
+    @property
+    def canary_ip(self) -> str:
+        """The canary's data address, never its control-network address."""
+        if self._canary is None:
+            raise RuntimeError("canary has not started")
+        networks = self._canary.attrs["NetworkSettings"]["Networks"]
+        return str(networks[self.sandbox.names["priv"]]["IPAddress"])
 
     async def start(self) -> None:
         if self._started:
@@ -320,6 +329,7 @@ class FixtureSet:
         # Canary is available for any fixture-backed safety scan, including fs-only profiles.
         container = await _docker(lambda: self.sandbox.start_fixture("canary"))
         self._services["canary"] = await _docker(lambda: self.sandbox.control_url(container))
+        self._canary = container  # control_url refreshed its network addresses
         await self._ready()
         await self.reset()
         self._started = True

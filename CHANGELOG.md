@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Behavior checks `output_bounded`, `empty_result_ok`, `pagination_sound`, `concurrency_consistent`, `idempotency_declared`, `replay_idempotent` and schema checks `output_conforms`, `structured_text_mirror`; verified against the clean server in the sandbox with fixtures
 - Behavior checks `valid_input_accepted`, `invalid_input_rejected`, `boundary_robust`, `errors_actionable` and `survives_campaign`, built on a shared generated-input campaign that runs each case once, repeats crashes to tell reproducible ones from one-offs, and never counts a merely slow tool as hung
+- Sandbox SSRF and file-scheme safety checks with public-fetch baselines, canary-hit evidence, private-network profile overrides, and mode-specific payloads
 - `schema.cache_scope_correct`: lists a server marks `cacheScope: public` must be identical for every profile identity; `probe run --url` now sends the first identity's bearer token
 - Deterministic valid input generation with fixture-aware values, original-schema validation, mode caps, and killable per-tool budgets
 - Deterministic boundary and malformed schema mutators with mode caps, sampling diagnostics, bounded work, and original-dialect validation of every malformed case
