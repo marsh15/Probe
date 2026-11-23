@@ -9,6 +9,7 @@ from rich.console import Console
 
 from probe.cli.summary import (
     EXIT_INTERNAL,
+    EXIT_SANDBOX,
     EXIT_USAGE,
     FAIL_ON,
     exit_code_for,
@@ -16,7 +17,7 @@ from probe.cli.summary import (
 )
 from probe.config.modes import MODES
 from probe.config.profile import Profile, ProfileError, load_profile
-from probe.engine.runscan import RunConfig, UsageError, run_scan
+from probe.engine.runscan import RunConfig, SandboxUnavailable, UsageError, run_scan
 from probe.report.json_out import write_report
 
 AVAILABLE_FORMATS = ("json",)  # html, sarif, md and badge arrive with the report tasks
@@ -60,6 +61,15 @@ def run(
         float | None, typer.Option(help="Needs scoring (not available yet).")
     ] = None,
     timeout_scale: Annotated[float, typer.Option(help="Multiply every timeout.")] = 1.0,
+    image: Annotated[
+        str | None, typer.Option(help="Run the target in the sandbox from this image.")
+    ] = None,
+    sandbox: Annotated[
+        bool | None,
+        typer.Option(
+            "--sandbox/--no-sandbox", help="Default: on when an image is given (or in the profile)."
+        ),
+    ] = None,
     i_have_permission: Annotated[
         bool, typer.Option(help="Allow a target that is not local or private.")
     ] = False,
@@ -109,6 +119,8 @@ def run(
         only=only or [],
         skip=skip or [],
         timeout_scale=timeout_scale,
+        image=image,
+        sandbox=sandbox,
         i_have_permission=i_have_permission,
         secret_env=secret_env or [],
         target_env=_parse_env(target_env or []),
@@ -118,6 +130,8 @@ def run(
         report = asyncio.run(run_scan(config))
     except UsageError as exc:
         raise _fail(str(exc)) from exc
+    except SandboxUnavailable as exc:
+        raise _fail(str(exc), EXIT_SANDBOX) from exc
     except Exception as exc:
         if verbose:
             raise

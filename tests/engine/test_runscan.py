@@ -284,8 +284,14 @@ async def test_profile_problems_are_usage_errors(tmp_path: Path) -> None:
                 tmp_path, "target: {env: {A: '{secret:NOT_SET}'}}", command=mini_argv(), environ={}
             )
         )
-    with pytest.raises(UsageError, match="either --url or"):  # an image-only profile has no command
-        await run_scan(with_profile(tmp_path / "x", "target: {image: probe-refserver:dev}"))
+    with pytest.raises(UsageError, match="either --url or"):  # nothing says what to scan
+        await run_scan(with_profile(tmp_path / "x", "target: {transport: http}"))
+    with pytest.raises(UsageError, match="needs --image"):
+        await run_scan(RunConfig(out_dir=tmp_path / "y", command=["x"], sandbox=True))
+    with pytest.raises(UsageError, match="cannot be combined"):
+        await run_scan(
+            RunConfig(out_dir=tmp_path / "z", url="http://localhost:1/mcp", image="img:1")
+        )
 
 
 async def test_tool_override_globs_reach_the_classifier(tmp_path: Path) -> None:

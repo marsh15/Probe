@@ -597,3 +597,11 @@ async def test_a_large_response_cannot_hide_an_error_code(tmp_path: Path) -> Non
         await scan.ctx.exchange("probe/reserved")
         result = await scan.run(ErrorCodeRanges)
     assert result.status is Status.FAIL and "reserved" in result.findings[0].message
+
+
+async def test_error_code_check_sends_its_own_invalid_params_request(tmp_path: Path) -> None:
+    async with scripted_scan(ToolsServer, tmp_path) as scan:
+        result = await scan.run(ErrorCodeRanges)
+        sent = [r["body"] for r in scan.ctx.trace_records() if r["dir"] == "c2s"]
+    assert result.status is Status.PASS
+    assert any(m.get("method") == "tools/call" and "name" not in m["params"] for m in sent)

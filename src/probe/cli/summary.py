@@ -29,6 +29,7 @@ _STYLE = {
     Severity.INFO: "dim",
 }
 EXIT_OK, EXIT_THRESHOLD, EXIT_USAGE, EXIT_UNAVAILABLE, EXIT_INTERNAL = 0, 1, 2, 3, 4
+EXIT_SANDBOX = 5
 
 
 def exit_code_for(report: ScanReport, fail_on: str) -> int:

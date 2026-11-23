@@ -24,6 +24,10 @@ RUN useradd --uid 10001 --user-group --no-create-home --shell /usr/sbin/nologin 
     && refserver seed --out /data --seed 1 \
     && chown -R 10001:10001 /data
 
+# Identifies the source this image was built from, so tests can tell when it is out of date.
+ARG SRC_HASH=unknown
+LABEL probe.src-hash=$SRC_HASH
+
 USER 10001
 WORKDIR /data
 EXPOSE 3000

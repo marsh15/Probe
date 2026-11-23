@@ -112,6 +112,9 @@ class ErrorCodeRanges(Check):
         return Applicability.yes() if ctx.trace is not None else Applicability.no("no trace")
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
+        # A scan that sends only valid requests never sees an invalid-params error, which is
+        # exactly the code servers most often get wrong; provoke one so there is one to judge.
+        await ctx.exchange("tools/call", {}, case_id="error-code:invalid-params")
         bad: list[tuple[dict[str, Any], str]] = []
         for record, message in _errors(ctx):
             code = message["error"].get("code")

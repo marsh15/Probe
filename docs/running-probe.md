@@ -17,6 +17,7 @@ and hostile requests, so only test servers you own or may test).
 | `--profile FILE` | A YAML profile (see [profiles.md](profiles.md)). Its `target.command` is used when nothing follows `--`. |
 | `--target-env KEY=VALUE` | Set an environment variable for the server (merged over the profile). |
 | `--secret-env NAME` | Treat this variable's value as a secret: it is redacted from every artifact. |
+| `--image REF`, `--sandbox/--no-sandbox` | Run the target in the hardened Docker sandbox (default when an image is given, here or in the profile). An HTTP profile is reached through a loopback-only relay. |
 | `--allow-side-effects` | Also call tools that may write. Without it only read tools are called. |
 | `--fail-on critical\|high\|medium\|low\|none` | The lowest finding severity that makes the run fail (default high). |
 | `--out DIR` | Where artifacts go (default `./probe-out`). |
@@ -42,6 +43,7 @@ refused with a usage error rather than silently ignored.
 | 2 | Usage or configuration error (nothing was scanned). |
 | 3 | The target could not be started or never answered. A report with status `target_unavailable` is still written. |
 | 4 | Internal Probe error. |
+| 5 | A sandboxed scan was requested but Docker is unavailable. |
 
 A check that cannot reach a verdict ends in `error` and is listed in the report; it never counts
 as a finding against the server and does not change the exit code.

@@ -32,14 +32,6 @@ from tests.conftest import launch_http, refserver_env
 Prepare = Callable[[Scan], Awaitable[None]]
 
 
-async def provoke_invalid_params(scan: Scan) -> None:
-    """Passive checks read the trace, so make the server produce a JSON-RPC invalid-params error.
-
-    A tools/call without a name does; a bad argument is a tool error, not a protocol error.
-    """
-    await scan.ctx.exchange("tools/call", {})
-
-
 @dataclass(frozen=True)
 class Case:
     bug: str
@@ -55,7 +47,7 @@ CASES = [
     Case("b01", DiscoverImplemented, BOTH),
     Case("b02", UnsupportedVersionError, BOTH),
     Case("b03", ResultTypePresent, BOTH),
-    Case("b04", ErrorCodeRanges, BOTH, provoke_invalid_params),
+    Case("b04", ErrorCodeRanges, BOTH),  # the check provokes the error it judges
     Case("b05", HeaderMismatchRejected, HTTP),
     Case("b06", OriginValidated, HTTP),
     Case("b07", StdoutClean, STDIO),

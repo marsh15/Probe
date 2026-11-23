@@ -46,10 +46,11 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T08 | Runners: local stdio and URL | done |
 | T09 | Protocol checks | done |
 | T10 | Schema checks | done |
-| T11 | Reference server bugs, batch 1 (20) | done (b08 over HTTP needs the T15 relay) |
+| T11 | Reference server bugs, batch 1 (20) | done |
 | T12 | `probe run` CLI and JSON report | done |
 | T13 | `probe checks list/show` and generated docs | done |
 | T14 | Hardened Docker sandbox and container runner | done (98 unit/CLI tests; eight Docker gates passed) |
+| T15 | Relay and HTTP target in the sandbox, HTTP bug tests | done (clean and 8 HTTP bugs verified in Docker) |
 | T16 | Fixture services and inspector runtime | done (63 tests; Docker build, size and service smoke gates passed) |
 | T18 | Profile model, interpolation and `probe profile` | done |
 | T19a | Collect 60 real tool schemas (independent preparation for M2) | done |

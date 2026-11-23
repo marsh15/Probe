@@ -45,7 +45,7 @@ async def _docker[T](call: Callable[[], T]) -> T:
 @dataclass
 class _Instance:
     container: Any
-    transport: StdioTransport
+    transport: Transport
 
 
 class ContainerRunner:
@@ -129,7 +129,7 @@ class ContainerRunner:
                 raise
         return await self.start()
 
-    async def second_instance(self) -> Transport:
+    async def second_instance(self) -> Transport | None:
         async with self._lock:
             if self._main is None or self._stopped or self.deadline_exceeded:
                 raise TargetUnavailable("main instance must be started first")
@@ -188,9 +188,17 @@ class ContainerRunner:
         if self.deadline_exceeded:
             raise TargetUnavailable("container runner deadline exceeded")
 
+    async def _close_transport(self, instance: _Instance, *, patient: bool) -> None:
+        """Close the attachment; ``patient`` gives the target a moment to exit by itself."""
+        grace = 0.1 if patient else 0
+        await instance.transport.close(grace_s=grace, kill_after_s=grace)  # type: ignore[call-arg]
+
+    async def _read_logs(self, instance: _Instance) -> str:
+        return instance.transport.stderr_tail(STDERR_RING_BYTES)
+
     async def logs(self) -> str:
         if self._main is not None:
-            return self._main.transport.stderr_tail(STDERR_RING_BYTES)
+            return await self._read_logs(self._main)
         return self._last_logs
 
     async def state(self) -> RunnerState:
@@ -217,18 +225,18 @@ class ContainerRunner:
                 # Closing attachment stdin gives the target a chance to exit; Docker stop
                 # then supplies SIGTERM and enforces a five-second grace period itself.
                 with contextlib.suppress(Exception):
-                    await instance.transport.close(grace_s=0.1, kill_after_s=0.1)
+                    await self._close_transport(instance, patient=True)
                 try:
                     await _docker(lambda: instance.container.stop(timeout=5))
                 except Exception:
                     await self._kill(instance.container)
         finally:
             if instance is self._main:
-                self._last_logs = instance.transport.stderr_tail(STDERR_RING_BYTES)
+                self._last_logs = await self._read_logs(instance)
                 with contextlib.suppress(Exception):
                     self._last_state = await self._state(instance)
             try:
-                await instance.transport.close(grace_s=0, kill_after_s=0)
+                await self._close_transport(instance, patient=False)
             finally:
                 await _docker(lambda: self.sandbox.remove_container(instance.container))
 

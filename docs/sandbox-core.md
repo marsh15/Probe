@@ -166,3 +166,21 @@ readiness and FixtureSet seed/reset orchestration remain higher-layer integratio
 work. A skipped fixture test is a pending acceptance gate, never a complete T14
 pass. All Docker tests assert their unique scan has no remaining containers,
 networks or volumes in `finally`, including after an assertion fails.
+
+
+## HTTP targets
+
+`ContainerHttpRunner` (a `ContainerRunner` for streamable HTTP) starts the hardened target on
+the internal networks and starts the relay fixture once. The relay is published on a
+loopback-only port and forwards raw TCP to `target:<port>`; Probe's HTTP client talks to that
+port, so the target never has a route out and nothing outside the machine has a route in. The
+relay finds the target by its network alias, so a restarted target is reached through the same
+port. Readiness is an HTTP request through the relay (any status counts); a TCP connect proves
+nothing because the relay accepts before the target is listening. If the target exits during
+startup, its last log lines are in the error. An HTTP server is stateless per request, so
+`second_instance()` is `None` and checks that need another instance open a new connection.
+
+`probe run --image REF` (or a profile with `target.image`) uses it when the profile says
+`transport: http`, and the stdio `ContainerRunner` otherwise. `profiles/refserver-http.yaml`
+is a ready example. The end-to-end tests (`make e2e ARGS="-k http_bugs"`) rebuild
+`probe-refserver:dev` first if its source hash label is out of date.

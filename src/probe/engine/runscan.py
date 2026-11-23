@@ -24,6 +24,7 @@ from probe.checks.context import ScanConfig, ScanContext
 from probe.checks.registry import PHASE_ORDER, REGISTRY
 from probe.config.modes import settings_for
 from probe.config.profile import (
+    HttpTarget,
     Profile,
     ProfileError,
     ResolvedProfile,
@@ -49,8 +50,11 @@ from probe.report.models import (
     TargetInfo,
 )
 from probe.runners.base import Runner, TargetUnavailable
+from probe.runners.container import ContainerRunner
+from probe.runners.container_http import ContainerHttpRunner
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
+from probe.sandbox.docker_env import DockerEnv
 from probe.util.hashing import scan_key
 from probe.util.redact import Redactor
 from probe.util.sanitize_console import sanitize_console
@@ -76,6 +80,10 @@ class UsageError(Exception):
     """The command line asked for something that cannot be done (exit code 2)."""
 
 
+class SandboxUnavailable(Exception):
+    """A sandboxed scan was requested but Docker cannot be used (exit code 5)."""
+
+
 @dataclass(frozen=True)
 class RunConfig:
     out_dir: Path
@@ -89,6 +97,8 @@ class RunConfig:
     only: Sequence[str] = ()
     skip: Sequence[str] = ()
     timeout_scale: float = 1.0
+    image: str | None = None  # run the target in the sandbox from this image
+    sandbox: bool | None = None  # None: on exactly when an image is given
     i_have_permission: bool = False
     secret_env: Sequence[str] = ()
     target_env: dict[str, str] = field(default_factory=dict)
@@ -120,11 +130,67 @@ def select_checks(
     return selected, excluded
 
 
-def _platform() -> str:
-    return f"{platform.system().lower()}/{platform.machine()}"
+def _platform(sandboxed: bool = False) -> str:
+    """Where the target ran: the host, or the Linux container platform on this machine."""
+    return f"{'linux' if sandboxed else platform.system().lower()}/{platform.machine()}"
 
 
-def _make_runner(cfg: RunConfig, resolved: ResolvedProfile, recorder: Recorder) -> Runner:
+def _container_runner(
+    cfg: RunConfig,
+    resolved: ResolvedProfile,
+    recorder: Recorder,
+    scan_id: str,
+    image: str,
+    deadline_s: float,
+) -> Runner:
+    profile = resolved.profile
+    env = {**resolved.env, **cfg.target_env}
+    command = cfg.command or profile.target.command
+    try:
+        sandbox = DockerEnv(scan_id)
+    except Exception as exc:  # no docker library, no daemon, no permission
+        raise SandboxUnavailable(f"Docker is not available: {type(exc).__name__}: {exc}") from exc
+    if profile.target.transport == "http":
+        http = profile.target.http or HttpTarget()
+        headers = {}
+        if profile.auth.type == "bearer":  # the first identity is the baseline user
+            headers["Authorization"] = f"Bearer {profile.auth.identities[0].token}"
+        return ContainerHttpRunner(
+            image,
+            sandbox=sandbox,
+            command=command,
+            env=env,
+            port=http.port,
+            path=http.path,
+            headers=headers,
+            startup_timeout_s=profile.target.startup_timeout_s,
+            mode_deadline_s=deadline_s,
+            recorder=recorder,
+        )
+    return ContainerRunner(
+        image,
+        sandbox=sandbox,
+        command=command,
+        env=env,
+        mode_deadline_s=deadline_s,
+        recorder=recorder,
+    )
+
+
+def _make_runner(
+    cfg: RunConfig,
+    resolved: ResolvedProfile,
+    recorder: Recorder,
+    scan_id: str,
+    deadline_s: float,
+) -> Runner:
+    image = cfg.image or resolved.profile.target.image
+    if cfg.sandbox is True or (cfg.sandbox is None and image is not None):
+        if image is None:
+            raise UsageError("--sandbox needs --image or a profile with target.image")
+        if cfg.url is not None:
+            raise UsageError("--url cannot be combined with a sandboxed target")
+        return _container_runner(cfg, resolved, recorder, scan_id, image, deadline_s)
     # A command after `--` wins; otherwise the profile's own command (local stdio) is used.
     command = cfg.command
     if command is None and cfg.url is None and resolved.profile.target.image is None:
@@ -162,11 +228,12 @@ def _target_name(cfg: RunConfig) -> str:
     return Path(cfg.command[0]).name if cfg.command else "target"
 
 
-def _key(cfg: RunConfig, profile_hash: str) -> str:
+def _key(cfg: RunConfig, profile_hash: str, sandboxed: bool) -> str:
     identity = {
         "command": list(cfg.command) if cfg.command else None,
         "url": cfg.url,
-        "platform": _platform(),
+        "platform": _platform(sandboxed),
+        "image": cfg.image or cfg.profile.target.image if sandboxed else None,
     }
     return scan_key(
         target_identity=identity,
@@ -185,7 +252,8 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
     resolved, environ = _resolve(cfg)
     secrets = _secrets(cfg, resolved, environ)
     recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=secrets)
-    runner = _make_runner(cfg, resolved, recorder)
+    scan_id = uuid.uuid4().hex[:12]
+    runner = _make_runner(cfg, resolved, recorder, scan_id, settings.wall_clock_s)
     started = datetime.now(UTC)
     ctx: ScanContext | None = None
     try:
@@ -203,8 +271,9 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
             RequestTimeout,
             OSError,
         ) as exc:
-            return _redacted(_unavailable_report(cfg, started, str(exc), runner), secrets)
-        return _redacted(await _scan(cfg, ctx, started), secrets)
+            report = _unavailable_report(cfg, started, str(exc), runner, scan_id)
+            return _redacted(report, secrets)
+        return _redacted(await _scan(cfg, ctx, started, scan_id), secrets)
     finally:
         with contextlib.suppress(Exception):
             await runner.stop()
@@ -261,11 +330,25 @@ async def _connect(
         listing=listing,
         profile=resolved.profile,
         trace=recorder,
-        second_instance_supported=not isinstance(runner, UrlRunner),
+        second_instance_supported=_has_second_instance(runner),
     )
 
 
-async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime) -> ScanReport:
+def _has_second_instance(runner: Runner) -> bool:
+    """Can the runner start another instance? HTTP targets are stateless: a new connection does."""
+    return not isinstance(runner, UrlRunner | ContainerHttpRunner)
+
+
+def _image_digest(runner: Runner) -> str | None:
+    if not isinstance(runner, ContainerRunner):
+        return None
+    try:
+        return str(runner.sandbox.client.images.get(runner.image).id)
+    except Exception:  # the image identity is evidence, not a reason to fail the report
+        return None
+
+
+async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime, scan_id: str) -> ScanReport:
     selected, excluded = select_checks(cfg.only, cfg.skip, cfg.profile.checks.skip)
     results = await run_checks(ctx, selected)
     results += [
@@ -284,7 +367,7 @@ async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime) -> ScanRepo
         probe_version=__version__,
         catalog_version=CATALOG_VERSION,
         scoring_version=SCORING_VERSION,
-        scan=_scan_info(cfg, started, finished, "completed", profile_hash),
+        scan=_scan_info(cfg, started, finished, "completed", profile_hash, scan_id, ctx.runner),
         target=TargetInfo(
             name=_target_name(cfg),
             transport=ctx.runner.transport_kind,
@@ -293,7 +376,7 @@ async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime) -> ScanRepo
             ),
             server_info=ctx.client.server_info,
             package=None,
-            image_digest=None,
+            image_digest=_image_digest(ctx.runner),
             profile_hash=profile_hash,
             capabilities=ctx.client.server_capabilities,
             extensions=sorted(ctx.server_extensions),
@@ -313,19 +396,21 @@ def _scan_info(
     finished: datetime,
     status: Literal["completed", "target_unavailable", "aborted"],
     profile_hash: str,
+    scan_id: str,
+    runner: Runner,
 ) -> ScanInfo:
     return ScanInfo(
-        id=uuid.uuid4().hex[:12],
-        scan_key=_key(cfg, profile_hash),
+        id=scan_id,
+        scan_key=_key(cfg, profile_hash, runner.sandboxed),
         status=status,
         started_at=started,
         finished_at=finished,
         duration_ms=int((finished - started).total_seconds() * 1000),
         mode=cfg.mode,
         seed=cfg.seed,
-        sandboxed=False,
-        platform=_platform(),
-        runtime="none",
+        sandboxed=runner.sandboxed,
+        platform=_platform(runner.sandboxed),
+        runtime="runc" if runner.sandboxed else "none",
     )
 
 
@@ -383,7 +468,7 @@ def _limitations(cfg: RunConfig, ctx: ScanContext, results: list[CheckResult]) -
 
 
 def _unavailable_report(
-    cfg: RunConfig, started: datetime, reason: str, runner: Runner
+    cfg: RunConfig, started: datetime, reason: str, runner: Runner, scan_id: str
 ) -> ScanReport:
     finished = datetime.now(UTC)
     profile_hash = cfg.profile.hash
@@ -398,7 +483,9 @@ def _unavailable_report(
         probe_version=__version__,
         catalog_version=CATALOG_VERSION,
         scoring_version=SCORING_VERSION,
-        scan=_scan_info(cfg, started, finished, "target_unavailable", profile_hash),
+        scan=_scan_info(
+            cfg, started, finished, "target_unavailable", profile_hash, scan_id, runner
+        ),
         target=TargetInfo(
             name=_target_name(cfg),
             transport=runner.transport_kind,
