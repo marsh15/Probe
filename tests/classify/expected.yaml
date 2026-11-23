@@ -1,0 +1,303 @@
+# Independently hand-labeled BEFORE implementing or running the classifier.
+# Descriptions are semantic summaries of pinned sources, not verbatim live metadata.
+# Uniform benchmark: names and descriptions only; no profiles or annotations.
+aws-kb-retrieval__retrieve_from_aws_kb.json:
+  name: retrieve_from_aws_kb
+  kind: read
+  description: Retrieve passages from an AWS knowledge base.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/aws-kb-retrieval-server/index.ts#L93
+brave-search__brave_local_search.json:
+  name: brave_local_search
+  kind: read
+  description: Search local businesses and places using Brave.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/brave-search/index.ts#L41
+brave-search__brave_web_search.json:
+  name: brave_web_search
+  kind: read
+  description: Search the web using Brave.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/brave-search/index.ts#L12
+everything__get-annotated-message.json:
+  name: get-annotated-message
+  kind: read
+  description: Get a demonstration message with content annotations.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/everything/tools/get-annotated-message.ts
+everything__get-resource-reference.json:
+  name: get-resource-reference
+  kind: read
+  description: Get a reference to a demonstration resource.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/everything/tools/get-resource-reference.ts
+everything__get-structured-content.json:
+  name: get-structured-content
+  kind: read
+  description: Get structured weather data for a location.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/everything/tools/get-structured-content.ts
+everything__simulate-research-query.json:
+  name: simulate-research-query
+  kind: read
+  description: Query a simulated research dataset, with optional clarification.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/everything/tools/simulate-research-query.ts
+fetch__fetch.json:
+  name: fetch
+  kind: read
+  description: Fetch web content from a URL.
+  source: https://github.com/modelcontextprotocol/servers/blob/e7e1c85058e029ca1102efe6b2797f0ed608221b/src/fetch/src/mcp_server_fetch/server.py
+filesystem__directory_tree.json:
+  name: directory_tree
+  kind: read
+  description: Get a directory tree with optional depth and exclusion filters.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/filesystem/server.ts
+filesystem__edit_file.json:
+  name: edit_file
+  kind: write
+  description: Edit text files using line-based replacements, optionally previewed with dry run.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/filesystem/server.ts
+filesystem__read_text_file.json:
+  name: read_text_file
+  kind: read
+  description: Read text from a file, optionally limited to its head or tail.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/filesystem/server.ts
+filesystem__search_files.json:
+  name: search_files
+  kind: read
+  description: Search for files by matching a pattern.
+  source: https://github.com/modelcontextprotocol/servers/blob/c799c8552b0f27b7a33a7b9233773da144dddcf5/src/filesystem/server.ts
+git__git_create_branch.json:
+  name: git_create_branch
+  kind: write
+  description: Create a branch in a Git repository.
+  source: https://github.com/modelcontextprotocol/servers/blob/e7e1c85058e029ca1102efe6b2797f0ed608221b/src/git/src/mcp_server_git/server.py
+git__git_log.json:
+  name: git_log
+  kind: read
+  description: Read the commit history of a Git repository.
+  source: https://github.com/modelcontextprotocol/servers/blob/e7e1c85058e029ca1102efe6b2797f0ed608221b/src/git/src/mcp_server_git/server.py
+github__actions_run_trigger.json:
+  name: actions_run_trigger
+  kind: exec
+  description: Trigger GitHub Actions workflows and manage their execution.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/actions_run_trigger.snap
+github__create_pull_request.json:
+  name: create_pull_request
+  kind: write
+  description: Create a pull request in a GitHub repository.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/create_pull_request.snap
+github__create_repository_ruleset.json:
+  name: create_repository_ruleset
+  kind: write
+  description: Create repository, organization, or enterprise rulesets.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/create_repository_ruleset.snap
+github__custom_properties_write.json:
+  name: custom_properties_write
+  kind: write
+  description: Set property values or definitions at repository, organization, or enterprise level.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/custom_properties_write.snap
+github__get_file_contents.json:
+  name: get_file_contents
+  kind: read
+  description: Get file or directory contents from a GitHub repository.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/get_file_contents.snap
+github__issue_write.json:
+  name: issue_write
+  kind: write
+  description: Create an issue or update its fields and metadata.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/issue_write.snap
+github__list_commits.json:
+  name: list_commits
+  kind: read
+  description: List commits from a GitHub repository with paging and filters.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/list_commits.snap
+github__projects_write.json:
+  name: projects_write
+  kind: destructive
+  description: Create and manage GitHub Projects, including deletion of project items.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/projects_write.snap
+github__pull_request_read.json:
+  name: pull_request_read
+  kind: read
+  description: Read pull request details from GitHub.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/pull_request_read.snap
+github__push_files.json:
+  name: push_files
+  kind: write
+  description: Push files to a GitHub repository in one commit.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/push_files.snap
+github__repository_ruleset_read.json:
+  name: repository_ruleset_read
+  kind: read
+  description: Read rulesets and rule suites across supported GitHub levels.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/repository_ruleset_read.snap
+github__search_repositories.json:
+  name: search_repositories
+  kind: read
+  description: Search GitHub repository metadata.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/search_repositories.snap
+github__set_issue_fields.json:
+  name: set_issue_fields
+  kind: write
+  description: Set issue field values.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/set_issue_fields.snap
+github__update_dependabot_alert.json:
+  name: update_dependabot_alert
+  kind: destructive
+  description: Update alert state or assignees, including dismissal of security alerts.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/update_dependabot_alert.snap
+github__update_issue_assignees.json:
+  name: update_issue_assignees
+  kind: write
+  description: Update the assignees of a GitHub issue.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/update_issue_assignees.snap
+github__update_issue_type.json:
+  name: update_issue_type
+  kind: write
+  description: Set the type of an existing issue, including clearing that metadata field.
+  source: https://github.com/github/github-mcp-server/blob/9a72d8d38fec18c207cd924b33aa0eb3e186252c/pkg/github/__toolsnaps__/update_issue_type.snap
+google-maps__maps_directions.json:
+  name: maps_directions
+  kind: read
+  description: Get directions between an origin and a destination.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/google-maps/index.ts#L274
+google-maps__maps_distance_matrix.json:
+  name: maps_distance_matrix
+  kind: read
+  description: Get travel distances and durations for multiple origins and destinations.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/google-maps/index.ts#L225
+k8s-flux159__install_helm_chart.json:
+  name: install_helm_chart
+  kind: write
+  description: Create a Helm release from a chart, using standard or template-based installation.
+  source: https://github.com/Flux159/mcp-server-kubernetes/blob/f93604a20e388a08caac548c380cde8a5c532d5c/src/tools/helm-operations.ts#L39
+k8s-flux159__kubectl_patch.json:
+  name: kubectl_patch
+  kind: write
+  description: Patch a Kubernetes resource using kubectl.
+  source: https://github.com/Flux159/mcp-server-kubernetes/blob/f93604a20e388a08caac548c380cde8a5c532d5c/src/tools/kubectl-patch.ts#L17
+k8s-flux159__kubectl_rollout.json:
+  name: kubectl_rollout
+  kind: write
+  description: Update Kubernetes rollout state, with restart, pause, resume, undo, and inspection subcommands.
+  source: https://github.com/Flux159/mcp-server-kubernetes/blob/f93604a20e388a08caac548c380cde8a5c532d5c/src/tools/kubectl-rollout.ts#L11
+kubernetes__pods_exec.json:
+  name: pods_exec
+  kind: exec
+  description: Execute a command in a Kubernetes pod.
+  source: https://github.com/containers/kubernetes-mcp-server/blob/5487d153843b1f4424d6ae3ce2452201d51331e7/pkg/mcp/testdata/toolsets-full-tools.json#L530
+kubernetes__pods_run.json:
+  name: pods_run
+  kind: exec
+  description: Run a container image as a Kubernetes pod.
+  source: https://github.com/containers/kubernetes-mcp-server/blob/5487d153843b1f4424d6ae3ce2452201d51331e7/pkg/mcp/testdata/toolsets-full-tools.json#L878
+kubernetes__resources_create_or_update.json:
+  name: resources_create_or_update
+  kind: write
+  description: Create or update Kubernetes resources from a resource definition.
+  source: https://github.com/containers/kubernetes-mcp-server/blob/5487d153843b1f4424d6ae3ce2452201d51331e7/pkg/mcp/testdata/toolsets-full-tools.json#L1036
+kubernetes__resources_list.json:
+  name: resources_list
+  kind: read
+  description: List Kubernetes resources using selectors.
+  source: https://github.com/containers/kubernetes-mcp-server/blob/5487d153843b1f4424d6ae3ce2452201d51331e7/pkg/mcp/testdata/toolsets-full-tools.json#L1243
+kubernetes__resources_scale.json:
+  name: resources_scale
+  kind: write
+  description: Set the replica count of a Kubernetes resource.
+  source: https://github.com/containers/kubernetes-mcp-server/blob/5487d153843b1f4424d6ae3ce2452201d51331e7/pkg/mcp/testdata/toolsets-full-tools.json#L1313
+memory__add_observations.json:
+  name: add_observations
+  kind: write
+  description: Add observations to knowledge graph entities.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/memory/index.ts#L246
+memory__create_entities.json:
+  name: create_entities
+  kind: write
+  description: Create entities in the knowledge graph.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/memory/index.ts#L198
+memory__create_relations.json:
+  name: create_relations
+  kind: write
+  description: Create directed relations in the knowledge graph.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/memory/index.ts#L224
+memory__open_nodes.json:
+  name: open_nodes
+  kind: read
+  description: Read specific nodes and their relations from the knowledge graph.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/memory/index.ts#L353
+memory__search_nodes.json:
+  name: search_nodes
+  kind: read
+  description: Search nodes in the knowledge graph.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/memory/index.ts#L342
+notion__move-page.json:
+  name: move-page
+  kind: write
+  description: Move a Notion page to a new parent.
+  source: https://github.com/makenotion/notion-mcp-server/blob/cf16e5c20bfbfb98ecec1227f210ef0ae3abebe5/scripts/notion-openapi.json
+notion__patch-page.json:
+  name: patch-page
+  kind: destructive
+  description: Update a Notion page, including moving it into trash or archiving it.
+  source: https://github.com/makenotion/notion-mcp-server/blob/cf16e5c20bfbfb98ecec1227f210ef0ae3abebe5/scripts/notion-openapi.json
+notion__post-page.json:
+  name: post-page
+  kind: write
+  description: Create a Notion page under the supplied parent.
+  source: https://github.com/makenotion/notion-mcp-server/blob/cf16e5c20bfbfb98ecec1227f210ef0ae3abebe5/scripts/notion-openapi.json
+notion__post-search.json:
+  name: post-search
+  kind: read
+  description: Search Notion pages and databases by title, using an HTTP POST endpoint.
+  source: https://github.com/makenotion/notion-mcp-server/blob/cf16e5c20bfbfb98ecec1227f210ef0ae3abebe5/scripts/notion-openapi.json
+postgres__query.json:
+  name: query
+  kind: read
+  description: Query a Postgres database within a read-only transaction.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/postgres/index.ts#L98
+puppeteer__puppeteer_click.json:
+  name: puppeteer_click
+  kind: write
+  description: Send a mouse click to a selected browser element.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/puppeteer/index.ts#L48
+puppeteer__puppeteer_evaluate.json:
+  name: puppeteer_evaluate
+  kind: exec
+  description: Execute JavaScript in the browser page.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/puppeteer/index.ts#L94
+puppeteer__puppeteer_navigate.json:
+  name: puppeteer_navigate
+  kind: write
+  description: Open a browser page at the supplied URL, optionally restarting the browser.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/puppeteer/index.ts#L20
+puppeteer__puppeteer_screenshot.json:
+  name: puppeteer_screenshot
+  kind: read
+  description: Get an image of the current browser page or a selected element.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/puppeteer/index.ts#L33
+sequentialthinking__sequentialthinking.json:
+  name: sequentialthinking
+  kind: write
+  description: Append a reasoning thought to session history, supporting revisions and branches.
+  source: https://github.com/modelcontextprotocol/servers/blob/94a36286d2ea49d095704167846283f0c2c2d5d1/src/sequentialthinking/index.ts#L134
+slack__slack_add_reaction.json:
+  name: slack_add_reaction
+  kind: write
+  description: Add a reaction to a Slack message.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/slack/index.ts#L117
+slack__slack_get_channel_history.json:
+  name: slack_get_channel_history
+  kind: read
+  description: Get recent Slack channel messages.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/slack/index.ts#L140
+slack__slack_get_user_profile.json:
+  name: slack_get_user_profile
+  kind: read
+  description: Get a Slack user profile.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/slack/index.ts#L199
+slack__slack_post_message.json:
+  name: slack_post_message
+  kind: write
+  description: Post a message to a Slack channel.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/slack/index.ts#L75
+sqlite__read_query.json:
+  name: read_query
+  kind: read
+  description: Read rows using a SELECT query in a SQLite database.
+  source: https://github.com/modelcontextprotocol/servers-archived/blob/9be4674d1ddf8c469e6461a27a337eeb65f76c2e/src/sqlite/src/mcp_server_sqlite/server.py#L246

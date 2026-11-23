@@ -21,3 +21,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Local stdio and URL runners; URL targets must be local or private unless permission is asserted; calls to writing tools need `--allow-side-effects` or a sandbox
 - Oracle tests comparing Probe's client with the official SDK client on the reference server
 - Session layer: modern/legacy era detection, `_meta` and HTTP header building, `x-mcp-header` mirroring
+- Standalone tool classifier with profile and annotation precedence, parameter-role detection, and risk heuristics evaluated on 60 schema fixtures

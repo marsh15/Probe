@@ -1,0 +1,14 @@
+# Uniform name/description evaluation; semantic labels and summaries stay unchanged.
+git__git_log.json:
+  expected: read
+  actual: write
+  reason: The description noun commit matches the write lexicon despite the tool only reading history.
+
+memory__open_nodes.json:
+  expected: read
+  actual: write
+  reason: The name's exact open token has write precedence; this tool only retrieves graph nodes.
+notion__post-search.json:
+  expected: read
+  actual: write
+  reason: The HTTP post token has write precedence over search, though the endpoint only searches.
