@@ -153,3 +153,29 @@ def test_property_names_that_look_like_keywords_are_not_schemas():
     result = inline_refs(schema)
     assert result.schema["properties"]["const"] == {"type": "integer"}
     assert result.problems == ()
+
+
+def test_missing_local_anchor_with_an_absolute_id_is_unresolvable():
+    result = inline_refs({"$id": "https://example.test/local", "$ref": "#missing"})
+    assert result.problems == (("#missing", "unresolvable"),)
+
+
+def test_remote_metaschemas_are_not_inlined_even_when_installed_offline():
+    result = inline_refs({"$ref": "https://json-schema.org/draft/2020-12/schema"})
+    assert result.schema == {}
+    assert result.problems == (("https://json-schema.org/draft/2020-12/schema", "remote"),)
+
+
+def test_zero_depth_and_invalid_depth():
+    schema = {"$defs": {"x": {"type": "string"}}, "properties": {"x": {"$ref": "#/$defs/x"}}}
+    result = inline_refs(schema, max_depth=0)
+    assert result.schema["properties"]["x"] == {}
+    assert result.approximations[0].kind == "ref_depth"
+    with pytest.raises(ValueError, match="nonnegative"):
+        inline_refs(schema, max_depth=-1)
+
+
+def test_ref_to_non_schema_is_unresolvable():
+    result = inline_refs({"title": "data", "$ref": "#/title"})
+    assert result.schema["allOf"][0] == {}
+    assert result.problems == (("#/title", "unresolvable"),)

@@ -67,7 +67,9 @@ def test_separate_dependencies_and_existing_dependencies_are_preserved():
     assert validator.is_valid({"a": 0, "b": 0, "c": 0})
     assert not validator.is_valid({"a": 0, "b": 0})
     assert result.schema["dependencies"]["d"] == ["e"]
-    assert result.schema["dependencies"]["f"] == {"required": ["g"]}
+    assert result.schema["dependencies"]["f"] == ["g"]
+    assert not validator.is_valid({"f": 0})
+    assert validator.is_valid({"f": 0, "g": 0})
 
 
 @pytest.mark.parametrize(
@@ -154,3 +156,49 @@ def test_normalization_is_idempotent_and_does_not_mutate_input():
     assert normalize(result.schema).schema == result.schema
     result.schema["definitions"]["x"]["items"][0]["const"]["$defs"]["y"] = 2
     assert schema == original
+
+
+def test_min_contains_zero_does_not_require_a_matching_item():
+    result = normalize({"type": "array", "contains": False, "minContains": 0})
+    assert "contains" not in result.schema
+    assert Draft7Validator(result.schema).is_valid([])
+    assert Draft7Validator(result.schema).is_valid([1])
+    assert [note.kind for note in result.approximations] == ["minContains"]
+
+
+def test_colliding_dependency_lists_keep_all_required_names_without_duplicates():
+    result = normalize({"dependencies": {"a": ["b"]}, "dependentRequired": {"a": ["b", "c"]}})
+    assert result.schema["dependencies"]["a"] == ["b", "c"]
+    Draft7Validator.check_schema(result.schema)
+
+
+def test_all_schema_containers_are_normalized():
+    child = {"unevaluatedProperties": False, "dependentRequired": {"x": ["y"]}}
+    schema = {
+        "$schema": "http://json-schema.org/draft-07/schema#",
+        "patternProperties": {".*": child},
+        "additionalProperties": child,
+        "items": [child],
+        "additionalItems": child,
+        "contains": child,
+        "dependencies": {"a": child},
+        "propertyNames": child,
+        "not": child,
+        "if": child,
+        "then": child,
+        "else": child,
+        "allOf": [child],
+        "anyOf": [child],
+        "oneOf": [child],
+    }
+    result = normalize(schema)
+    assert len(result.approximations) == 14
+    for note in result.approximations:
+        assert note.kind == "unevaluatedProperties"
+    assert result.schema["patternProperties"][".*"] == {"dependencies": {"x": ["y"]}}
+
+
+def test_reference_diagnostics_are_available_after_normalization():
+    result = normalize({"$ref": "https://missing.probe.test/schema"})
+    assert result.ref_problems == (("https://missing.probe.test/schema", "remote"),)
+    assert [note.kind for note in result.approximations] == ["ref_remote"]

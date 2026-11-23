@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Offline schema dialect detection, bounded reference inlining, and draft-7 normalization with approximation diagnostics and generation checks against 60 real and 15 synthetic schemas
 - Initial project bootstrap
 - CLI structure with version command
 - Project documentation and governance files
