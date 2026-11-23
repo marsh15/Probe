@@ -20,7 +20,7 @@ selfval-fast:
 	@echo "selfval-fast: placeholder (selfval infrastructure not yet built)"
 
 docs-check:
-	@echo "docs-check: placeholder (documentation checks not yet configured)"
+	uv run probe checks list --format md | diff - docs/checks.md
 
 help:
 	@echo "Available targets:"
