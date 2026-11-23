@@ -35,7 +35,7 @@ class ScanInfo(StrictModel):
 
 
 class EraInfo(StrictModel):
-    kind: Literal["modern", "legacy", "dual"]
+    kind: Literal["modern", "legacy", "dual"] | None  # None: the target never answered
     negotiated_version: str | None
     supported_versions: list[str]
 

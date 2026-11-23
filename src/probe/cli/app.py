@@ -3,10 +3,13 @@
 import typer
 
 from probe import __version__
+from probe.cli.run import run
 from probe.cli.sandbox import app as sandbox_app
 
 app = typer.Typer(help="Probe: A behavioral, safety, and operability test suite for MCP servers")
 app.add_typer(sandbox_app, name="sandbox")
+# Everything after `--` is the target command, so unknown options and extra arguments are allowed.
+app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(run)
 
 
 @app.callback(invoke_without_command=True)

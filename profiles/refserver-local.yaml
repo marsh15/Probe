@@ -1,0 +1,8 @@
+# Probe's reference server run as a local stdio process (no sandbox); used by the fast tests.
+# Usage: probe run --profile profiles/refserver-local.yaml -- <command that starts refserver>
+target:
+  name: refserver
+  env: {}
+checks:
+  skip: []
+tools: {}

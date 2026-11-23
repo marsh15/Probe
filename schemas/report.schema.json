@@ -60,13 +60,20 @@
       "additionalProperties": false,
       "properties": {
         "kind": {
-          "enum": [
-            "modern",
-            "legacy",
-            "dual"
+          "anyOf": [
+            {
+              "enum": [
+                "modern",
+                "legacy",
+                "dual"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Kind",
-          "type": "string"
+          "title": "Kind"
         },
         "negotiated_version": {
           "anyOf": [

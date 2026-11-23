@@ -3,6 +3,7 @@
 Flags: --garbage error|ignore|die|wrong-code   what to do with malformed input
        --die-once FILE                          die on garbage only if FILE is absent (creates it)
        --noise                                  print a banner to stdout first
+       --ansi-noise                             print a line with terminal escape codes first
        --legacy-only                            answer server/discover with -32601
 """
 
@@ -15,6 +16,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--garbage", default="error")
 parser.add_argument("--die-once", default=None)
 parser.add_argument("--noise", action="store_true")
+parser.add_argument("--ansi-noise", action="store_true")
 parser.add_argument("--legacy-only", action="store_true")
 args = parser.parse_args()
 
@@ -44,6 +46,8 @@ def garbage(code: int) -> None:
 
 if args.noise:
     print("hello from the server", flush=True)
+if args.ansi_noise:
+    print("\x1b[2J\x1b[31mFAKE OUTPUT\x1b[0m\x07", flush=True)
 
 for line in sys.stdin:
     try:

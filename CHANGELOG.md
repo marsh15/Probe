@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regression tests for hostile server output, late replies and trace-write failures
 - Corpus of 60 MCP tool input schemas with pinned sources and upstream license texts
 - Streamable HTTP client with an incremental SSE parser, size and event limits, and raw HTTP access for negative tests
+- `probe run`: scans a stdio command or a URL, writes `report.json`, the redacted trace and the server's stderr, prints a per-family summary and the findings, and exits 0/1/2/3/4 (see docs/running-probe.md)
 - Twenty injectable reference-server bugs (protocol, schema and HTTP header bugs, b01-b08, b10-b13, b15, b16, b50-b53, b55, b56) as message rewrites shared by the stdio proxy and the HTTP middleware, with the self-validation expectations in `tests/selfval/expected.yaml`
 - Ten schema checks (tools/list conformance, input schema validity, references, names, descriptions, cache fields, tool order, header annotations) with offline JSON Schema tooling and a tool-discovery step
 - Twelve protocol checks: discover, unsupported version, result type, error codes, header and Origin validation, stdout cleanliness, malformed input, unknown method, era parity, deprecated features

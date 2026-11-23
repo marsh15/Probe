@@ -47,7 +47,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T09 | Protocol checks | done |
 | T10 | Schema checks | done |
 | T11 | Reference server bugs, batch 1 (20) | done (b08 over HTTP needs the T15 relay) |
-| T12 | `probe run` CLI and JSON report | todo |
+| T12 | `probe run` CLI and JSON report | done |
 | T13 | `probe checks list/show` and generated docs | todo |
 | T14 | Hardened Docker sandbox and container runner | done (98 unit/CLI tests; eight Docker gates passed) |
 | T16 | Fixture services and inspector runtime | done (63 tests; Docker build, size and service smoke gates passed) |
