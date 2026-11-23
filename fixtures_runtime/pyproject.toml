@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "probe-fixtures"
+version = "0.1.0"
+description = "Private, bounded fixtures for Probe sandbox tests"
+requires-python = ">=3.12"
+dependencies = ["starlette", "uvicorn>=0.30", "pyyaml"]
+
+[project.scripts]
+fixtures = "fixtures_runtime.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/fixtures_runtime"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-asyncio", "httpx>=0.28", "pytest-timeout"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 15
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.ruff]
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF", "ASYNC", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S101", "S105", "S106", "S108", "S311", "S603", "S607"]
+
+[project.entry-points.pytest11]
+probe_fixtures = "fixtures_runtime.pytest_plugin"
