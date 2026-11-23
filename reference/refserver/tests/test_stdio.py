@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 import pytest
-from refserver.wire_bugs import _pump, apply_stdio_hooks
+from refserver.wire_bugs import _pump, apply_stdio_hooks, invalid_message_reply
 
 MODERN = "2026-07-28"
 META = {
@@ -185,3 +185,61 @@ def test_hooks_compose_in_order() -> None:
 
     assert apply_stdio_hooks("server_to_client", b"a\n", [double, drop_b]) == [b"A\n", b"A\n"]
     assert apply_stdio_hooks("server_to_client", b"b\n", [double, drop_b]) == []
+
+
+@pytest.mark.parametrize(
+    ("line", "code", "request_id"),
+    [
+        (b'{"jsonrpc": "2.0", "id": 1, "method": "tools/list"', -32700, None),
+        (b"not json at all", -32700, None),
+        (b'{"id": 7, "method": "tools/list"}', -32600, 7),
+        (b'{"jsonrpc": "1.0", "id": "x", "method": "tools/list"}', -32600, "x"),
+        (b'{"jsonrpc": "2.0", "id": 3}', -32600, 3),
+        (b'[{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}]', -32600, None),
+        (b'"a string"', -32600, None),
+        (b'{"jsonrpc": "2.0", "id": true, "method": 5}', -32600, None),
+    ],
+)
+def test_invalid_lines_get_the_json_rpc_error(line: bytes, code: int, request_id: object) -> None:
+    reply = invalid_message_reply(line + b"\n")
+    assert reply is not None
+    assert json.loads(reply) == {
+        "jsonrpc": "2.0",
+        "id": request_id,
+        "error": {"code": code, "message": "Parse error" if code == -32700 else "Invalid Request"},
+    }
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        b'{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "method": "notifications/initialized"}',
+        b'{"jsonrpc": "2.0", "id": "s1", "result": {}}',  # a reply to a server request
+        b'{"jsonrpc": "2.0", "id": "s1", "error": {"code": -1, "message": "x"}}',
+    ],
+)
+def test_valid_messages_are_left_to_the_sdk(line: bytes) -> None:
+    assert invalid_message_reply(line + b"\n") is None
+
+
+def test_blank_lines_are_swallowed_silently() -> None:
+    assert invalid_message_reply(b"\n") == b""
+    assert invalid_message_reply(b"   \r\n") == b""
+
+
+def test_malformed_input_is_answered_and_the_server_keeps_serving(data_root: Path) -> None:
+    s = StdioSession(data_root)
+    assert s.proc.stdin is not None
+    for garbage, code in [
+        (b'{"jsonrpc": "2.0", "id": 1, "method": "tools/list"', -32700),
+        (b'{"id": 1, "method": "tools/list"}', -32600),
+        (b'[{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}]', -32600),
+    ]:
+        s.proc.stdin.write(garbage + b"\n")
+        s.proc.stdin.flush()
+        assert s.recv()["error"]["code"] == code  # type: ignore[index]
+    s.proc.stdin.write(b"\n")  # a blank line is ignored without a reply
+    s.proc.stdin.flush()
+    assert len(s.request(2, "tools/list", {"_meta": META})["result"]["tools"]) == 15  # type: ignore[index]
+    assert s.close() == 0

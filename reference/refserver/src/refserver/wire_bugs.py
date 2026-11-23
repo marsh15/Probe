@@ -14,6 +14,7 @@ here, gated on `bugs.is_on(...)`.
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 from collections.abc import Callable
@@ -64,19 +65,57 @@ class WireBugMiddleware:
         await self.app(scope, receive, send)
 
 
+def invalid_message_reply(line: bytes) -> bytes | None:
+    """The JSON-RPC error for a line that is not a valid message, or None if it is one.
+
+    The SDK's stdio transport drops such lines without answering, which JSON-RPC does not allow
+    (parse errors get -32700, invalid requests -32600). The clean reference server answers them
+    here, in front of the SDK, so it is conformant by construction. Blank lines are ignored.
+    """
+    text = line.strip()
+    if not text:
+        return b""
+    code, message, request_id = -32600, "Invalid Request", None
+    try:
+        value = json.loads(text)
+    except ValueError:
+        code, message = -32700, "Parse error"
+    else:
+        if isinstance(value, dict):
+            if isinstance(value.get("id"), str | int) and not isinstance(value.get("id"), bool):
+                request_id = value["id"]
+            has_method = isinstance(value.get("method"), str)
+            has_reply = "result" in value or "error" in value
+            if value.get("jsonrpc") == "2.0" and (has_method or has_reply):
+                return None
+        # Arrays (batches are not supported) and anything else that is not a message.
+    reply = {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
+    return json.dumps(reply, separators=(",", ":")).encode() + b"\n"
+
+
 async def _pump(
     source: IO[bytes],
     sink: IO[bytes],
     direction: Direction,
     hooks: list[StdioHook],
     close_sink: bool,
+    reply_to: IO[bytes] | None = None,
 ) -> None:
-    """Relay lines from source to sink until EOF. Blocking reads run in a worker thread."""
+    """Relay lines from source to sink until EOF. Blocking reads run in a worker thread.
+
+    With ``reply_to`` (the client-facing stream), lines that are not valid JSON-RPC messages are
+    answered there with an error and not forwarded.
+    """
     try:
         while True:
             line = await anyio.to_thread.run_sync(source.readline, abandon_on_cancel=True)
             if not line:
                 return
+            if reply_to is not None and (reply := invalid_message_reply(line)) is not None:
+                if reply:
+                    reply_to.write(reply)
+                    reply_to.flush()
+                continue
             for out in apply_stdio_hooks(direction, line, hooks):
                 sink.write(out)
             sink.flush()
@@ -121,7 +160,7 @@ async def run_stdio_proxy(
     )  # no public API serves explicit streams through the dual-era loop
 
     async with anyio.create_task_group() as tg:
-        tg.start_soon(_pump, wire_in, proxy_to_server, "client_to_server", active, True)
+        tg.start_soon(_pump, wire_in, proxy_to_server, "client_to_server", active, True, wire_out)
 
         async def serve() -> None:
             try:
