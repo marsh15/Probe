@@ -130,6 +130,7 @@ class Capture:
                     "method": scope["method"],
                     "host": decoded.get("host", ""),
                     "path": scope["path"],
+                    "query": scope.get("query_string", b"").decode("latin1"),
                     "headers": decoded,
                     "body_sha256": hashlib.sha256(body).hexdigest(),
                     "source_ip": scope["client"][0] if scope.get("client") else None,

@@ -326,3 +326,12 @@ def test_autoid_preserves_seed_and_explicit_highwater_until_reset(tmp_path, seed
         assert control.post("/_probe/reset").status_code == 200
         assert public.delete(f"/c/tasks/{seed_id}").status_code == 204
         assert public.post("/c/tasks", json={}).json()["id"] == first
+
+
+def test_canary_records_tokens_carried_only_in_the_query():
+    data, admin = create_canary()
+    with TestClient(data) as public, TestClient(admin) as control:
+        public.get("/computeMetadata/v1/?t=a1b2c3d4e5f6&value=a%2Fb")
+        [hit] = control.get("/_probe/hits").json()
+        assert hit["path"] == "/computeMetadata/v1/"
+        assert hit["query"] == "t=a1b2c3d4e5f6&value=a%2Fb"
