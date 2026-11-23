@@ -23,6 +23,8 @@ from starlette.routing import Route
 @dataclass
 class ServerState:
     seen: list[dict[str, Any]] = field(default_factory=list)
+    # When set, POST /mcp is answered by this scripted server (see fake_eras.py).
+    script: Any = None
     replies: list[Any] = field(default_factory=list)
     reply_arrived: asyncio.Event = field(default_factory=asyncio.Event)
     stream_closed: asyncio.Event = field(default_factory=asyncio.Event)
@@ -194,7 +196,18 @@ def build_app(state: ServerState) -> Starlette:
         state.seen.append({"method": request.method, "headers": dict(request.headers), "body": raw})
         return JSONResponse({"method": request.method, "headers": dict(request.headers)})
 
+    async def mcp(request: Request) -> Response:
+        message = await body_json(request)
+        reply = state.script.handle(message, {k.lower(): v for k, v in request.headers.items()})
+        if reply is None:  # a server that never answers
+            await asyncio.sleep(60)
+            return Response(status_code=204)
+        if reply.body is None:
+            return Response(status_code=reply.status, headers=reply.headers)
+        return JSONResponse(reply.body, status_code=reply.status, headers=reply.headers)
+
     routes = [
+        Route("/mcp", mcp, methods=["POST"]),
         Route("/json", json_ok, methods=["POST"]),
         Route("/sse", sse_ok, methods=["POST"]),
         Route("/sse-ask", sse_ask, methods=["POST"]),

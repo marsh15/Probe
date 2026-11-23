@@ -72,4 +72,34 @@ request is answered with a separate POST of the reply.
 `SseParser` (`probe.wire.sse`) frames events per the WHATWG rules, including CR, LF and
 CRLF endings split across chunks. It enforces no limits; the transport counts bytes first.
 
+## Sessions and era negotiation
+
+`Session.open(transport, era="auto"|"modern"|"legacy", client_capabilities=..., seed=...)`
+works out which era the server speaks and returns a `Session`; the caller still owns the
+transport. In `auto` mode it sends `server/discover` first:
+
+- A result, or a recognized modern error (`-32020`, `-32021`, `-32022`), means modern and
+  never falls back. On `-32022` it retries once with a modern version from `data.supported`.
+  If only legacy versions are listed, `auto` does a legacy handshake with the best common
+  one; `modern` raises `NoCommonVersion`.
+- Any other error, any HTTP status without a recognized modern error body, or no answer
+  within `probe_timeout` means legacy, and the session sends `initialize`. A server that does
+  not answer at all (connection refused) is an error, not a legacy server.
+- `era="modern"` never falls back (discover is best effort); `era="legacy"` skips discover.
+
+`session.negotiation` lists each step and its outcome. The legacy handshake accepts the
+server's version only if it is one of 2025-11-25, 2025-06-18, 2025-03-26 or 2024-11-05.
+Over HTTP, a 404 for a session the server forgot re-initializes once per request.
+
+`session.request(method, params, meta=...)` uses a new integer id for every call. In the
+modern era it adds `_meta` (version, client info, capabilities and a `traceparent` derived
+from the seed and the id); values in the caller's own `_meta` or `meta=` win, so tests can
+send wrong ones on purpose. Over HTTP the session also sets `MCP-Protocol-Version`,
+`Mcp-Method` and `Mcp-Name` (Base64 sentinel for values that are not safe plain ASCII).
+After `register_tools()`, `tools/call` also mirrors `x-mcp-header` parameters as
+`Mcp-Param-{Name}`. Over HTTP, tools whose annotations are invalid are excluded;
+`x_mcp_header_errors` records them on every transport. A request sent by the server in the
+modern era is recorded as a `server_request_in_modern_era` violation and answered with
+method-not-found.
+
 Run the wire acceptance suite with `uv run pytest tests/wire -q`.

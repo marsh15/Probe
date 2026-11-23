@@ -8,7 +8,7 @@ decoded, so a compression bomb is just bytes that hit the size limit.
 import asyncio
 import re
 import time
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -118,6 +118,8 @@ class HttpTransport(Transport):
         self._max_stream_events = max_stream_events
         # ``Mcp-Session-Id`` from the server, replayed on later POSTs (legacy era only).
         self.session_id: str | None = None
+        # Per-message headers (Mcp-Method and friends) supplied by whoever knows the protocol era.
+        self.message_headers: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
         self._close_result: CloseResult | None = None
         self._client = httpx.AsyncClient(
             follow_redirects=False,
@@ -129,7 +131,10 @@ class HttpTransport(Transport):
         """POST one message. A request must get its response back on that same POST."""
         message = dict(obj)
         is_request = "method" in message and "id" in message
-        result = await self.post(message, timeout=None if is_request else HTTP_SEND_TIMEOUT_S)
+        extra = self.message_headers(message) if self.message_headers is not None else None
+        result = await self.post(
+            message, headers=extra, timeout=None if is_request else HTTP_SEND_TIMEOUT_S
+        )
         if not is_request:
             if result.status is None:
                 raise HttpRequestFailed(None, result.error or "no HTTP response", result)
