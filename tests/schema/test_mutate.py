@@ -583,3 +583,18 @@ def test_huge_numeric_exclusive_bound_does_not_overflow_with_a_supplied_base():
     result = boundary({"type": "number", "exclusiveMinimum": 10**1000}, {"x": 1})
     assert result.cases
     assert any("no finite adjacent value" in n for n in result.notes)
+
+
+@pytest.mark.parametrize("mutator", [boundary_cases, malformed_cases])
+def test_schema_key_order_does_not_change_cases_or_diagnostics(mutator):
+    schema = {
+        "type": "object",
+        "properties": {
+            "a": {"$ref": "https://offline.invalid/a", "type": "string"},
+            "b": {"$ref": "https://offline.invalid/b", "type": "string"},
+        },
+    }
+    reordered = {"properties": dict(reversed(list(schema["properties"].items()))), "type": "object"}
+    assert mutator(tool(schema), {}, seed=7, mode="deep") == mutator(
+        tool(reordered), {}, seed=7, mode="deep"
+    )

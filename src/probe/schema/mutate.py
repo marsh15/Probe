@@ -70,6 +70,8 @@ def _size(value: Any, *, schema: bool = False) -> int:
             for key, child in node.items():
                 if not isinstance(key, str):
                     raise ValueError("non-JSON mapping key")
+                if len(key) > _MAX_STRING_BYTES:
+                    raise ValueError("mapping key exceeds work limit")
                 size += len(key.encode("utf-8", "surrogatepass"))
                 if schema:
                     if key in {"$ref", "$dynamicRef"}:
@@ -534,7 +536,8 @@ def _mutate(
         _size(tool.input_schema, schema=True)
         if base is not None:
             _size(base)
-        prepared = normalize(tool.input_schema)
+        original: dict[str, Any] = json.loads(json.dumps(tool.input_schema, sort_keys=True))
+        prepared = normalize(original)
         _size(prepared.schema, schema=True)
         notes.extend(prepared.dialect.notes)
         notes.extend(f"{a.kind} {a.path}: {a.detail}" for a in prepared.approximations)
@@ -548,7 +551,7 @@ def _mutate(
         return MutationResult(notes=[f"Schema/base preparation work limit or failure: {exc}"])
     if base is None:
         status = _validate(
-            tool.input_schema, [_Candidate(Case(tool.name, kind, "base", 0, minimal), "")], notes
+            original, [_Candidate(Case(tool.name, kind, "base", 0, minimal), "")], notes
         )[0]
         if status != "valid":
             notes.append(
@@ -580,7 +583,7 @@ def _mutate(
         spent += len(encoded)
         candidates.append(_Candidate(Case(tool.name, kind, rule, index, deepcopy(arguments)), prop))
     if kind == "malformed":
-        statuses = _validate(tool.input_schema, candidates, notes)
+        statuses = _validate(original, candidates, notes)
         retained = []
         for candidate, status in zip(candidates, statuses, strict=True):
             if status == "invalid":
@@ -589,7 +592,7 @@ def _mutate(
                 reason = "stayed valid" if status == "valid" else status
                 notes.append(f"Dropped {candidate.case.id}: {reason} under original schema.")
         candidates = retained
-    digest = sha256(json.dumps(tool.input_schema, sort_keys=True).encode()).hexdigest()
+    digest = sha256(json.dumps(original, sort_keys=True).encode()).hexdigest()
     salt = f"{seed}:{tool.name}:{digest}:{mode}"
     cap = (_BOUNDARY_CAPS if kind == "boundary" else _MALFORMED_CAPS)[mode]
     return _sample(candidates, cap, salt, list(dict.fromkeys(notes)))
