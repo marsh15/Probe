@@ -57,7 +57,7 @@ def test_list_json_is_machine_readable_and_filters_by_family() -> None:
         runner.invoke(app, ["checks", "list", "--format", "json", "--family", "schema"]).output
     )
     assert len(everything) == len(builtin_checks())
-    assert {c["family"] for c in schema} == {"schema"} and len(schema) == 11
+    assert {c["family"] for c in schema} == {"schema"} and len(schema) == 13
     assert all(
         {"id", "severity", "phase", "rationale", "remediation"} <= set(c) for c in everything
     )

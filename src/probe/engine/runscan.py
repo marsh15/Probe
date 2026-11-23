@@ -16,6 +16,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+import probe.checks.behavior
 import probe.checks.protocol
 import probe.checks.schema  # noqa: F401 - registers the schema checks
 from probe import __version__

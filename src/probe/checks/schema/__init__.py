@@ -3,4 +3,4 @@
 Importing this package registers every check in it.
 """
 
-from probe.checks.schema import cache, definitions, order, scope  # noqa: F401 - registers the checks
+from probe.checks.schema import cache, definitions, order, output, scope  # noqa: F401 - registers the checks

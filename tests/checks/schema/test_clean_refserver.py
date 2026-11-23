@@ -25,6 +25,8 @@ MODERN = {
     "schema.x_mcp_header_valid": P,
     "schema.input_schema_strict": P,  # passes with an information finding about loose schemas
     "schema.cache_scope_correct": NA,  # needs two identities (see test_cache_scope.py)
+    "schema.output_conforms": P,
+    "schema.structured_text_mirror": P,
 }
 LEGACY = {
     **MODERN,
@@ -47,16 +49,16 @@ async def statuses(scan: Scan) -> dict[str, Status]:
 
 async def test_stdio_modern(stdio_command: Any, tmp_path: Path) -> None:
     argv, env = stdio_command
-    async with stdio_scan(argv, tmp_path, env=env) as scan:
+    async with stdio_scan(argv, tmp_path, env=env, mode="quick") as scan:
         assert await statuses(scan) == MODERN
 
 
 async def test_stdio_legacy(stdio_command: Any, tmp_path: Path) -> None:
     argv, env = stdio_command
-    async with stdio_scan(argv, tmp_path, env=env, era="legacy") as scan:
+    async with stdio_scan(argv, tmp_path, env=env, era="legacy", mode="quick") as scan:
         assert await statuses(scan) == LEGACY
 
 
 async def test_http_modern(http_url: str, tmp_path: Path) -> None:
-    async with url_scan(http_url, tmp_path) as scan:
+    async with url_scan(http_url, tmp_path, mode="quick") as scan:
         assert await statuses(scan) == MODERN

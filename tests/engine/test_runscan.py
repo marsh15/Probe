@@ -48,7 +48,7 @@ async def test_a_scan_produces_a_valid_complete_report(tmp_path: Path) -> None:
 async def test_results_are_in_phase_then_id_order_and_findings_match(tmp_path: Path) -> None:
     report = await run_scan(config(tmp_path))
     ids = [r.check_id for r in report.results]
-    assert ids[0].startswith(("protocol.", "schema.")) and len(ids) == len(set(ids))
+    assert ids[0].startswith(("behavior.", "protocol.", "schema.")) and len(ids) == len(set(ids))
     finding_ids = {f.finding_id for f in report.findings}
     listed = {i for r in report.results for i in r.finding_ids}
     assert listed == finding_ids  # every finding belongs to exactly the result that names it

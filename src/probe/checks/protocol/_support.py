@@ -34,8 +34,8 @@ __all__ = [
     "open_fresh",
     "raw_http_step",
     "raw_stdio_step",
-    "request_methods",
     "request_step",
+    "response_methods",
     "transport_of",
     "valid_http_request",
     "with_header",
@@ -75,13 +75,24 @@ def main_messages(ctx: ScanContext, direction: str) -> list[tuple[dict[str, Any]
     return pairs
 
 
-def request_methods(ctx: ScanContext) -> dict[Any, str]:
-    """Request id -> method, from what Probe sent (to label responses in evidence)."""
-    methods: dict[Any, str] = {}
-    for _, body in main_messages(ctx, "c2s"):
-        if isinstance(body, dict) and "id" in body and isinstance(body.get("method"), str):
-            methods[body["id"]] = body["method"]
-    return methods
+def response_methods(ctx: ScanContext) -> dict[int, str]:
+    """Trace seq of each response -> the method of the request it answers.
+
+    Ids restart when the target is restarted and Probe reconnects, so a response is paired with
+    the latest earlier request that has its id, not with any request of that id.
+    """
+    sent: dict[Any, str] = {}
+    labels: dict[int, str] = {}
+    records = [r for r in ctx.trace_records() if "instance" not in r]
+    for record in sorted(records, key=lambda r: r["seq"]):
+        view = message_view(record)
+        if view is None or "id" not in view:
+            continue
+        if record.get("dir") == "c2s" and isinstance(view.get("method"), str):
+            sent[view["id"]] = view["method"]
+        elif record.get("dir") == "s2c" and view["id"] in sent:
+            labels[record["seq"]] = sent[view["id"]]
+    return labels
 
 
 def http_transport(ctx: ScanContext) -> HttpTransport:

@@ -59,6 +59,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T20 | Schema normalize, refs and dialect | done |
 | T21 | Valid input generator | done |
 | T22 | Boundary and malformed mutators | done |
+| T23 | Behavior checks, output conformance and text mirror | done (bug detection tests follow with T25) |
 | T23b | `schema.cache_scope_correct` | done (clean HTTP refserver passes; b14 test comes with T25) |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |
 

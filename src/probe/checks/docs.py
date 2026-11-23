@@ -6,6 +6,7 @@ drift from the code.
 
 from collections.abc import Iterable
 
+import probe.checks.behavior
 import probe.checks.protocol
 import probe.checks.schema  # noqa: F401 - registers the schema checks
 from probe.checks.base import Check

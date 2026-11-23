@@ -4,7 +4,7 @@ from typing import Any
 
 from probe.checks.base import Applicability, Check, CheckOutcome
 from probe.checks.context import ScanContext
-from probe.checks.protocol._support import ALL_MODES, main_messages, make_finding, request_methods
+from probe.checks.protocol._support import ALL_MODES, main_messages, make_finding, response_methods
 from probe.checks.registry import register
 from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severity, Transport
 from probe.wire.errors import StdoutNoise
@@ -52,7 +52,7 @@ class ResultTypePresent(Check):
         return Applicability.yes()
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
-        methods = request_methods(ctx)
+        methods = response_methods(ctx)
         missing = [
             (r, m)
             for r, m in _results(ctx)
@@ -60,7 +60,7 @@ class ResultTypePresent(Check):
         ]
         if not missing:
             return CheckOutcome()
-        seen = sorted({methods.get(m.get("id"), "(unknown)") for _, m in missing})
+        seen = sorted({methods.get(r["seq"], "(unknown)") for r, _ in missing})
         listed = ", ".join(seen)
         return CheckOutcome(
             [

@@ -9,7 +9,7 @@ import random
 import time
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from probe.engine.budget import Budget
 from probe.engine.crash import CrashTracker, TargetCrashed, TargetUnstable
@@ -24,6 +24,9 @@ from probe.wire.session import Exchange, Session
 from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpResult
 from probe.wire.transport_stdio import StdioTransport
 
+if TYPE_CHECKING:
+    from probe.sandbox.fixtures import FixtureState, StateDiff
+
 LIVENESS_TIMEOUT_S = 5.0
 TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
 _STDERR_TAIL_BYTES = 4096
@@ -31,6 +34,10 @@ _STDERR_TAIL_BYTES = 4096
 
 class Fixtures(Protocol):
     async def reset(self) -> None: ...
+
+    async def snapshot(self) -> "FixtureState": ...
+
+    def diff(self, a: "FixtureState", b: "FixtureState") -> "StateDiff": ...
 
 
 class Judge(Protocol):
@@ -106,6 +113,8 @@ class ScanContext:
         self.current_check: str | None = None
         self.calls = 0  # calls made by the current check
         self._baselines: dict[str, CallResult | None] = {}
+        # Work shared by several checks (e.g. the generated-input campaign), keyed by its owner.
+        self.scratch: dict[str, Any] = {}
         self._dead_for_good = False
         self._retired: list[Any] = []  # transports of crashed instances, kept for their events
 
@@ -253,6 +262,11 @@ class ScanContext:
     def baseline(self, tool: str) -> CallResult | None:
         """The first successful valid call of ``tool``, or None if there is none (yet)."""
         return self._baselines.get(tool)
+
+    def record_baseline(self, tool: str, result: CallResult) -> None:
+        """Remember a successful valid call made elsewhere (the first one wins)."""
+        if result.ok and self._baselines.get(tool) is None:
+            self._baselines[tool] = result
 
     async def establish_baseline(
         self, tool: ToolInfo, arguments: Mapping[str, Any]

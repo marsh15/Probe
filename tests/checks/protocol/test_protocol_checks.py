@@ -605,3 +605,23 @@ async def test_error_code_check_sends_its_own_invalid_params_request(tmp_path: P
         sent = [r["body"] for r in scan.ctx.trace_records() if r["dir"] == "c2s"]
     assert result.status is Status.PASS
     assert any(m.get("method") == "tools/call" and "name" not in m["params"] for m in sent)
+
+
+def test_a_response_is_paired_with_the_latest_request_that_has_its_id() -> None:
+    """After a restart the ids start again; an old tools/list must not label a new tools/call."""
+    from types import SimpleNamespace
+
+    from probe.checks.protocol._support import response_methods
+
+    def rec(seq: int, direction: str, **body: object) -> dict[str, object]:
+        return {"seq": seq, "dir": direction, "body": {"jsonrpc": "2.0", **body}}
+
+    records = [
+        rec(1, "c2s", id=1, method="tools/list"),
+        rec(2, "s2c", id=1, result={}),
+        rec(3, "c2s", id=1, method="tools/call"),  # a restarted target: the ids begin again
+        rec(4, "s2c", id=1, result={}),
+        {"seq": 5, "dir": "s2c", "instance": "fresh", "body": {"id": 1, "result": {}}},
+    ]
+    ctx = SimpleNamespace(trace_records=lambda: records)
+    assert response_methods(ctx) == {2: "tools/list", 4: "tools/call"}  # type: ignore[arg-type]
