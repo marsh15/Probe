@@ -40,7 +40,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T02 | Wire: JSON-RPC, stdio transport, recorder | done |
 | T03 | Wire: HTTP transport and SSE | done |
 | T04 | Session and era negotiation | done |
-| T05 | Reference server (clean) and bug framework | todo |
+| T05 | Reference server (clean) and bug framework | done, Docker build not yet verified |
 | T06 | Oracle tests against the official SDK | todo |
 | T07 | Check framework and scan engine | todo |
 | T08 | Runners: local stdio and URL | todo |

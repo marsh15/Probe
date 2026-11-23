@@ -1,0 +1,31 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "refserver"
+version = "0.1.0"
+description = "Probe reference MCP server: clean by construction, with switchable injected bugs"
+requires-python = ">=3.12"
+license = { text = "Apache-2.0" }
+dependencies = [
+  "mcp>=2.3,<3",
+  "httpx>=0.28",
+  "uvicorn>=0.30",
+  "starlette",
+  "anyio>=4.5",
+  "pydantic>=2.9",
+]
+
+[project.scripts]
+refserver = "refserver.__main__:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/refserver"]
+
+[dependency-groups]
+dev = ["pytest", "pytest-timeout"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+timeout = 120
