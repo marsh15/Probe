@@ -9,6 +9,7 @@ from probe.engine.budget import Budget
 from probe.engine.outcomes import ToolInfo, ToolKind, Transport
 from probe.runners.base import RunnerState
 from probe.wire.errors import TransportClosed
+from probe.wire.recorder import Recorder
 from probe.wire.session import Session
 from probe.wire.transport_base import Transport as WireTransport
 from tests.wire.fake_eras import EraServer, Reply, ScriptedTransport, result
@@ -46,7 +47,9 @@ class FakeRunner:
         self,
         factory: Callable[[], EraServer] = DyingServer,
         kind: Transport = Transport.STDIO,
+        recorder: Recorder | None = None,
     ) -> None:
+        self._recorder = recorder
         self.transport_kind = kind
         self._factory = factory
         self.restarts = 0
@@ -56,7 +59,7 @@ class FakeRunner:
 
     def _new(self) -> ScriptedTransport:
         server = self._factory()
-        transport = ScriptedTransport(server)
+        transport = ScriptedTransport(server, self._recorder)
         if isinstance(server, DyingServer):
             server.transport = transport
         self.transports.append(transport)

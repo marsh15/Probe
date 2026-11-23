@@ -451,3 +451,41 @@ async def test_closed_transport_stops_the_session(connect: Connect) -> None:
     await session.close()
     with pytest.raises(TransportClosed):
         await session.request("tools/list")
+
+
+async def test_exchange_reports_the_http_status_next_to_the_response(connect_http: Connect) -> None:
+    server = EraServer()
+    session = await Session.open(await connect_http(server), **FAST)
+    outcome = await session.exchange("tools/list", meta={PV: "1999-01-01"})
+    assert isinstance(outcome.response, ErrorResponse)
+    assert outcome.response.error.code == -32022
+    assert outcome.http is not None
+    assert outcome.http.status == 400
+    # The header follows the version in the body, so only the version is wrong.
+    sent = server.received[-1][1]
+    assert sent is not None
+    assert sent["mcp-protocol-version"] == "1999-01-01"
+
+
+async def test_exchange_has_no_http_part_over_stdio_and_survives_silence(connect: Connect) -> None:
+    server = EraServer()
+    session = await Session.open(await connect(server), **FAST)
+    ok = await session.exchange("tools/list")
+    assert ok.response is not None and not ok.timed_out
+    server.legacy_probe = "silent"
+    server.modern = False  # now every modern request goes unanswered
+    silent = await session.exchange("tools/list", timeout=0.2)
+    assert silent.response is None and silent.timed_out
+
+
+async def test_exchange_turns_an_http_failure_into_a_result(connect_http: Connect) -> None:
+    class Failing(EraServer):
+        def _modern(self, id_: Any, method: str, *rest: Any) -> Reply | None:
+            if method == "server/discover":
+                return super()._modern(id_, method, *rest)
+            return Reply(status=500)
+
+    session = await Session.open(await connect_http(Failing()), **FAST)
+    outcome = await session.exchange("tools/list")
+    assert outcome.response is None
+    assert outcome.http is not None and outcome.http.status == 500

@@ -23,7 +23,7 @@ from probe.wire.headers import (
 from probe.wire.jsonrpc import METHOD_NOT_FOUND, Notification, Request, Response, ResultResponse
 from probe.wire.limits import DEFAULT_REQUEST_TIMEOUT_S, ERA_PROBE_TIMEOUT_S
 from probe.wire.transport_base import Transport
-from probe.wire.transport_http import HttpRequestFailed, HttpTransport
+from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpResult
 
 Era = Literal["modern", "legacy"]
 EraChoice = Literal["auto", "modern", "legacy"]
@@ -51,6 +51,15 @@ class NegotiationStep:
 
     action: str
     outcome: str
+
+
+@dataclass(frozen=True, slots=True)
+class Exchange:
+    """One request and everything seen of its answer (``http`` on HTTP transports)."""
+
+    response: Response | None  # None: no JSON-RPC response arrived (timeout, HTTP failure)
+    http: RawHttpResult | None = None
+    timed_out: bool = False
 
 
 class NegotiationFailed(WireError):
@@ -172,6 +181,42 @@ class Session:
                     raise
             await self._reinitialize()
         raise AssertionError("unreachable")  # pragma: no cover
+
+    async def exchange(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        timeout: float | None = None,  # noqa: ASYNC109 - the per-request deadline
+        meta: Mapping[str, Any] | None = None,
+    ) -> Exchange:
+        """Like ``request`` but never raises for a missing answer, and reports the HTTP side.
+
+        Checks use it to look at status codes and failures, not just at JSON-RPC results.
+        """
+        deadline = self._request_timeout if timeout is None else timeout
+        message = self._build(method, params, meta)
+        try:
+            response = await self.transport.request(message, deadline)
+        except RequestTimeout:
+            return Exchange(None, None, timed_out=True)
+        except HttpRequestFailed as exc:
+            return Exchange(None, exc.result)
+        http = self.transport.last_result if isinstance(self.transport, HttpTransport) else None
+        return Exchange(response, http)
+
+    def build_request(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        meta: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """A valid request for the current era with a fresh id, for tests that tamper with it."""
+        return self._build(method, params, meta)
+
+    def headers_for(self, message: Mapping[str, Any]) -> dict[str, str]:
+        """The headers a correct client would send with ``message`` (HTTP transports)."""
+        return self._headers_for(message)
 
     async def notify(self, method: str, params: Mapping[str, Any] | None = None) -> None:
         await self.transport.send(Notification(method, dict(params) if params else None).to_obj())
@@ -408,6 +453,14 @@ class Session:
         if self._wire is None:
             return {}
         era, version = self._wire
+        params = message.get("params")
+        meta = params.get("_meta") if isinstance(params, Mapping) else None
+        if (
+            era == "modern"
+            and isinstance(meta, Mapping)
+            and isinstance(meta.get(META_VERSION), str)
+        ):
+            version = meta[META_VERSION]  # a deliberately different version must match its header
         if era == "legacy":
             return {"MCP-Protocol-Version": version} if version >= _LEGACY_HEADER_SINCE else {}
         headers = {"MCP-Protocol-Version": version}

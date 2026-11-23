@@ -88,7 +88,13 @@ class Recorder:
             self._context = previous
 
     def record(
-        self, direction: Direction, transport: str, body: Any, *, http: HttpMeta | None = None
+        self,
+        direction: Direction,
+        transport: str,
+        body: Any,
+        *,
+        http: HttpMeta | None = None,
+        instance: str | None = None,
     ) -> int:
         """Append one record and return its sequence number."""
         if self._file is None:
@@ -107,6 +113,9 @@ class Recorder:
             "dir": direction,
             "transport": transport,
         }
+        if instance is not None:
+            # Traffic of a side instance (an era probe): analysis of the main one skips it.
+            record["instance"] = instance
         if http is not None:
             headers = {
                 name: self._redactor.redact_text(value)
@@ -117,6 +126,17 @@ class Recorder:
         record.update(self._context)
         # Context and header names can contain credentials too.
         return self._write(record)
+
+    def records(self) -> list[dict[str, Any]]:
+        """Everything recorded so far, oldest first (for passive checks that read the trace).
+
+        Bodies are as recorded: redacted, and cut at the per-record limit (a cut body is a string).
+        """
+        if self._file is None:
+            raise RuntimeError("recorder is closed")
+        self._file.flush()
+        with self.path.open("rb") as fh:
+            return [json.loads(line) for line in fh if line.strip()]
 
     def redact_text(self, text: str) -> str:
         """Redact a complete string before callers truncate their event excerpts."""

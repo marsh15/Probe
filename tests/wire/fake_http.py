@@ -25,6 +25,9 @@ class ServerState:
     seen: list[dict[str, Any]] = field(default_factory=list)
     # When set, POST /mcp is answered by this scripted server (see fake_eras.py).
     script: Any = None
+    # How POST /mcp treats input that is not a valid JSON-RPC message: "error" answers with
+    # -32700/-32600 and HTTP 400; "ignore" accepts it silently (202).
+    garbage: str = "error"
     replies: list[Any] = field(default_factory=list)
     reply_arrived: asyncio.Event = field(default_factory=asyncio.Event)
     stream_closed: asyncio.Event = field(default_factory=asyncio.Event)
@@ -197,7 +200,18 @@ def build_app(state: ServerState) -> Starlette:
         return JSONResponse({"method": request.method, "headers": dict(request.headers)})
 
     async def mcp(request: Request) -> Response:
-        message = await body_json(request)
+        raw = await request.body()
+        state.seen.append({"method": request.method, "headers": dict(request.headers), "body": raw})
+        try:
+            message = json.loads(raw)
+            bad = None if isinstance(message, dict) and message.get("jsonrpc") == "2.0" else -32600
+        except ValueError:
+            message, bad = None, -32700
+        if bad is not None:
+            if state.garbage == "ignore":
+                return Response(status_code=202)
+            error = {"jsonrpc": "2.0", "id": None, "error": {"code": bad, "message": "bad input"}}
+            return JSONResponse(error, status_code=400)
         reply = state.script.handle(message, {k.lower(): v for k, v in request.headers.items()})
         if reply is None:  # a server that never answers
             await asyncio.sleep(60)

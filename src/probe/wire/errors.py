@@ -76,6 +76,8 @@ class UnmatchedResponse(_Event):
     kind: Literal["unmatched_response"] = "unmatched_response"
     id: RequestId | None
     late: bool
+    # Set when the unmatched message is an error response (e.g. the reply to malformed input).
+    error_code: int | None = None
 
 
 class ProtocolViolation(_Event):

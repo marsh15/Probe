@@ -52,6 +52,11 @@ class CheckOutcome:
     def na(cls, reason: str) -> "CheckOutcome":
         return cls(status=Status.NA, reason=reason)
 
+    @classmethod
+    def error(cls, reason: str) -> "CheckOutcome":
+        """The check could not reach a verdict (never counted against the server)."""
+        return cls(status=Status.ERROR, reason=reason)
+
 
 class Check(ABC):
     meta: ClassVar[CheckMeta]

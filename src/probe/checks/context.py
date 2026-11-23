@@ -7,7 +7,7 @@ dying target is noticed, recorded, restarted and reconnected without each check 
 import contextlib
 import random
 import time
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
@@ -15,12 +15,13 @@ from probe.engine.budget import Budget
 from probe.engine.crash import CrashTracker, TargetCrashed, TargetUnstable
 from probe.engine.outcomes import CrashEvent, Mode, ToolInfo
 from probe.engine.outcomes import Era as EraEnum
-from probe.wire.errors import RequestTimeout, TransportClosed
+from probe.wire.errors import RequestTimeout, TransportClosed, WireEvent
 from probe.wire.jsonrpc import ErrorResponse, Response, ResultResponse
 from probe.wire.limits import request_timeout
 from probe.wire.recorder import Recorder
-from probe.wire.session import Session
-from probe.wire.transport_http import HttpRequestFailed
+from probe.wire.session import Exchange, Session
+from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpResult
+from probe.wire.transport_stdio import StdioTransport
 
 LIVENESS_TIMEOUT_S = 5.0
 TASKS_EXTENSION = "io.modelcontextprotocol/tasks"
@@ -102,6 +103,7 @@ class ScanContext:
         self.calls = 0  # calls made by the current check
         self._baselines: dict[str, CallResult | None] = {}
         self._dead_for_good = False
+        self._retired: list[Any] = []  # transports of crashed instances, kept for their events
 
     # --- what was negotiated -----------------------------------------------------------
 
@@ -156,10 +158,7 @@ class ScanContext:
         case_id: str | None = None,
     ) -> Response:
         """One budgeted request. A dead target is recorded and restarted, then TargetCrashed."""
-        if self._dead_for_good:
-            raise TargetUnstable("target is unstable and cannot be restarted again")
-        self.budget.take()
-        self.calls += 1
+        self.spend()
         deadline = timeout or request_timeout(self.config.mode, self.config.timeout_scale)
         try:
             return await self.client.request(method, params, timeout=deadline, meta=meta)
@@ -183,6 +182,67 @@ class ScanContext:
             case_id=case_id,
         )
         return CallResult(response, (time.monotonic() - started) * 1000)
+
+    async def exchange(
+        self,
+        method: str,
+        params: Mapping[str, Any] | None = None,
+        *,
+        timeout: float | None = None,  # noqa: ASYNC109 - the per-request deadline
+        meta: Mapping[str, Any] | None = None,
+        case_id: str | None = None,
+    ) -> Exchange:
+        """A budgeted request that reports the HTTP status and never raises for no answer."""
+        self.spend()
+        deadline = timeout or request_timeout(self.config.mode, self.config.timeout_scale)
+        try:
+            return await self.client.exchange(method, params, timeout=deadline, meta=meta)
+        except TransportClosed as exc:
+            raise TargetCrashed(await self._handle_death(case_id, reason=exc.reason)) from None
+
+    async def raw_http(
+        self,
+        headers: Mapping[str, str],
+        body: bytes,
+        *,
+        method: str = "POST",
+        timeout: float = 10.0,  # noqa: ASYNC109 - the exchange deadline
+    ) -> RawHttpResult:
+        """Send exactly these headers and bytes (HTTP targets only); budgeted, still recorded."""
+        transport = self.client.transport
+        if not isinstance(transport, HttpTransport):
+            raise TypeError("raw_http needs an HTTP target")
+        self.spend()
+        return await transport.raw_http(headers, body, method=method, timeout=timeout)
+
+    async def raw_stdio(self, data: bytes, *, case_id: str | None = None) -> None:
+        """Write exactly these bytes to the server's stdin (stdio targets only)."""
+        transport = self.client.transport
+        if not isinstance(transport, StdioTransport):
+            raise TypeError("raw_stdio needs a stdio target")
+        self.spend()
+        try:
+            await transport.raw_stdio_line(data)
+        except TransportClosed as exc:
+            raise TargetCrashed(await self._handle_death(case_id, reason=exc.reason)) from None
+
+    def spend(self, n: int = 1) -> None:
+        """Account for ``n`` calls made outside the context (e.g. on a fresh instance)."""
+        if self._dead_for_good:
+            raise TargetUnstable("target is unstable and cannot be restarted again")
+        self.budget.take(n)
+        self.calls += n
+
+    def wire_events(self) -> list[WireEvent]:
+        """Observations about server behavior from every instance of this scan, oldest first."""
+        events: list[WireEvent] = []
+        for transport in (*self._retired, self.client.transport):
+            events.extend(transport.events())
+        return events
+
+    def trace_records(self) -> list[dict[str, Any]]:
+        """The scan's recorded wire messages so far (empty without a recorder)."""
+        return self.trace.records() if self.trace is not None else []
 
     # --- baselines (the main false-positive guard) -------------------------------------
 
@@ -217,6 +277,18 @@ class ScanContext:
         except RequestTimeout:
             return False
         return False
+
+    async def survives(self, action: Callable[[], Awaitable[object]]) -> bool:
+        """Run ``action``; True if the target is still alive afterwards.
+
+        For cases sent as raw bytes: run it on the restarted target after a crash to see whether
+        the same input kills it again, which is what makes a crash attributable to that input.
+        """
+        try:
+            await action()
+        except TargetCrashed:
+            return False
+        return await self.liveness()
 
     async def liveness(self) -> bool:
         """Is the target still answering? Any reply, even an error, counts as alive.
@@ -256,6 +328,7 @@ class ScanContext:
         self.client.register_tools(
             [{"name": t.name, "inputSchema": t.input_schema} for t in self.tools]
         )
+        self._retired.append(old.transport)
         with contextlib.suppress(Exception):
             await old.transport.close()
 

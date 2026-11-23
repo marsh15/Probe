@@ -100,6 +100,8 @@ class Transport(ABC):
         self.events_dropped = 0
         self.notifications_dropped = 0
         self.recording_error: str | None = None
+        # Set on transports that are not the scan's main instance, so their traffic is labeled.
+        self.instance: str | None = None
 
     @abstractmethod
     async def send(self, obj: Mapping[str, Any]) -> None:
@@ -174,7 +176,7 @@ class Transport(ABC):
     def _record(self, direction: Direction, body: Any, http: HttpMeta | None = None) -> None:
         if self.recorder is not None:
             try:
-                self.recorder.record(direction, self.name, body, http=http)
+                self.recorder.record(direction, self.name, body, http=http, instance=self.instance)
             except (OSError, ValueError, RuntimeError, TypeError) as exc:
                 self._recording_failed(exc)
 
@@ -263,7 +265,8 @@ class Transport(ABC):
             fingerprint = self._id_key(response.id)
             late = fingerprint in self._timed_out
             self._timed_out.pop(fingerprint, None)
-        self._emit(UnmatchedResponse(id=response.id, late=late))
+        code = response.error.code if isinstance(response, ErrorResponse) else None
+        self._emit(UnmatchedResponse(id=response.id, late=late, error_code=code))
 
     async def _answer(self, request: Request) -> None:
         reply: Response

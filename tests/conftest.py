@@ -11,16 +11,20 @@ import subprocess
 import sys
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import pytest
 
-REFSERVER_SRC = Path(__file__).resolve().parents[2] / "reference" / "refserver" / "src"
+REFSERVER_SRC = Path(__file__).resolve().parents[1] / "reference" / "refserver" / "src"
 
 
-def refserver_env(data: Path) -> dict[str, str]:
+def refserver_env(data: Path, bugs: str = "") -> dict[str, str]:
+    """Environment for a refserver process; ``bugs`` is a PROBE_REF_BUGS list (clean if empty)."""
     env = {**os.environ, "PYTHONPATH": str(REFSERVER_SRC), "REFSERVER_DATA": str(data)}
-    env.pop("PROBE_REF_BUGS", None)  # the oracle compares against the clean server
+    env.pop("PROBE_REF_BUGS", None)
+    if bugs:
+        env["PROBE_REF_BUGS"] = bugs
     return env
 
 
@@ -42,14 +46,15 @@ def stdio_command(seeded_data: Path) -> tuple[list[str], dict[str, str]]:
     return [sys.executable, "-m", "refserver", "stdio"], refserver_env(seeded_data)
 
 
-@pytest.fixture(scope="session")
-def http_url(seeded_data: Path) -> Iterator[str]:
+@contextmanager
+def launch_http(data: Path, bugs: str = "") -> Iterator[str]:
+    """Run ``refserver http`` on a free port (optionally with injected bugs); yield its /mcp URL."""
     with socket.socket() as probe:
         probe.bind(("127.0.0.1", 0))
         port = probe.getsockname()[1]
     server = subprocess.Popen(  # noqa: S603 - fixed argv, test interpreter
         [sys.executable, "-m", "refserver", "http", "--host", "127.0.0.1", "--port", str(port)],
-        env=refserver_env(seeded_data),
+        env=refserver_env(data, bugs),
         stderr=subprocess.PIPE,
     )
     try:
@@ -74,3 +79,9 @@ def http_url(seeded_data: Path) -> Iterator[str]:
             server.kill()
         if server.stderr:
             server.stderr.close()
+
+
+@pytest.fixture(scope="session")
+def http_url(seeded_data: Path) -> Iterator[str]:
+    with launch_http(seeded_data) as url:
+        yield url

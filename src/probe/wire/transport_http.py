@@ -118,6 +118,8 @@ class HttpTransport(Transport):
         self._max_stream_events = max_stream_events
         # ``Mcp-Session-Id`` from the server, replayed on later POSTs (legacy era only).
         self.session_id: str | None = None
+        # The exchange of the most recent send(); meaningful when requests are not concurrent.
+        self.last_result: RawHttpResult | None = None
         # Per-message headers (Mcp-Method and friends) supplied by whoever knows the protocol era.
         self.message_headers: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
         self._close_result: CloseResult | None = None
@@ -135,6 +137,7 @@ class HttpTransport(Transport):
         result = await self.post(
             message, headers=extra, timeout=None if is_request else HTTP_SEND_TIMEOUT_S
         )
+        self.last_result = result
         if not is_request:
             if result.status is None:
                 raise HttpRequestFailed(None, result.error or "no HTTP response", result)
@@ -143,6 +146,22 @@ class HttpTransport(Transport):
             return
         reason = result.aborted or result.error or "no response with the request id"
         raise HttpRequestFailed(result.status, reason, result)
+
+    def base_headers(self) -> dict[str, str]:
+        """The headers every POST carries: content type, accept, configured headers, session id.
+
+        Negative tests start from these, then drop or change the header under test.
+        """
+        session = {"Mcp-Session-Id": self.session_id} if self.session_id is not None else {}
+        return _merge(
+            {
+                "Content-Type": "application/json",
+                "Accept": "application/json, text/event-stream",
+                "Accept-Encoding": "identity",
+            },
+            self._headers,
+            session,
+        )
 
     async def post(
         self,
@@ -156,17 +175,7 @@ class HttpTransport(Transport):
         Responses (including ones carried by a non-2xx status) are routed exactly as for
         ``request()``; nothing raises for an HTTP failure, the result describes it.
         """
-        session = {"Mcp-Session-Id": self.session_id} if self.session_id is not None else {}
-        merged = _merge(
-            {
-                "Content-Type": "application/json",
-                "Accept": "application/json, text/event-stream",
-                "Accept-Encoding": "identity",
-            },
-            self._headers,
-            session,
-            headers or {},
-        )
+        merged = _merge(self.base_headers(), headers or {})
         return await self._exchange(
             "POST", merged, encode(message)[:-1], dict(message), timeout, track_session=True
         )

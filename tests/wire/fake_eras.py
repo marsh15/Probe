@@ -12,6 +12,7 @@ from typing import Any, Literal
 from probe.wire.errors import TransportClosed
 from probe.wire.headers import decode_header_value
 from probe.wire.jsonrpc import encode, parse_line
+from probe.wire.recorder import Recorder
 from probe.wire.transport_base import CloseResult, Transport
 
 PV = "io.modelcontextprotocol/protocolVersion"
@@ -115,6 +116,7 @@ class EraServer:
                 {
                     "supportedVersions": self._supported(),
                     "capabilities": {"tools": {}},
+                    "resultType": "complete",
                     "instructions": "scripted",
                     "_meta": {"io.modelcontextprotocol/serverInfo": {"name": "modern-fake"}},
                     "ttlMs": 0,
@@ -193,12 +195,13 @@ class ScriptedTransport(Transport):
 
     name = "stdio"
 
-    def __init__(self, server: EraServer) -> None:
-        super().__init__()
+    def __init__(self, server: EraServer, recorder: Recorder | None = None) -> None:
+        super().__init__(recorder=recorder)
         self.server = server
         self._open = True
 
     async def send(self, obj: Mapping[str, Any]) -> None:
+        self._record("c2s", dict(obj))  # like the real transports
         reply = self.server.handle(dict(obj), None)
         if reply is not None and reply.body is not None:
             self._receive(parse_line(encode(reply.body)))
@@ -206,6 +209,10 @@ class ScriptedTransport(Transport):
     def push(self, obj: Mapping[str, Any]) -> None:
         """Deliver a message the server sends unprompted."""
         self._receive(parse_line(encode(obj)))
+
+    def push_raw(self, data: bytes) -> None:
+        """Deliver a line the server sends unprompted, valid JSON-RPC or not."""
+        self._receive(parse_line(data))
 
     async def close(self) -> CloseResult:
         self._open = False

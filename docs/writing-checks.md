@@ -53,3 +53,16 @@ as write) only when the run has `--allow-side-effects` or a sandbox. Local and U
 no fixtures, so a check that needs them lists `fixtures` in `requires` and is skipped there.
 A URL target is never restarted or stopped by Probe, and Probe refuses non-local hosts unless
 `--i-have-permission` is given.
+
+## Seeing HTTP status, raw bytes and the trace
+
+`ctx.exchange(method, params)` is a budgeted request that never raises for a missing answer and
+returns the HTTP status next to the JSON-RPC response. For negative tests, `ctx.raw_http(headers,
+body)` (HTTP) and `ctx.raw_stdio(bytes)` (stdio) send exactly what you give them; build the valid
+request with `ctx.client.build_request` and `ctx.client.headers_for`, then break one thing. Passive
+checks read `ctx.trace_records()` and `ctx.wire_events()` (events survive restarts). Traffic from a
+fresh instance opened for an era probe is labeled with an `instance` tag and must be excluded
+from analysis of the main instance (`main_records` in the protocol helpers does this).
+
+When a malformed input makes the server stop answering, do not fail on the crash alone: use
+`ctx.survives(...)` to re-send the same input after the restart, and fail only if it dies again.
