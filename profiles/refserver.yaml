@@ -1,0 +1,8 @@
+# The reference server in the sandbox, over stdio. The image is built from reference/refserver.
+version: 1
+name: refserver
+target:
+  transport: stdio
+  image: probe-refserver:dev
+  command: ["refserver", "stdio"]
+notes: The clean reference server. Injected bugs are switched on with PROBE_REF_BUGS.

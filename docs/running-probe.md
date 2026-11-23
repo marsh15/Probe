@@ -14,7 +14,7 @@ and hostile requests, so only test servers you own or may test).
 | `--mode quick\|standard\|deep` | How much to spend (default standard). Deep adds checks such as `protocol.era_parity`. |
 | `--era auto\|modern\|legacy` | `auto` probes `server/discover` and falls back to `initialize`. |
 | `--only GLOB`, `--skip GLOB` | Select checks by id, e.g. `--skip 'schema.*'`. Left-out checks appear in the report as skipped. |
-| `--profile FILE` | A YAML profile: `target.name`, `target.env`, `checks.skip`, `tools.<name>.kind`. |
+| `--profile FILE` | A YAML profile (see [profiles.md](profiles.md)). Its `target.command` is used when nothing follows `--`. |
 | `--target-env KEY=VALUE` | Set an environment variable for the server (merged over the profile). |
 | `--secret-env NAME` | Treat this variable's value as a secret: it is redacted from every artifact. |
 | `--allow-side-effects` | Also call tools that may write. Without it only read tools are called. |

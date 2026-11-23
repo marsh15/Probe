@@ -112,7 +112,7 @@ def test_quiet_hides_findings_and_verbose_lists_every_check(tmp_path: Path) -> N
 
 def test_target_env_and_profile_reach_the_server(tmp_path: Path) -> None:
     profile = tmp_path / "p.yaml"
-    profile.write_text("target: {name: from-profile}\n")
+    profile.write_text("name: from-profile\n")
     result = run(tmp_path, "--profile", str(profile), "--fail-on", "none")
     assert result.exit_code == 0
     assert report(tmp_path)["target"]["name"] == "from-profile"

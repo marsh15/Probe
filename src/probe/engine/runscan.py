@@ -7,9 +7,10 @@ answers still gets a report (status ``target_unavailable``) so a CI run leaves e
 
 import contextlib
 import fnmatch
+import os
 import platform
 import uuid
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -22,7 +23,13 @@ from probe.checks.base import Check
 from probe.checks.context import ScanConfig, ScanContext
 from probe.checks.registry import PHASE_ORDER, REGISTRY
 from probe.config.modes import settings_for
-from probe.config.profile import Profile
+from probe.config.profile import (
+    Profile,
+    ProfileError,
+    ResolvedProfile,
+    resolve_profile,
+    scan_token,
+)
 from probe.engine.budget import Budget
 from probe.engine.discovery import list_tools, tool_infos
 from probe.engine.outcomes import CheckResult, Mode, Status, Transport
@@ -89,17 +96,25 @@ class RunConfig:
 
 
 def select_checks(
-    only: Sequence[str], skip: Sequence[str]
+    only: Sequence[str], skip: Sequence[str], profile_skip: Mapping[str, str] | None = None
 ) -> tuple[list[type[Check]], dict[str, str]]:
-    """The checks to run and why each of the others is left out (``id -> reason``)."""
+    """The checks to run and why each of the others is left out (``id -> reason``).
+
+    ``profile_skip`` maps a check id or glob to the reason the profile gives for skipping it.
+    """
     selected: list[type[Check]] = []
     excluded: dict[str, str] = {}
     for check in REGISTRY:
         check_id = check.meta.id
+        profile_reason = next(
+            (r for g, r in (profile_skip or {}).items() if fnmatch.fnmatchcase(check_id, g)), None
+        )
         if only and not any(fnmatch.fnmatchcase(check_id, g) for g in only):
             excluded[check_id] = "excluded by --only"
         elif any(fnmatch.fnmatchcase(check_id, g) for g in skip):
-            excluded[check_id] = "excluded by --skip or the profile"
+            excluded[check_id] = "excluded by --skip"
+        elif profile_reason is not None:
+            excluded[check_id] = f"skipped by the profile: {profile_reason}"
         else:
             selected.append(check)
     return selected, excluded
@@ -109,29 +124,39 @@ def _platform() -> str:
     return f"{platform.system().lower()}/{platform.machine()}"
 
 
-def _make_runner(cfg: RunConfig, recorder: Recorder) -> Runner:
-    if cfg.url is not None and cfg.command is None:
+def _make_runner(cfg: RunConfig, resolved: ResolvedProfile, recorder: Recorder) -> Runner:
+    # A command after `--` wins; otherwise the profile's own command (local stdio) is used.
+    command = cfg.command
+    if command is None and cfg.url is None and resolved.profile.target.image is None:
+        command = resolved.profile.target.command
+    if cfg.url is not None and command is None:
         return UrlRunner(cfg.url, i_have_permission=cfg.i_have_permission, recorder=recorder)
-    if cfg.command is not None and cfg.url is None:
-        env = {**cfg.profile.target.env, **cfg.target_env}
-        return LocalStdioRunner(cfg.command, env=env, recorder=recorder)
+    if command is not None and cfg.url is None:
+        return LocalStdioRunner(command, env={**resolved.env, **cfg.target_env}, recorder=recorder)
     raise UsageError("give either --url or a target command after --, not both or neither")
 
 
-def _secrets(cfg: RunConfig) -> list[str]:
-    import os
-
+def _resolve(cfg: RunConfig) -> tuple[ResolvedProfile, dict[str, str]]:
+    """The profile with ``{token}`` and ``{secret:NAME}`` filled in, and the host environment."""
     environ = cfg.environ if cfg.environ is not None else dict(os.environ)
-    merged = {**environ, **cfg.profile.target.env, **cfg.target_env}
+    try:
+        token = scan_token(cfg.seed, cfg.profile.hash)
+        return resolve_profile(cfg.profile, token=token, environ=environ), environ
+    except ProfileError as exc:
+        raise UsageError(str(exc)) from exc
+
+
+def _secrets(cfg: RunConfig, resolved: ResolvedProfile, environ: Mapping[str, str]) -> list[str]:
+    merged = {**environ, **resolved.env, **cfg.target_env}
     missing = [name for name in cfg.secret_env if name not in merged]
     if missing:
         raise UsageError(f"--secret-env names unset variables: {', '.join(missing)}")
-    return [merged[name] for name in cfg.secret_env]
+    return [*(merged[name] for name in cfg.secret_env), *resolved.secrets]
 
 
 def _target_name(cfg: RunConfig) -> str:
-    if cfg.profile.target.name:
-        return cfg.profile.target.name
+    if cfg.profile.name:
+        return cfg.profile.name
     if cfg.url:
         return cfg.url
     return Path(cfg.command[0]).name if cfg.command else "target"
@@ -157,14 +182,17 @@ def _key(cfg: RunConfig, profile_hash: str) -> str:
 async def run_scan(cfg: RunConfig) -> ScanReport:
     settings = settings_for(cfg.mode, cfg.timeout_scale)
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
-    secrets = _secrets(cfg)
+    resolved, environ = _resolve(cfg)
+    secrets = _secrets(cfg, resolved, environ)
     recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=secrets)
-    runner = _make_runner(cfg, recorder)
+    runner = _make_runner(cfg, resolved, recorder)
     started = datetime.now(UTC)
     ctx: ScanContext | None = None
     try:
         try:
-            ctx = await _connect(cfg, runner, recorder, settings.scan_calls, settings.wall_clock_s)
+            ctx = await _connect(
+                cfg, resolved, runner, recorder, settings.scan_calls, settings.wall_clock_s
+            )
         except PermissionRequired as exc:
             raise UsageError(str(exc)) from exc
         except (
@@ -197,7 +225,12 @@ def _redacted(report: ScanReport, secrets: Sequence[str]) -> ScanReport:
 
 
 async def _connect(
-    cfg: RunConfig, runner: Runner, recorder: Recorder, calls: int, seconds: float
+    cfg: RunConfig,
+    resolved: ResolvedProfile,
+    runner: Runner,
+    recorder: Recorder,
+    calls: int,
+    seconds: float,
 ) -> ScanContext:
     transport = await runner.start()
     stdio = runner.transport_kind is Transport.STDIO
@@ -220,17 +253,20 @@ async def _connect(
             timeout_scale=cfg.timeout_scale,
             target_identity={"command": list(cfg.command or []), "url": cfg.url},
         ),
-        tools=tool_infos(listing.tools, cfg.profile.classifier_view()),
+        tools=tool_infos(
+            listing.tools,
+            cfg.profile.classifier_view([str(t.get("name")) for t in listing.tools]),
+        ),
         budget=Budget(calls, seconds),
         listing=listing,
-        profile=cfg.profile,
+        profile=resolved.profile,
         trace=recorder,
         second_instance_supported=not isinstance(runner, UrlRunner),
     )
 
 
 async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime) -> ScanReport:
-    selected, excluded = select_checks(cfg.only, [*cfg.skip, *cfg.profile.checks.skip])
+    selected, excluded = select_checks(cfg.only, cfg.skip, cfg.profile.checks.skip)
     results = await run_checks(ctx, selected)
     results += [
         CheckResult(check_id=check_id, status=Status.SKIPPED, reason=reason)

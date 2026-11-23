@@ -1,8 +1,7 @@
-# Probe's reference server run as a local stdio process (no sandbox); used by the fast tests.
+# Probe's reference server as a local stdio process (no sandbox); used by the fast tests.
 # Usage: probe run --profile profiles/refserver-local.yaml -- <command that starts refserver>
+version: 1
+name: refserver
 target:
-  name: refserver
-  env: {}
-checks:
-  skip: []
-tools: {}
+  transport: stdio
+notes: The clean reference server. Injected bugs are switched on with PROBE_REF_BUGS.

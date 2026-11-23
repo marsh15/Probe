@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Regression tests for hostile server output, late replies and trace-write failures
 - Corpus of 60 MCP tool input schemas with pinned sources and upstream license texts
 - Streamable HTTP client with an incremental SSE parser, size and event limits, and raw HTTP access for negative tests
+- Full profile model with `{token}` and `{secret:NAME}` interpolation, tool-override globs and justified check skips, `probe profile validate/init`, the three reference-server profiles and `schemas/profile.schema.json` (see docs/profiles.md)
 - `probe checks list/show` and `docs/checks.md`, generated from the checks' own metadata and kept honest by a staleness test and a CI step
 - `probe run`: scans a stdio command or a URL, writes `report.json`, the redacted trace and the server's stderr, prints a per-family summary and the findings, and exits 0/1/2/3/4 (see docs/running-probe.md)
 - Fixes from the M1 review: secrets are removed from the whole report and the console (not only the trace), a failed restart keeps the findings gathered so far, discovery is bounded in total size, a spent budget keeps findings already made, truncated trace bodies keep a summary so passive checks cannot be blinded by large responses, and server text can no longer inject console markup

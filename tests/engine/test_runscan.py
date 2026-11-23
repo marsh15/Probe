@@ -64,7 +64,7 @@ async def test_only_and_skip_select_checks_and_say_why_the_others_were_left_out(
 ) -> None:
     report = await run_scan(config(tmp_path, only=["protocol.*"], skip=["protocol.stdout_clean"]))
     by_id = {r.check_id: r for r in report.results}
-    assert by_id["protocol.stdout_clean"].reason == "excluded by --skip or the profile"
+    assert by_id["protocol.stdout_clean"].reason == "excluded by --skip"
     assert by_id["schema.tools_list_valid"].reason == "excluded by --only"
     assert by_id["protocol.discover_implemented"].status is Status.PASS
     assert all(
@@ -73,12 +73,12 @@ async def test_only_and_skip_select_checks_and_say_why_the_others_were_left_out(
 
 
 async def test_the_profile_can_skip_checks_and_override_tool_kinds(tmp_path: Path) -> None:
-    profile = parse_profile("checks: {skip: ['schema.*']}\ntarget: {name: demo}")
+    profile = parse_profile("name: demo\nchecks: {skip: {'schema.*': 'not relevant here'}}")
     report = await run_scan(config(tmp_path, profile=profile))
     assert report.target.name == "demo"
     assert report.target.profile_hash == profile.hash
     assert all(
-        r.reason == "excluded by --skip or the profile"
+        r.reason == "skipped by the profile: not relevant here"
         for r in report.results
         if r.check_id.startswith("schema")
     )
@@ -225,3 +225,73 @@ async def test_a_target_that_cannot_be_restarted_keeps_the_findings_so_far(
         "target_unstable",
     )
     assert ctx.crashes.abandoned
+
+
+# --- the full profile in a scan ----------------------------------------------------------
+
+
+def with_profile(tmp_path: Path, yaml_text: str, **kwargs: Any) -> RunConfig:
+    return RunConfig(out_dir=tmp_path / "out", profile=parse_profile(yaml_text), **kwargs)
+
+
+async def test_the_profile_command_is_used_when_none_is_given(tmp_path: Path) -> None:
+    import json as _json
+
+    command = _json.dumps(mini_argv())
+    report = await run_scan(
+        with_profile(tmp_path, f"name: from-profile\ntarget: {{command: {command}}}")
+    )
+    assert report.scan.status == "completed" and report.target.name == "from-profile"
+
+
+async def test_a_command_after_the_dashes_beats_the_profile_command(tmp_path: Path) -> None:
+    cfg = with_profile(tmp_path, 'target: {command: ["/no/such/binary"]}', command=mini_argv())
+    assert (await run_scan(cfg)).scan.status == "completed"
+
+
+async def test_the_token_reaches_the_server_and_stays_visible_as_a_fake(tmp_path: Path) -> None:
+    profile = 'target: {env: {PROBE_TOOL_NAME: "fake_{token}"}}'
+    report = await run_scan(with_profile(tmp_path, profile, command=mini_argv()))
+    names = [t.name for t in report.tools]
+    assert len(names) == 1 and names[0].startswith("fake_") and len(names[0]) > len("fake_")
+
+
+async def test_a_host_secret_in_the_profile_is_redacted_everywhere(tmp_path: Path) -> None:
+    secret = "host-secret-value-77"
+    profile = 'target: {env: {PROBE_TOOL_NAME: "{secret:DEMO_HOST_SECRET}"}}'
+    cfg = with_profile(tmp_path, profile, command=mini_argv(), environ={"DEMO_HOST_SECRET": secret})
+    report = await run_scan(cfg)
+    assert secret not in report.model_dump_json() and "[REDACTED]" in report.model_dump_json()
+    with gzip.open(tmp_path / "out" / "trace.jsonl.gz", "rt") as fh:
+        assert secret not in fh.read()
+
+
+async def test_the_scan_key_ignores_the_token_but_not_the_profile(tmp_path: Path) -> None:
+    profile = 'target: {env: {PROBE_TOOL_NAME: "t_{token}"}}'
+    a = await run_scan(with_profile(tmp_path / "a", profile, command=mini_argv()))
+    b = await run_scan(with_profile(tmp_path / "b", profile, command=mini_argv()))
+    c = await run_scan(
+        with_profile(tmp_path / "c", profile + "\nnotes: changed", command=mini_argv())
+    )
+    assert a.scan.scan_key == b.scan.scan_key != c.scan.scan_key
+    assert a.target.profile_hash == b.target.profile_hash
+
+
+async def test_profile_problems_are_usage_errors(tmp_path: Path) -> None:
+    with pytest.raises(UsageError, match="NOT_SET"):
+        await run_scan(
+            with_profile(
+                tmp_path, "target: {env: {A: '{secret:NOT_SET}'}}", command=mini_argv(), environ={}
+            )
+        )
+    with pytest.raises(UsageError, match="either --url or"):  # an image-only profile has no command
+        await run_scan(with_profile(tmp_path / "x", "target: {image: probe-refserver:dev}"))
+
+
+async def test_tool_override_globs_reach_the_classifier(tmp_path: Path) -> None:
+    profile = "tools: {'delete_*': {kind: read}}"
+    cfg = with_profile(
+        tmp_path, profile, command=mini_argv(), target_env={"PROBE_TOOL_NAME": "delete_thing"}
+    )
+    tool = (await run_scan(cfg)).tools[0]
+    assert (tool.kind, tool.classification_source) == ("read", "profile")

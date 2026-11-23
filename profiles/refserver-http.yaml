@@ -1,0 +1,18 @@
+# The reference server in the sandbox, over streamable HTTP with two bearer identities.
+# {token} is one value per scan, shared by the server's configuration and Probe's credentials,
+# so both sides agree on who alice and bob are. bob does not see purge_notes.
+version: 1
+name: refserver
+target:
+  transport: http
+  image: probe-refserver:dev
+  command: ["refserver", "http", "--port", "3000"]
+  http: {port: 3000, path: /mcp}
+  env:
+    REFSERVER_TOKENS: "alice:probe_fake_alice_{token},bob:probe_fake_bob_{token}"
+auth:
+  type: bearer
+  identities:
+    - {name: alice, token: "probe_fake_alice_{token}"}
+    - {name: bob, token: "probe_fake_bob_{token}"}
+notes: The clean reference server over HTTP. Injected bugs are switched on with PROBE_REF_BUGS.

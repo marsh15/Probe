@@ -1,0 +1,550 @@
+{
+  "$defs": {
+    "AuthSection": {
+      "additionalProperties": false,
+      "properties": {
+        "identities": {
+          "items": {
+            "$ref": "#/$defs/Identity"
+          },
+          "title": "Identities",
+          "type": "array"
+        },
+        "type": {
+          "default": "none",
+          "enum": [
+            "none",
+            "bearer"
+          ],
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "title": "AuthSection",
+      "type": "object"
+    },
+    "ChecksSection": {
+      "additionalProperties": false,
+      "properties": {
+        "skip": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Skip",
+          "type": "object"
+        }
+      },
+      "title": "ChecksSection",
+      "type": "object"
+    },
+    "ElicitationAnswer": {
+      "additionalProperties": false,
+      "properties": {
+        "match": {
+          "$ref": "#/$defs/ElicitationMatch"
+        },
+        "response": {
+          "$ref": "#/$defs/ElicitationResponse"
+        }
+      },
+      "required": [
+        "match",
+        "response"
+      ],
+      "title": "ElicitationAnswer",
+      "type": "object"
+    },
+    "ElicitationMatch": {
+      "additionalProperties": false,
+      "properties": {
+        "key": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Key"
+        },
+        "message_regex": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message Regex"
+        }
+      },
+      "title": "ElicitationMatch",
+      "type": "object"
+    },
+    "ElicitationResponse": {
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "enum": [
+            "accept",
+            "decline",
+            "cancel"
+          ],
+          "title": "Action",
+          "type": "string"
+        },
+        "content": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Content"
+        }
+      },
+      "required": [
+        "action"
+      ],
+      "title": "ElicitationResponse",
+      "type": "object"
+    },
+    "FixturesSection": {
+      "additionalProperties": false,
+      "properties": {
+        "fs": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/FsFixture"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "git": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/GitFixture"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpFixture"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "sqlite": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/SqliteFixture"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "FixturesSection",
+      "type": "object"
+    },
+    "FsFixture": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_roots": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Allowed Roots",
+          "type": "array"
+        },
+        "seed_dir": {
+          "title": "Seed Dir",
+          "type": "string"
+        },
+        "sentinel": {
+          "default": true,
+          "title": "Sentinel",
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "seed_dir"
+      ],
+      "title": "FsFixture",
+      "type": "object"
+    },
+    "GitFixture": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "seed_bundle": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed Bundle"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "GitFixture",
+      "type": "object"
+    },
+    "HttpFixture": {
+      "additionalProperties": false,
+      "properties": {
+        "aliases": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Aliases",
+          "type": "array"
+        },
+        "env_base_urls": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env Base Urls",
+          "type": "object"
+        },
+        "routes": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Routes"
+        }
+      },
+      "title": "HttpFixture",
+      "type": "object"
+    },
+    "HttpTarget": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "default": "/mcp",
+          "title": "Path",
+          "type": "string"
+        },
+        "port": {
+          "default": 3000,
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Port",
+          "type": "integer"
+        }
+      },
+      "title": "HttpTarget",
+      "type": "object"
+    },
+    "Identity": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "minLength": 1,
+          "title": "Name",
+          "type": "string"
+        },
+        "token": {
+          "minLength": 1,
+          "title": "Token",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "token"
+      ],
+      "title": "Identity",
+      "type": "object"
+    },
+    "SecretValue": {
+      "additionalProperties": false,
+      "properties": {
+        "real": {
+          "default": false,
+          "title": "Real",
+          "type": "boolean"
+        },
+        "value": {
+          "title": "Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "value"
+      ],
+      "title": "SecretValue",
+      "type": "object"
+    },
+    "SqliteFixture": {
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "title": "Path",
+          "type": "string"
+        },
+        "seed_sql": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Seed Sql"
+        }
+      },
+      "required": [
+        "path"
+      ],
+      "title": "SqliteFixture",
+      "type": "object"
+    },
+    "TargetSection": {
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Command"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "title": "Env",
+          "type": "object"
+        },
+        "http": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/HttpTarget"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Image"
+        },
+        "secrets": {
+          "additionalProperties": {
+            "$ref": "#/$defs/SecretValue"
+          },
+          "title": "Secrets",
+          "type": "object"
+        },
+        "startup_timeout_s": {
+          "default": 30.0,
+          "exclusiveMinimum": 0,
+          "title": "Startup Timeout S",
+          "type": "number"
+        },
+        "transport": {
+          "default": "stdio",
+          "enum": [
+            "stdio",
+            "http"
+          ],
+          "title": "Transport",
+          "type": "string"
+        }
+      },
+      "title": "TargetSection",
+      "type": "object"
+    },
+    "ToolOverride": {
+      "additionalProperties": false,
+      "properties": {
+        "allow_private_network": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allow Private Network"
+        },
+        "idempotent": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Idempotent"
+        },
+        "intended_exec": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Intended Exec"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "read",
+                "write",
+                "destructive",
+                "exec",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        }
+      },
+      "title": "ToolOverride",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "auth": {
+      "$ref": "#/$defs/AuthSection"
+    },
+    "checks": {
+      "$ref": "#/$defs/ChecksSection"
+    },
+    "elicitation_answers": {
+      "items": {
+        "$ref": "#/$defs/ElicitationAnswer"
+      },
+      "title": "Elicitation Answers",
+      "type": "array"
+    },
+    "fixtures": {
+      "$ref": "#/$defs/FixturesSection"
+    },
+    "inputs": {
+      "additionalProperties": {
+        "items": {
+          "additionalProperties": true,
+          "type": "object"
+        },
+        "type": "array"
+      },
+      "title": "Inputs",
+      "type": "object"
+    },
+    "name": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Name"
+    },
+    "notes": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Notes"
+    },
+    "target": {
+      "$ref": "#/$defs/TargetSection"
+    },
+    "tools": {
+      "additionalProperties": {
+        "$ref": "#/$defs/ToolOverride"
+      },
+      "title": "Tools",
+      "type": "object"
+    },
+    "version": {
+      "const": 1,
+      "default": 1,
+      "title": "Version",
+      "type": "integer"
+    }
+  },
+  "title": "Profile",
+  "type": "object"
+}

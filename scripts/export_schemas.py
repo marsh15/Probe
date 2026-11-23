@@ -11,13 +11,15 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+from probe.config.profile import Profile
 from probe.report.models import ScanReport
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# File name -> model. The profile schema is added with the profile model (task T18).
+# File name -> model.
 SCHEMAS: dict[str, type[BaseModel]] = {
     "report.schema.json": ScanReport,
+    "profile.schema.json": Profile,
 }
 
 
