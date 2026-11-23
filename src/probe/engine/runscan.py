@@ -55,6 +55,7 @@ from probe.runners.container_http import ContainerHttpRunner
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
 from probe.sandbox.docker_env import DockerEnv
+from probe.sandbox.fixtures import FixtureSet
 from probe.util.hashing import scan_key
 from probe.util.redact import Redactor
 from probe.util.sanitize_console import sanitize_console
@@ -135,6 +136,18 @@ def _platform(sandboxed: bool = False) -> str:
     return f"{'linux' if sandboxed else platform.system().lower()}/{platform.machine()}"
 
 
+def _fixtures_requested(cfg: RunConfig) -> bool:
+    return "fixtures" in cfg.profile.model_fields_set or any(
+        value is not None
+        for value in (
+            cfg.profile.fixtures.fs,
+            cfg.profile.fixtures.http,
+            cfg.profile.fixtures.sqlite,
+            cfg.profile.fixtures.git,
+        )
+    )
+
+
 def _container_runner(
     cfg: RunConfig,
     resolved: ResolvedProfile,
@@ -144,7 +157,9 @@ def _container_runner(
     deadline_s: float,
 ) -> Runner:
     profile = resolved.profile
-    env = {**resolved.env, **cfg.target_env}
+    http_fixture = profile.fixtures.http
+    base_urls = http_fixture.env_base_urls if http_fixture is not None else {}
+    env = {**base_urls, **resolved.env, **cfg.target_env}
     command = cfg.command or profile.target.command
     try:
         sandbox = DockerEnv(scan_id)
@@ -166,6 +181,7 @@ def _container_runner(
             startup_timeout_s=profile.target.startup_timeout_s,
             mode_deadline_s=deadline_s,
             recorder=recorder,
+            initialize_data=not _fixtures_requested(cfg),
         )
     return ContainerRunner(
         image,
@@ -174,6 +190,7 @@ def _container_runner(
         env=env,
         mode_deadline_s=deadline_s,
         recorder=recorder,
+        initialize_data=not _fixtures_requested(cfg),
     )
 
 
@@ -301,6 +318,14 @@ async def _connect(
     calls: int,
     seconds: float,
 ) -> ScanContext:
+    fixtures = None
+    if isinstance(runner, ContainerRunner) and _fixtures_requested(cfg):
+        fixtures = FixtureSet(
+            runner.sandbox,
+            resolved.profile.fixtures,
+            token=scan_token(cfg.seed, cfg.profile.hash),
+        )
+        await fixtures.start()
     transport = await runner.start()
     stdio = runner.transport_kind is Transport.STDIO
     session = await Session.open(
@@ -330,6 +355,7 @@ async def _connect(
         listing=listing,
         profile=resolved.profile,
         trace=recorder,
+        fixtures=fixtures,
         second_instance_supported=_has_second_instance(runner),
     )
 

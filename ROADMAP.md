@@ -52,6 +52,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T14 | Hardened Docker sandbox and container runner | done (98 unit/CLI tests; eight Docker gates passed) |
 | T15 | Relay and HTTP target in the sandbox, HTTP bug tests | done (clean and 8 HTTP bugs verified in Docker) |
 | T16 | Fixture services and inspector runtime | done (63 tests; Docker build, size and service smoke gates passed) |
+| T17 | FixtureSet orchestration and sentinel layout | done |
 | T18 | Profile model, interpolation and `probe profile` | done |
 | T19a | Collect 60 real tool schemas (independent preparation for M2) | done |
 | T19b | Tool classifier (independent preparation for M2) | done (57/60 corpus agreement; three misses documented) |
