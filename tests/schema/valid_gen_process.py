@@ -4,9 +4,8 @@ import json
 import sys
 from pathlib import Path
 
-from probe.schema.valid_gen import generate_valid
-
 from probe.classify.tools import classify_tool
+from probe.schema.valid_gen import generate_valid
 from probe.util.canonical_json import canonical_json
 
 

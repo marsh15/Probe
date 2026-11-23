@@ -57,6 +57,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T19a | Collect 60 real tool schemas (independent preparation for M2) | done |
 | T19b | Tool classifier (independent preparation for M2) | done (57/60 corpus agreement; three misses documented) |
 | T20 | Schema normalize, refs and dialect | done |
+| T21 | Valid input generator | done |
 | T22 | Boundary and malformed mutators | done |
 
 Remaining later tasks are added here when their stage starts.

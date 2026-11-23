@@ -4,18 +4,20 @@ import json
 import multiprocessing
 import subprocess
 import sys
+import threading
 import time
+import warnings
 from copy import deepcopy
 from pathlib import Path
 
 import pytest
 from jsonschema import Draft7Validator, Draft202012Validator
-from probe.schema.valid_gen import generate_valid
 
 from probe.classify.tools import classify_tool
 from probe.config.profile import Profile
 from probe.schema import valid_gen
 from probe.schema.dialect import detect_dialect
+from probe.schema.valid_gen import generate_valid
 from probe.util.canonical_json import canonical_json
 
 FIXTURES = Path(__file__).resolve().parents[2] / "fixtures" / "schemas"
@@ -24,6 +26,19 @@ PATHOLOGICAL = {
     "properties": {"s": {"type": "string", "pattern": "^(a+)+$"}},
     "required": ["s"],
 }
+
+
+@pytest.fixture(scope="module", autouse=True)
+def preload_draw_helpers():
+    # Injected draws must already be imported when measuring a 100 ms draw budget.
+    previous = valid_gen._WORKER_MODULES
+    valid_gen._WORKER_MODULES = [valid_gen.__name__, __name__]
+    try:
+        warm = generate_valid(classify_tool("warm", {"type": "object"}), seed=1, mode="quick")
+        assert warm.cases
+        yield
+    finally:
+        valid_gen._WORKER_MODULES = previous
 
 
 def validator(schema):
@@ -192,12 +207,12 @@ def test_stuck_draw_is_killed_and_partial_draws_are_discarded(monkeypatch, budge
     assert {process.pid for process in multiprocessing.active_children()} == before
 
 
-@pytest.mark.skipif("fork" not in multiprocessing.get_all_start_methods(), reason="fork injection")
-def test_hypothesis_failure_keeps_valid_fallbacks(monkeypatch):
-    def fail(*args, **kwargs):
-        raise RuntimeError("deliberate failure")
+def fail_draw(*args, **kwargs):
+    raise RuntimeError("deliberate failure")
 
-    monkeypatch.setattr(valid_gen, "_draw_candidates", fail)
+
+def test_hypothesis_failure_keeps_valid_fallbacks(monkeypatch):
+    monkeypatch.setattr(valid_gen, "_draw_candidates", fail_draw)
     result = generate_valid(classify_tool("fail", {"type": "object"}), seed=1, mode="quick")
     assert result.cases[0].arguments == {}
     assert any("failed" in note for note in result.notes)
@@ -239,3 +254,114 @@ def test_unsatisfiable_schema_has_no_cases_and_explains_failure():
     result = generate_valid(classify_tool("empty", {"not": {}}), seed=1, mode="quick")
     assert not result.cases
     assert result.notes
+
+
+def test_nested_formats_and_array_formats_use_fixed_values_for_draws():
+    schema = {
+        "type": "object",
+        "properties": {
+            "rows": {
+                "type": "array",
+                "minItems": 1,
+                "maxItems": 3,
+                "items": {"type": "string", "format": "email"},
+            },
+        },
+        "required": ["rows"],
+        "additionalProperties": False,
+    }
+    result = generate_valid(classify_tool("mail", schema), seed=9, mode="quick")
+    assert result.cases
+    assert any(case.rule == "hypothesis" for case in result.cases)
+    assert all(
+        value == "probe@example.test" for case in result.cases for value in case.arguments["rows"]
+    )
+
+
+def test_nested_composition_draws_cover_each_selected_branch():
+    schema = {
+        "type": "object",
+        "required": ["choice"],
+        "additionalProperties": False,
+        "properties": {
+            "choice": {
+                "oneOf": [
+                    {"type": "integer", "minimum": 100 * i, "maximum": 100 * i + 99}
+                    for i in range(4)
+                ]
+            }
+        },
+    }
+    result = generate_valid(classify_tool("nested", schema), seed=42, mode="deep")
+    check_cases(classify_tool("nested", schema), result, 25)
+    assert all(sum(case.rule == f"hypothesis-{i}" for case in result.cases) >= 5 for i in range(4))
+
+
+class FailSecondDraw:
+    def __init__(self):
+        self.calls = 0
+
+    def __call__(self, *args, **kwargs):
+        self.calls += 1
+        if self.calls == 1:
+            return [1, 2]
+        raise RuntimeError("second branch fails")
+
+
+def test_failure_in_later_branch_discards_all_draws(monkeypatch):
+    monkeypatch.setattr(valid_gen, "_draw_candidates", FailSecondDraw())
+    tool = classify_tool("atomic", {"oneOf": [{"type": "integer"}, {"type": "string"}]})
+    result = generate_valid(tool, seed=1, mode="quick")
+    assert [(case.rule, case.arguments) for case in result.cases] == [("minimal", 0)]
+    assert any("failed" in note for note in result.notes)
+
+
+def test_minimal_skips_unsatisfiable_union_branches():
+    tool = classify_tool("union", {"anyOf": [False, {"const": {"ok": True}}]})
+    result = generate_valid(tool, seed=1, mode="quick")
+    assert result.cases[0].rule == "minimal"
+    assert result.cases[0].arguments == {"ok": True}
+
+
+@pytest.mark.skipif("forkserver" not in multiprocessing.get_all_start_methods(), reason="POSIX")
+def test_threaded_caller_uses_forkserver_and_keeps_deadline(monkeypatch):
+    stop = threading.Event()
+    background = threading.Thread(target=stop.wait)
+    background.start()
+    try:
+        warm = generate_valid(classify_tool("warm", {"type": "object"}), seed=1, mode="quick")
+        assert warm.cases
+        monkeypatch.setattr(valid_gen, "_draw_candidates", stuck_draw)
+        with warnings.catch_warnings(record=True) as captured:
+            warnings.simplefilter("always")
+            started = time.monotonic()
+            result = generate_valid(
+                classify_tool("threaded", {"type": "object"}),
+                seed=1,
+                mode="quick",
+                time_budget_s=0.1,
+            )
+    finally:
+        stop.set()
+        background.join()
+    assert not any("multi-threaded" in str(warning.message) for warning in captured)
+    assert time.monotonic() - started < 1.1
+    assert result.cases[0].arguments == {}
+    assert any("timed out" in note for note in result.notes)
+
+
+def test_equivalent_schema_key_orders_give_identical_cases():
+    branch = {"oneOf": [{"type": "integer"}, {"type": "string"}]}
+    schema = {
+        "type": "object",
+        "properties": {"a": branch, "b": branch},
+        "required": ["a", "b"],
+        "additionalProperties": False,
+    }
+    reordered = dict(reversed(list(schema.items())))
+    reordered["properties"] = {"b": branch, "a": branch}
+    outputs = []
+    for candidate in (schema, reordered):
+        result = generate_valid(classify_tool("ordered", candidate), seed=17, mode="standard")
+        outputs.append(canonical_json([[case.id, case.arguments] for case in result.cases]))
+    assert outputs[0] == outputs[1]
