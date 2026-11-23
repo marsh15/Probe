@@ -15,6 +15,10 @@ from probe.wire.session import Session
 SAME_INSTANCE_LISTINGS = 3
 
 
+class _ListingFailed(Exception):
+    """tools/list gave no usable result, so no comparison is possible."""
+
+
 def _describe(first: list[dict[str, Any]], other: list[dict[str, Any]], where: str) -> str | None:
     """How ``other`` differs from ``first`` (None if they match after normalization)."""
     a, b = normalize_volatile(first), normalize_volatile(other)
@@ -62,7 +66,7 @@ class ToolOrderDeterministic(Check):
         for number in range(1, SAME_INSTANCE_LISTINGS + 1):
             tools = await list_all_tools(ctx, ctx.client)
             if tools is None:
-                return [f"listing {number} failed"]
+                raise _ListingFailed(f"listing {number} on the same instance failed")
             if base is None:
                 base = tools
             elif diff := _describe(base, tools, f"listing {number} on the same instance"):
@@ -80,6 +84,9 @@ class ToolOrderDeterministic(Check):
             if problems:
                 # Comparison checks rerun once; only a mismatch that persists counts.
                 problems = await self._round(ctx, other)
+        except _ListingFailed as exc:
+            # A listing that did not succeed says nothing about ordering.
+            return CheckOutcome.na(f"tools/list did not succeed while checking order ({exc})")
         finally:
             await close_fresh(other)
         if not problems:

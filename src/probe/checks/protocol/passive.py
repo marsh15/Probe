@@ -4,7 +4,7 @@ from typing import Any
 
 from probe.checks.base import Applicability, Check, CheckOutcome
 from probe.checks.context import ScanContext
-from probe.checks.protocol._support import ALL_MODES, main_records, make_finding, request_methods
+from probe.checks.protocol._support import ALL_MODES, main_messages, make_finding, request_methods
 from probe.checks.registry import register
 from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severity, Transport
 from probe.wire.errors import StdoutNoise
@@ -15,20 +15,12 @@ _RESERVED_LOW, _RESERVED_HIGH = -32099, -32023
 _LEGACY_RESOURCE_NOT_FOUND = -32002
 
 
-def _results(ctx: ScanContext) -> list[dict[str, Any]]:
-    return [
-        r
-        for r in main_records(ctx, "s2c")
-        if isinstance(r.get("body"), dict) and "result" in r["body"] and "error" not in r["body"]
-    ]
+def _results(ctx: ScanContext) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    return [(r, m) for r, m in main_messages(ctx, "s2c") if "result" in m and "error" not in m]
 
 
-def _errors(ctx: ScanContext) -> list[dict[str, Any]]:
-    return [
-        r
-        for r in main_records(ctx, "s2c")
-        if isinstance(r.get("body"), dict) and isinstance(r["body"].get("error"), dict)
-    ]
+def _errors(ctx: ScanContext) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    return [(r, m) for r, m in main_messages(ctx, "s2c") if isinstance(m.get("error"), dict)]
 
 
 @register
@@ -62,13 +54,13 @@ class ResultTypePresent(Check):
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         methods = request_methods(ctx)
         missing = [
-            r
-            for r in _results(ctx)
-            if not isinstance(r["body"]["result"], dict) or "resultType" not in r["body"]["result"]
+            (r, m)
+            for r, m in _results(ctx)
+            if not isinstance(m["result"], dict) or "resultType" not in m["result"]
         ]
         if not missing:
             return CheckOutcome()
-        seen = sorted({methods.get(r["body"].get("id"), "(unknown)") for r in missing})
+        seen = sorted({methods.get(m.get("id"), "(unknown)") for _, m in missing})
         listed = ", ".join(seen)
         return CheckOutcome(
             [
@@ -84,7 +76,7 @@ class ResultTypePresent(Check):
                     observations={
                         "count": len(missing),
                         "methods": seen,
-                        "trace_seq": [r["seq"] for r in missing[:_SAMPLE]],
+                        "trace_seq": [r["seq"] for r, _ in missing[:_SAMPLE]],
                     },
                 )
             ]
@@ -121,8 +113,8 @@ class ErrorCodeRanges(Check):
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         bad: list[tuple[dict[str, Any], str]] = []
-        for record in _errors(ctx):
-            code = record["body"]["error"].get("code")
+        for record, message in _errors(ctx):
+            code = message["error"].get("code")
             if isinstance(code, bool) or not isinstance(code, int):
                 bad.append((record, "code is not an integer"))
             elif _RESERVED_LOW <= code <= _RESERVED_HIGH:

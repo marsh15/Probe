@@ -103,7 +103,8 @@ for line in sys.stdin:
             }
         )
     elif method == "tools/list":
-        result = {"tools": []}
+        name = os.environ.get("PROBE_TOOL_NAME")  # lets a test make the server say anything
+        result = {"tools": [{"name": name, "inputSchema": {"type": "string"}}] if name else []}
         if PV in meta:
             result["resultType"] = "complete"
         send({"jsonrpc": "2.0", "id": id_, "result": result})

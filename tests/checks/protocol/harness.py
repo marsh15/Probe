@@ -34,9 +34,11 @@ class Scan:
         return result
 
 
-def new_recorder(directory: Path) -> Recorder:
+def new_recorder(directory: Path, body_max_bytes: int | None = None) -> Recorder:
     directory.mkdir(parents=True, exist_ok=True)
-    return Recorder(directory / "trace.jsonl")
+    if body_max_bytes is None:
+        return Recorder(directory / "trace.jsonl")
+    return Recorder(directory / "trace.jsonl", body_max_bytes=body_max_bytes)
 
 
 class ToolsServer(EraServer):
@@ -98,10 +100,15 @@ async def _context(
 
 @asynccontextmanager
 async def scripted_scan(
-    factory: Callable[[], EraServer], tmp_path: Path, *, era: str = "auto", mode: str = "deep"
+    factory: Callable[[], EraServer],
+    tmp_path: Path,
+    *,
+    era: str = "auto",
+    mode: str = "deep",
+    body_max_bytes: int | None = None,
 ) -> AsyncIterator[Scan]:
     """A stdio-like target answered in-process by ``factory()`` servers."""
-    recorder = new_recorder(tmp_path)
+    recorder = new_recorder(tmp_path, body_max_bytes)
     runner = FakeRunner(factory, recorder=recorder)
     try:
         yield Scan(await _context(runner, recorder, era=era, mode=mode), runner, recorder)

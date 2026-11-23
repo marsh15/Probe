@@ -50,6 +50,7 @@ class FakeRunner:
         recorder: Recorder | None = None,
     ) -> None:
         self._recorder = recorder
+        self.restart_error: Exception | None = None  # make restart() fail, as a dead URL would
         self.transport_kind = kind
         self._factory = factory
         self.restarts = 0
@@ -69,6 +70,8 @@ class FakeRunner:
         return self._new()
 
     async def restart(self) -> WireTransport:
+        if self.restart_error is not None:
+            raise self.restart_error
         self.restarts += 1
         self.running = True
         return self._new()

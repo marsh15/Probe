@@ -26,6 +26,8 @@ class CrashTracker:
     def __init__(self, max_restarts: int = MAX_RESTARTS) -> None:
         self.events: list[CrashEvent] = []
         self.restarts = 0
+        # Set when the target could not be brought back (a restart or reconnect failed).
+        self.abandoned = False
         self._max_restarts = max_restarts
 
     @property
@@ -34,7 +36,7 @@ class CrashTracker:
 
     @property
     def unstable(self) -> bool:
-        return len(self.events) >= self._max_restarts
+        return self.abandoned or len(self.events) >= self._max_restarts
 
     def record(self, event: CrashEvent) -> None:
         self.events.append(event)

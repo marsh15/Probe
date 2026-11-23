@@ -4,7 +4,7 @@ from typing import Any
 
 from probe.checks.base import Applicability, Check, CheckOutcome
 from probe.checks.context import ScanContext
-from probe.checks.protocol._support import main_records, request_methods
+from probe.checks.protocol._support import main_messages, request_methods
 from probe.checks.registry import register
 from probe.checks.schema._support import ALL_MODES
 from probe.checks.support import make_finding, request_step
@@ -64,9 +64,8 @@ class CacheFieldsPresent(Check):
     def _cacheable_results(self, ctx: ScanContext) -> list[tuple[str, dict[str, Any]]]:
         methods = request_methods(ctx)
         found: list[tuple[str, dict[str, Any]]] = []
-        for record in main_records(ctx, "s2c"):
-            body = record.get("body")
-            if not isinstance(body, dict) or not isinstance(body.get("result"), dict):
+        for _, body in main_messages(ctx, "s2c"):
+            if not isinstance(body.get("result"), dict):
                 continue
             method = methods.get(body.get("id"))
             if method in CACHEABLE_METHODS:

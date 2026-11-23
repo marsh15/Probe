@@ -5,6 +5,7 @@ cannot move the cursor, recolor the screen or fake output.
 """
 
 from rich.console import Console
+from rich.markup import escape
 from rich.table import Table
 
 from probe.engine.outcomes import Family, Severity, Status
@@ -43,7 +44,8 @@ def exit_code_for(report: ScanReport, fail_on: str) -> int:
 
 
 def _clean(text: object) -> str:
-    return sanitize_console(str(text))
+    """Server-controlled text made safe to print: no control codes, and no Rich markup."""
+    return escape(sanitize_console(str(text)))
 
 
 def render_summary(

@@ -549,3 +549,51 @@ async def test_a_dead_check_budget_does_not_crash_the_engine(tmp_path: Path) -> 
     assert result.status is Status.ERROR
     assert "budget" in (result.reason or "")
     await asyncio.sleep(0)
+
+
+# --- regressions from the M1 review ------------------------------------------------------
+
+
+async def test_a_spent_budget_keeps_the_findings_already_made(tmp_path: Path) -> None:
+    from probe.engine.budget import Budget
+
+    async with stdio_scan(mini_argv("--garbage", "ignore"), tmp_path) as scan:
+        scan.ctx.budget = Budget(1)  # enough for the first malformed case only
+        result = await scan.run(MalformedJsonrpcHandled)
+    assert result.status is Status.FAIL
+    assert [f.repro.case_id for f in result.findings] == ["malformed:invalid-json"]
+
+
+async def test_a_spent_budget_with_nothing_found_is_an_error_not_a_pass(tmp_path: Path) -> None:
+    from probe.engine.budget import Budget
+
+    async with stdio_scan(mini_argv(), tmp_path) as scan:
+        scan.ctx.budget = Budget(1)
+        result = await scan.run(MalformedJsonrpcHandled)
+    assert result.status is Status.ERROR
+    assert "budget" in (result.reason or "")
+
+
+async def test_a_large_response_cannot_hide_a_missing_result_type(tmp_path: Path) -> None:
+    class Strips(ToolsServer):
+        def handle(self, msg: dict[str, Any], headers: Any) -> Any:
+            reply = super().handle(msg, headers)
+            if reply and reply.body and "result" in reply.body:
+                reply.body["result"].pop("resultType", None)
+            return reply
+
+    # A body limit this small cuts every recorded message, as a huge tools/list would be.
+    async with scripted_scan(Strips, tmp_path, body_max_bytes=40) as scan:
+        await scan.ctx.exchange("tools/list")
+        records = scan.ctx.trace_records()
+        assert any(r.get("body_truncated") for r in records)  # the bodies really were cut
+        result = await scan.run(ResultTypePresent)
+    assert result.status is Status.FAIL
+    assert result.findings[0].evidence.observations["methods"] == ["server/discover", "tools/list"]
+
+
+async def test_a_large_response_cannot_hide_an_error_code(tmp_path: Path) -> None:
+    async with scripted_scan(OddCodes, tmp_path, body_max_bytes=30) as scan:
+        await scan.ctx.exchange("probe/reserved")
+        result = await scan.run(ErrorCodeRanges)
+    assert result.status is Status.FAIL and "reserved" in result.findings[0].message

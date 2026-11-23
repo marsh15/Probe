@@ -14,6 +14,7 @@ from probe.checks.protocol._support import (
     without_header,
 )
 from probe.checks.registry import register
+from probe.engine.budget import BudgetExhausted
 from probe.engine.outcomes import (
     CheckMeta,
     DisclosureTier,
@@ -82,7 +83,12 @@ class HeaderMismatchRejected(Check):
         ]
         for case_id, description, message, headers in cases:
             body = json_body(message)
-            result = await ctx.raw_http(headers, body)
+            try:
+                result = await ctx.raw_http(headers, body)
+            except BudgetExhausted:
+                if findings:
+                    break  # report what was already found
+                raise
             codes = error_codes(result)
             if result.status == 400 and HEADER_MISMATCH in codes:
                 continue
@@ -136,7 +142,12 @@ class RequiredHeadersEnforced(Check):
             message, headers = valid_http_request(ctx, "tools/list")
             tampered = without_header(headers, name)
             body = json_body(message)
-            result = await ctx.raw_http(tampered, body)
+            try:
+                result = await ctx.raw_http(tampered, body)
+            except BudgetExhausted:
+                if findings:
+                    break
+                raise
             if not accepted(result):
                 continue
             findings.append(

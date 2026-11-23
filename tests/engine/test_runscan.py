@@ -156,3 +156,72 @@ def test_select_checks_matches_globs_exactly() -> None:
     assert "protocol.stdout_clean" in why and not any(
         c.meta.id.startswith("schema") for c in skipped
     )
+
+
+# --- regressions from the M1 review ------------------------------------------------------
+
+
+async def test_a_secret_the_server_echoes_never_reaches_the_report(tmp_path: Path) -> None:
+    """The secret comes back as a tool name; findings and the report are built from it."""
+    secret = "s3cret-tool-name-1234"
+    cfg = config(tmp_path, target_env={"PROBE_TOOL_NAME": secret}, secret_env=["PROBE_TOOL_NAME"])
+    report = await run_scan(cfg)
+    text = report.model_dump_json()
+    assert secret not in text and "[REDACTED]" in text
+    assert any(f.check_id == "schema.input_schema_valid" for f in report.findings)  # it was used
+
+
+async def run_checks_for_restart(ctx: Any) -> list[Any]:
+    from probe.checks.base import Check, CheckOutcome
+    from probe.engine.crash import TargetCrashed
+    from probe.engine.outcomes import Severity
+    from probe.engine.scan import run_checks
+    from tests.checks.helpers import evidence, make_meta, repro
+
+    class AFinding(Check):
+        meta = make_meta("behavior.a_finding", phase="active.safe")
+
+        async def run(self, ctx: Any) -> CheckOutcome:
+            finding = self.finding(
+                ctx, severity=Severity.MEDIUM, title="t", message="m", evidence=evidence(),
+                repro=repro(),
+            )  # fmt: skip
+            return CheckOutcome([finding])
+
+    class BCrash(Check):
+        meta = make_meta("behavior.b_crash", phase="active.safe")
+
+        async def run(self, ctx: Any) -> CheckOutcome:
+            try:
+                await ctx.call("boom")
+            except TargetCrashed:
+                raise
+            return CheckOutcome()
+
+    class CLater(Check):
+        meta = make_meta("behavior.c_later", phase="active.safe")
+
+        async def run(self, ctx: Any) -> CheckOutcome:
+            return CheckOutcome()
+
+    return await run_checks(ctx, [AFinding, BCrash, CLater])
+
+
+async def test_a_target_that_cannot_be_restarted_keeps_the_findings_so_far(
+    tmp_path: Path,
+) -> None:
+    from probe.runners.base import TargetUnavailable
+    from tests.engine.fakes import FakeRunner, make_context
+
+    runner = FakeRunner()
+    runner.restart_error = TargetUnavailable("the host is gone")
+    ctx, _ = await make_context(runner=runner)
+    results = await run_checks_for_restart(ctx)
+    by_id = {r.check_id: r for r in results}
+    assert by_id["behavior.a_finding"].status is Status.FAIL  # not lost
+    assert by_id["behavior.b_crash"].status is Status.ERROR
+    assert (by_id["behavior.c_later"].status, by_id["behavior.c_later"].reason) == (
+        Status.ERROR,
+        "target_unstable",
+    )
+    assert ctx.crashes.abandoned

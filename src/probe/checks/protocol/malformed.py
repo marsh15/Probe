@@ -14,6 +14,7 @@ from probe.checks.protocol._support import (
     raw_stdio_step,
 )
 from probe.checks.registry import register
+from probe.engine.budget import BudgetExhausted
 from probe.engine.crash import TargetCrashed, TargetUnstable
 from probe.engine.outcomes import (
     CheckMeta,
@@ -73,9 +74,9 @@ class MalformedJsonrpcHandled(Check):
         for case_id, body in cases:
             try:
                 verdict = await self._try_case(ctx, case_id, body)
-            except TargetUnstable:
-                # The restart budget ran out. If the server already failed this check, say so;
-                # otherwise Probe could not finish and the engine reports target_unstable.
+            except (TargetUnstable, BudgetExhausted):
+                # The restart or call budget ran out. If the server already failed this check,
+                # say so; otherwise Probe could not finish and the engine reports why.
                 if findings:
                     break
                 raise

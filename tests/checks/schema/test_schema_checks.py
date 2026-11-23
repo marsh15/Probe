@@ -321,3 +321,37 @@ async def test_a_one_off_difference_is_forgiven_by_the_rerun(tmp_path: Path) -> 
     async with scripted_scan(lambda: Hiccup(tools=tools), tmp_path) as scan:
         await with_listing(scan)  # list call 1; the check's own listings are calls 2..5 and 6..9
         assert (await scan.run(ToolOrderDeterministic)).status is Status.PASS
+
+
+# --- regressions from the M1 review ------------------------------------------------------
+
+
+async def test_a_failing_listing_is_not_reported_as_nondeterministic(tmp_path: Path) -> None:
+    from tests.wire.fake_eras import error
+
+    class Flaky(ToolsServer):
+        lists = 0
+
+        def _modern(self, id_: Any, method: str, *rest: Any) -> Any:
+            if method == "tools/list":
+                type(self).lists += 1
+                if type(self).lists > 1:  # the first listing (discovery) works, later ones fail
+                    return error(id_, -32603, "temporarily broken")
+            return super()._modern(id_, method, *rest)
+
+    Flaky.lists = 0
+    async with scripted_scan(lambda: Flaky(tools=[GOOD, tool(name="b")]), tmp_path) as scan:
+        await with_listing(scan)
+        result = await scan.run(ToolOrderDeterministic)
+    assert result.status is Status.NA
+    assert "did not succeed" in (result.reason or "")
+
+
+async def test_a_large_listing_without_cache_fields_is_still_caught(tmp_path: Path) -> None:
+    async with scripted_scan(
+        lambda: ToolsServer(tools=[GOOD], list_extra={"ttlMs": None}), tmp_path, body_max_bytes=40
+    ) as scan:
+        await with_listing(scan)
+        result = await scan.run(CacheFieldsPresent)
+    assert result.status is Status.FAIL
+    assert "ttlMs is missing" in result.findings[0].message

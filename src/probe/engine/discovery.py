@@ -9,10 +9,14 @@ from typing import Any
 
 from probe.classify.tools import classify_tool
 from probe.engine.outcomes import ToolInfo
-from probe.wire.jsonrpc import ResultResponse
+from probe.wire.jsonrpc import ResultResponse, encode
 from probe.wire.session import Session
 
 MAX_PAGES = 100
+# A hostile server must not make discovery hold gigabytes: bound what is kept in total, on top of
+# the per-message limit of the wire layer.
+MAX_LISTING_BYTES = 32 * 1024 * 1024
+MAX_LISTED_TOOLS = 5_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,12 +31,15 @@ async def list_tools(
     session: Session,
     *,
     max_pages: int = MAX_PAGES,
-    timeout: float | None = None,  # noqa: ASYNC109
+    max_bytes: int = MAX_LISTING_BYTES,
+    max_tools: int = MAX_LISTED_TOOLS,
+    timeout: float | None = None,  # noqa: ASYNC109 - the per-request deadline
 ) -> ToolListing:
-    """Read ``tools/list`` page by page until there is no cursor, an error, or ``max_pages``."""
+    """Read ``tools/list`` page by page until there is no cursor, an error, or a limit is hit."""
     pages: list[dict[str, Any]] = []
     tools: list[dict[str, Any]] = []
     cursor: str | None = None
+    kept_bytes = 0
     for _ in range(max_pages):
         outcome = await session.exchange(
             "tools/list", {"cursor": cursor} if cursor else None, timeout=timeout
@@ -41,10 +48,18 @@ async def list_tools(
         if not isinstance(response, ResultResponse) or not isinstance(response.result, dict):
             reason = "timed out" if outcome.timed_out else "no result"
             return ToolListing(pages, tools, complete=False, error=f"tools/list: {reason}")
-        pages.append(response.result)
         page_tools = response.result.get("tools")
-        if isinstance(page_tools, list):
-            tools += [t for t in page_tools if isinstance(t, dict)]
+        added = (
+            [t for t in page_tools if isinstance(t, dict)] if isinstance(page_tools, list) else []
+        )
+        kept_bytes += len(encode(response.result))
+        if kept_bytes > max_bytes or len(tools) + len(added) > max_tools:
+            # Stop before keeping this page: the listing is incomplete, and says so.
+            limit = f"{max_tools} tools or {max_bytes // (1024 * 1024)} MiB"
+            error = f"tools/list is larger than Probe will read ({limit})"
+            return ToolListing(pages, tools, complete=False, error=error)
+        pages.append(response.result)
+        tools += added
         cursor = response.result.get("nextCursor")
         if not isinstance(cursor, str) or not cursor:
             return ToolListing(pages, tools)

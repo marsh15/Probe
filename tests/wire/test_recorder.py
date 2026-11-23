@@ -131,3 +131,29 @@ def test_read_trace_reads_the_plain_file_while_open(tmp_path: Path) -> None:
     rec.record("c2s", "stdio", {"a": 1})
     assert [r["body"] for r in read_trace(rec.path)] == [{"a": 1}]
     rec.close()
+
+
+def test_a_cut_body_keeps_a_summary_of_what_analysis_needs(tmp_path: Path) -> None:
+    from probe.wire.recorder import message_summary
+
+    recorder = Recorder(tmp_path / "t.jsonl", body_max_bytes=20)
+    big = {"jsonrpc": "2.0", "id": 7, "result": {"resultType": "complete", "ttlMs": 5,
+           "cacheScope": "public", "tools": ["x" * 100]}}  # fmt: skip
+    err = {"jsonrpc": "2.0", "id": 8, "error": {"code": -32050, "message": "m" * 100}}
+    recorder.record("s2c", "stdio", big)
+    recorder.record("s2c", "stdio", err)
+    recorder.record("s2c", "stdio", ["not", "a", "message", "x" * 50])
+    records = read_trace(recorder.close())
+    assert records[0]["body_truncated"] and isinstance(records[0]["body"], str)
+    assert records[0]["body_summary"] == {
+        "id": 7,
+        "result": {"resultType": "complete", "ttlMs": 5, "cacheScope": "public"},
+    }
+    assert records[1]["body_summary"] == {"id": 8, "error": {"code": -32050}}
+    cut_request = {"jsonrpc": "2.0", "id": 9, "method": "tools/call", "params": {"x": "y" * 99}}
+    recorder2 = Recorder(tmp_path / "t2.jsonl", body_max_bytes=20)
+    recorder2.record("c2s", "stdio", cut_request)
+    assert read_trace(recorder2.close())[0]["body_summary"] == {"id": 9, "method": "tools/call"}
+    assert "body_summary" not in records[2]
+    assert message_summary({"result": {"tools": [1]}}) == {"result": {}}  # absent stays absent
+    assert message_summary("x") is None

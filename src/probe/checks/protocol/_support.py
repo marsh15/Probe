@@ -27,8 +27,10 @@ __all__ = [
     "http_transport",
     "json_body",
     "list_all_tools",
+    "main_messages",
     "main_records",
     "make_finding",
+    "message_view",
     "open_fresh",
     "raw_http_step",
     "raw_stdio_step",
@@ -50,11 +52,33 @@ def main_records(ctx: ScanContext, direction: str) -> list[dict[str, Any]]:
     return [r for r in ctx.trace_records() if r.get("dir") == direction and "instance" not in r]
 
 
+def message_view(record: dict[str, Any]) -> dict[str, Any] | None:
+    """The message of a trace record as a dict: the body, or its summary if the body was cut.
+
+    A summary has only the id, a few result fields and an error code, which is all the passive
+    checks read, so a large response cannot hide a violation.
+    """
+    body = record.get("body")
+    if isinstance(body, dict):
+        return body
+    summary = record.get("body_summary")
+    return summary if isinstance(summary, dict) else None
+
+
+def main_messages(ctx: ScanContext, direction: str) -> list[tuple[dict[str, Any], dict[str, Any]]]:
+    """(record, message) for each main-instance record that holds a readable message."""
+    pairs = []
+    for record in main_records(ctx, direction):
+        view = message_view(record)
+        if view is not None:
+            pairs.append((record, view))
+    return pairs
+
+
 def request_methods(ctx: ScanContext) -> dict[Any, str]:
     """Request id -> method, from what Probe sent (to label responses in evidence)."""
     methods: dict[Any, str] = {}
-    for record in main_records(ctx, "c2s"):
-        body = record.get("body")
+    for _, body in main_messages(ctx, "c2s"):
         if isinstance(body, dict) and "id" in body and isinstance(body.get("method"), str):
             methods[body["id"]] = body["method"]
     return methods

@@ -147,3 +147,24 @@ def test_an_injected_bug_is_reported_and_fails_the_run(tmp_path: Path, stdio_com
     failed = {r["check_id"] for r in report(tmp_path)["results"] if r["status"] == "fail"}
     assert "protocol.result_type_present" in failed
     assert os.path.exists(tmp_path / "out" / "trace.jsonl.gz")
+
+
+def test_server_text_cannot_inject_terminal_hyperlinks_or_markup(tmp_path: Path) -> None:
+    import asyncio
+    import io
+
+    from rich.console import Console
+
+    from probe.cli.summary import render_summary
+    from probe.engine.runscan import RunConfig, run_scan
+
+    hostile = "[link=https://evil.test]click[/link] [bold red]ALERT[/bold red]"
+    cfg = RunConfig(
+        out_dir=tmp_path / "out", command=mini_argv(), target_env={"PROBE_TOOL_NAME": hostile}
+    )
+    scanned = asyncio.run(run_scan(cfg))
+    out = io.StringIO()
+    render_summary(scanned, Console(file=out, force_terminal=True, width=200), verbose=1)
+    text = out.getvalue()
+    assert "\x1b]8;" not in text  # no OSC 8 hyperlink was created
+    assert "[link=https://evil.test]" in text  # the markup is shown literally instead

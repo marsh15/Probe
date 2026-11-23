@@ -25,6 +25,43 @@ class HttpMeta:
     headers: Mapping[str, str]
 
 
+_SUMMARY_RESULT_KEYS = ("resultType", "ttlMs", "cacheScope")
+_SUMMARY_METHOD_CHARS = 128
+
+
+def _scalar(value: Any) -> bool:
+    return value is None or isinstance(value, str | int | float | bool)
+
+
+def message_summary(body: Any) -> dict[str, Any] | None:
+    """The few facts analysis needs from a JSON-RPC message, small enough to always keep.
+
+    Recorded alongside a body that was cut or omitted, so checks that only look at the id,
+    ``resultType``, the cache fields or an error code still see large messages.
+    """
+    if not isinstance(body, dict):
+        return None
+    summary: dict[str, Any] = {}
+    if _scalar(body.get("id")) and "id" in body:
+        summary["id"] = body["id"]
+    if isinstance(body.get("method"), str):
+        summary["method"] = body["method"][:_SUMMARY_METHOD_CHARS]
+    result = body.get("result")
+    if isinstance(result, dict):
+        summary["result"] = {
+            k: result[k] for k in _SUMMARY_RESULT_KEYS if k in result and _scalar(result[k])
+        }
+    error = body.get("error")
+    if isinstance(error, dict) and "code" in error:
+        summary["error"] = {"code": error["code"] if _scalar(error["code"]) else None}
+    return summary or None
+
+
+def _summary_field(body: Any) -> dict[str, Any]:
+    summary = message_summary(body)
+    return {"body_summary": summary} if summary is not None else {}
+
+
 def _encode(value: Any) -> bytes:
     # A hostile server can send lone surrogates; backslashreplace turns them back into the
     # \udXXX escapes they arrived as, which keeps the line valid JSON.
@@ -177,6 +214,7 @@ class Recorder:
                 "body_omitted": True,
                 "body_length": len(encoded),
                 "body_sha256": sha256(encoded).hexdigest(),
+                **_summary_field(body),
             }
         if len(encoded) <= self._body_max:
             self._body_bytes += len(encoded)
@@ -187,6 +225,7 @@ class Recorder:
             "body_truncated": True,
             "body_length": len(encoded),
             "body_sha256": sha256(encoded).hexdigest(),
+            **_summary_field(body),
         }
 
     def _write_cap_note(self) -> None:

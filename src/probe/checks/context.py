@@ -348,7 +348,13 @@ class ScanContext:
         self.crashes.record(event)
         if self.crashes.can_restart:
             self.crashes.restarts += 1
-            await self.reconnect()
+            try:
+                await self.reconnect()
+            except Exception:
+                # The target did not come back (it cannot start, or does not answer again).
+                # Give up on it instead of letting the error discard the findings so far.
+                self.crashes.abandoned = True
+                self._dead_for_good = True
         else:
             self._dead_for_good = True
         return event

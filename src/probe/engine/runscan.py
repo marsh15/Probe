@@ -45,6 +45,7 @@ from probe.runners.base import Runner, TargetUnavailable
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
 from probe.util.hashing import scan_key
+from probe.util.redact import Redactor
 from probe.util.sanitize_console import sanitize_console
 from probe.wire.errors import (
     MalformedMessage,
@@ -156,7 +157,8 @@ def _key(cfg: RunConfig, profile_hash: str) -> str:
 async def run_scan(cfg: RunConfig) -> ScanReport:
     settings = settings_for(cfg.mode, cfg.timeout_scale)
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
-    recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=_secrets(cfg))
+    secrets = _secrets(cfg)
+    recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=secrets)
     runner = _make_runner(cfg, recorder)
     started = datetime.now(UTC)
     ctx: ScanContext | None = None
@@ -173,13 +175,25 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
             RequestTimeout,
             OSError,
         ) as exc:
-            return _unavailable_report(cfg, started, str(exc), runner)
-        return await _scan(cfg, ctx, started)
+            return _redacted(_unavailable_report(cfg, started, str(exc), runner), secrets)
+        return _redacted(await _scan(cfg, ctx, started), secrets)
     finally:
         with contextlib.suppress(Exception):
             await runner.stop()
         with contextlib.suppress(Exception):
             recorder.close()
+
+
+def _redacted(report: ScanReport, secrets: Sequence[str]) -> ScanReport:
+    """The report with every secret removed from every string and key.
+
+    The trace is redacted as it is written, but the report is built from what the server said
+    (tool names, errors, capabilities), so it needs the same treatment before it leaves here.
+    """
+    if not secrets:
+        return report
+    clean = Redactor(secrets).redact_json(report.model_dump(mode="json"))
+    return ScanReport.model_validate(clean)
 
 
 async def _connect(
