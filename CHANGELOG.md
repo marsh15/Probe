@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- SARIF 2.1.0, a shields badge and a markdown summary (`--format sarif,md,badge`, `--sarif-anchor`, `--badge-style`), `probe report REPORT --format F` to write one from a finished report, and `probe diff BASE HEAD` for score change, new and fixed findings
 - `probe run` writes a self-contained `report.html` (grade, families, findings with evidence and repro command, tools, checks, limits) by default; server text is escaped, a strict CSP allows no network, and axe finds no serious problems in light or dark at phone and desktop widths (see docs/report.md)
 - `probe repro REPORT --finding ID` runs one finding's check again on a fresh target and prints REPRODUCED or NOT REPRODUCED, `--export-script` writes a standalone shell script of the recorded requests, and `probe run` writes a repro bundle per finding next to the report (see docs/repro.md)
 - Ten more safety checks (`path_contained`, `no_command_injection`, `readonly_enforced`, `no_secret_leak`, `no_stack_traces`, `no_hidden_instructions`, `annotations_truthful`, `destructive_annotated`, `request_state_integrity`, `oauth_scopes_minimal`) and the remaining reference-server bugs b31-b49, so all 58 catalog bugs now exist; `probe selfval` builds the sandbox fixtures (seeded data, fake backend, fake credential) for the reference profile

@@ -19,11 +19,11 @@ from probe.cli.summary import (
 from probe.config.modes import MODES
 from probe.config.profile import Profile, ProfileError, load_profile
 from probe.engine.runscan import RunConfig, SandboxUnavailable, UsageError, run_scan
-from probe.report.html import write_html
 from probe.report.json_out import write_report
+from probe.report.outputs import FILE_NAMES, FORMATS, render
 from probe.repro.bundle import write_bundles
 
-AVAILABLE_FORMATS = ("json", "html")  # sarif, md and badge arrive with the report tasks
+AVAILABLE_FORMATS = FORMATS
 
 
 def _fail(message: str, code: int = EXIT_USAGE) -> "typer.Exit":
@@ -59,6 +59,10 @@ def run(
     output_format: Annotated[
         str, typer.Option("--format", help="Comma-separated report formats.")
     ] = "json,html",
+    sarif_anchor: Annotated[
+        str, typer.Option(help="File that SARIF results are attached to.")
+    ] = "README.md",
+    badge_style: Annotated[str, typer.Option(help="grade or coverage.")] = "grade",
     fail_on: Annotated[str, typer.Option(help="critical, high, medium, low or none.")] = "high",
     min_score: Annotated[
         float | None, typer.Option(help="Minimum overall score (0..100); ungraded scans fail.")
@@ -100,11 +104,13 @@ def run(
         raise _fail(f"unknown --fail-on {fail_on!r}; choose {', '.join(FAIL_ON)}")
     if min_score is not None and (not math.isfinite(min_score) or not 0 <= min_score <= 100):
         raise _fail("--min-score must be a finite number from 0 to 100")
+    if badge_style not in ("grade", "coverage"):
+        raise _fail("--badge-style must be grade or coverage")
     formats = [f.strip() for f in output_format.split(",") if f.strip()]
     unknown = [f for f in formats if f not in AVAILABLE_FORMATS]
     if unknown or not formats:
         raise _fail(
-            f"format(s) {', '.join(unknown) or '(none)'} not available yet; "
+            f"format(s) {', '.join(unknown) or '(none)'} unknown; "
             f"available: {', '.join(AVAILABLE_FORMATS)}"
         )
     try:
@@ -142,8 +148,12 @@ def run(
         raise _fail(f"internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
     path = write_report(report, out)
     write_bundles(report, config, out)
-    if "html" in formats:
-        write_html(report, out)
+    for fmt in formats:
+        if fmt != "json":  # report.json is always written above
+            (out / FILE_NAMES[fmt]).write_text(
+                render(report, fmt, anchor=sarif_anchor, badge_style=badge_style),  # type: ignore[arg-type]
+                encoding="utf-8",
+            )
     render_summary(report, console, verbose=verbose, quiet=quiet)
     console.print(f"report: {path}", highlight=False)
     raise typer.Exit(exit_code_for(report, fail_on, min_score))

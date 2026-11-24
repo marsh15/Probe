@@ -1,0 +1,94 @@
+# serializer version: 1
+# name: test_diff_between_clean_and_buggy[clean_to_buggy]
+  '''
+  ## Probe diff
+  
+  Grade A → B; score 100.0 → 84.9 (-15.1); coverage 54.2 → 54.2 (+0.0).
+  
+  | Family | Base | Head | Change |
+  | --- | ---: | ---: | ---: |
+  | protocol | 100.0 | 53.3 | -46.7 |
+  | schema | 100.0 | 72.0 | -28.0 |
+  | behavior | 100.0 | 100.0 | +0.0 |
+  | safety | 100.0 | 100.0 | +0.0 |
+  | operability | 100.0 | 75.0 | -25.0 |
+  
+  ### New findings (5)
+  
+  | Severity | Check | Tool | Finding |
+  | --- | --- | --- | --- |
+  | high | protocol.discover\_implemented | - | server/discover result is incomplete |
+  | high | schema.tools\_list\_valid | - | tools/list page 1 does not match the schema |
+  | medium | protocol.result\_type\_present | - | Results without resultType |
+  | medium | schema.refs\_resolvable | notes\_create | Unresolvable or remote $ref: notes\_create |
+  | low | operability.burst\_resilient | notes\_get | Read tools withstand concurrent bursts |
+  
+  ### Fixed findings (0)
+  
+  None.
+  
+  2 finding(s) unchanged.
+  
+  '''
+# ---
+# name: test_summary_markdown_snapshot[buggy]
+  '''
+  ## Probe: B · 84.9 (coverage 54.2%)
+  
+  Target python · stdio · protocol 2026-07-28 · Probe 0.1.0.dev0
+  
+  Grade capped: high instance caps at B.
+  
+  | Family | Score | Pass | Fail |
+  | --- | ---: | ---: | ---: |
+  | protocol | 53.3 | 6 | 2 |
+  | schema | 72.0 | 10 | 2 |
+  | behavior | 100.0 | 13 | 0 |
+  | safety | 100.0 | 3 | 0 |
+  | operability | 75.0 | 3 | 1 |
+  
+  ### Findings (7)
+  
+  | Severity | Check | Tool | Finding | Reproduce |
+  | --- | --- | --- | --- | --- |
+  | high | protocol.discover\_implemented | - | server/discover result is incomplete | `probe repro report.json --finding dd7555e6e4c0ad3a` |
+  | high | schema.tools\_list\_valid | - | tools/list page 1 does not match the schema | `probe repro report.json --finding d9443086f45eab93` |
+  | medium | protocol.result\_type\_present | - | Results without resultType | `probe repro report.json --finding c9276d64428bb6da` |
+  | medium | schema.refs\_resolvable | notes\_create | Unresolvable or remote $ref: notes\_create | `probe repro report.json --finding 257b54e714b7bfc5` |
+  | low | operability.burst\_resilient | notes\_get | Read tools withstand concurrent bursts | `probe repro report.json --finding b227f850ebe28aa0` |
+  | info | operability.startup\_time | - | Startup latency is recorded | `probe repro report.json --finding 9a6ec162a9613023` |
+  | info | schema.input\_schema\_strict | - | Some input schemas are not strict | `probe repro report.json --finding 513f8a442622ff40` |
+  
+  Full report: report.html
+  
+  _No issues found by Probe v1.0 checks is not a security guarantee._
+  
+  '''
+# ---
+# name: test_summary_markdown_snapshot[clean]
+  '''
+  ## Probe: A · 100.0 (coverage 54.2%)
+  
+  Target python · stdio · protocol 2026-07-28 · Probe 0.1.0.dev0
+  
+  | Family | Score | Pass | Fail |
+  | --- | ---: | ---: | ---: |
+  | protocol | 100.0 | 8 | 0 |
+  | schema | 100.0 | 12 | 0 |
+  | behavior | 100.0 | 13 | 0 |
+  | safety | 100.0 | 3 | 0 |
+  | operability | 100.0 | 4 | 0 |
+  
+  ### Findings (2)
+  
+  | Severity | Check | Tool | Finding | Reproduce |
+  | --- | --- | --- | --- | --- |
+  | info | operability.startup\_time | - | Startup latency is recorded | `probe repro report.json --finding 9a6ec162a9613023` |
+  | info | schema.input\_schema\_strict | - | Some input schemas are not strict | `probe repro report.json --finding 513f8a442622ff40` |
+  
+  Full report: report.html
+  
+  _No issues found by Probe v1.0 checks is not a security guarantee._
+  
+  '''
+# ---

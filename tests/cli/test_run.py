@@ -64,8 +64,8 @@ def test_an_unavailable_target_exits_3_with_a_report(tmp_path: Path) -> None:
         (["--mode", "warp"], "unknown mode"),
         (["--era", "ancient"], "unknown era"),
         (["--fail-on", "sometimes"], "--fail-on"),
-        (["--format", "sarif"], "not available yet"),
-        (["--format", ""], "not available yet"),
+        (["--format", "xml"], "unknown"),
+        (["--format", ""], "unknown"),
         (["--target-env", "NOEQUALS"], "KEY=VALUE"),
         (["--profile", "/no/such.yaml"], "cannot read profile"),
         (["--secret-env", "NO_SUCH_VAR_FOR_PROBE"], "unset variables"),
@@ -239,3 +239,20 @@ def test_html_report_is_written_by_default_and_json_only_skips_it(tmp_path: Path
     run(only_json, "--fail-on", "none", "--format", "json")
     assert (only_json / "out" / "report.json").exists()
     assert not (only_json / "out" / "report.html").exists()
+
+
+def test_every_format_can_be_written_in_one_run(tmp_path: Path) -> None:
+    run(
+        tmp_path,
+        "--fail-on",
+        "none",
+        "--format",
+        "json,html,sarif,md,badge",
+        "--sarif-anchor",
+        "x.md",
+    )
+    out = tmp_path / "out"
+    for name in ("report.json", "report.html", "report.sarif", "summary.md", "badge.json"):
+        assert (out / name).read_text(), name
+    assert json.loads((out / "report.sarif").read_text())["version"] == "2.1.0"
+    assert json.loads((out / "badge.json").read_text())["label"] == "probe"
