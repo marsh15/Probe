@@ -21,6 +21,7 @@ selfval-fast:
 
 docs-check:
 	uv run probe checks list --format md | diff - docs/checks.md
+	uv run python scripts/check_cli_docs.py
 
 help:
 	@echo "Available targets:"
