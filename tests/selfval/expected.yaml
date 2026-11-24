@@ -45,6 +45,10 @@ b08:
   allowed_collateral: [behavior.survives_campaign]
   justification:
     behavior.survives_campaign: "the crash is the bug"
+b09:
+  transports: [stdio]
+  primary: [schema.output_conforms]
+  allowed_collateral: []
 b10:
   transports: [stdio]
   primary: [schema.input_schema_valid]
@@ -65,6 +69,10 @@ b13:
   allowed_collateral: [schema.tools_list_valid]
   justification:
     schema.tools_list_valid: "the vendored schema requires ttlMs"
+b14:
+  transports: [http]
+  primary: [schema.cache_scope_correct]
+  allowed_collateral: []
 b15:
   transports: [stdio]
   primary: [schema.tool_names_valid]
@@ -73,6 +81,40 @@ b16:
   transports: [stdio]
   primary: [schema.descriptions_present]
   allowed_collateral: []
+b17:
+  transports: [stdio]
+  primary: [behavior.replay_idempotent]
+  allowed_collateral: []
+b18:
+  transports: [stdio]
+  primary: [behavior.idempotency_declared]
+  allowed_collateral: []
+b19:
+  transports: [stdio]
+  primary: [behavior.invalid_input_rejected]
+  allowed_collateral: []
+b20:
+  transports: [stdio]
+  primary: [behavior.boundary_robust]
+  allowed_collateral: [behavior.survives_campaign]
+  justification:
+    behavior.survives_campaign: "the crash is recorded for the whole scan"
+b21:
+  transports: [stdio]
+  primary: [behavior.errors_actionable]
+  allowed_collateral: []
+b22:
+  transports: [stdio]
+  primary: [behavior.output_bounded]
+  allowed_collateral: []
+b23:
+  transports: [stdio]
+  primary: [behavior.empty_result_ok]
+  allowed_collateral: []
+b24:
+  transports: [stdio]
+  primary: [behavior.pagination_sound]
+  allowed_collateral: []
 b25:
   transports: [stdio]
   primary: [behavior.cancellation_honored]
@@ -80,6 +122,10 @@ b25:
 b26:
   transports: [stdio]
   primary: [behavior.no_head_of_line_blocking]
+  allowed_collateral: []
+b27:
+  transports: [stdio]
+  primary: [behavior.concurrency_consistent]
   allowed_collateral: []
 b28:
   transports: [stdio]
@@ -109,6 +155,10 @@ b53:
   transports: [stdio]
   primary: [schema.tools_list_valid]
   allowed_collateral: []
+b54:
+  transports: [stdio]
+  primary: [schema.structured_text_mirror]
+  allowed_collateral: []
 b55:
   transports: [stdio]
   primary: [schema.cache_ttl_sane]
@@ -116,4 +166,12 @@ b55:
 b56:
   transports: [stdio]
   primary: [schema.x_mcp_header_valid]
+  allowed_collateral: []
+b57:
+  transports: [stdio]
+  primary: [behavior.valid_input_accepted]
+  allowed_collateral: []
+b58:
+  transports: [stdio]
+  primary: [behavior.survives_campaign]
   allowed_collateral: []

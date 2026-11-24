@@ -85,10 +85,14 @@ def build_server(cfg: Config) -> MCPServer:
         auth=AuthSettings(issuer_url=cfg.issuer_url, resource_server_url=None) if authed else None,
         request_state_security=RequestStateSecurity(codec=HMACRequestStateCodec(cfg.secret)),
         cache_hints={
-            "tools/list": CacheHint(ttl_ms=LIST_TTL_MS, scope="private" if authed else "public"),
+            # b14: a list that differs per identity is marked public.
+            "tools/list": CacheHint(
+                ttl_ms=LIST_TTL_MS,
+                scope="private" if authed and not bugs.is_on("b14") else "public",
+            ),
             "server/discover": CacheHint(ttl_ms=LIST_TTL_MS, scope="public"),
         },
-        middleware=[behavior_bugs.behavior_bugs, *([auth.identity_tool_filter] if authed else [])],
+        middleware=[behavior_bugs.make(cfg), *([auth.identity_tool_filter] if authed else [])],
     )
     register_all(mcp, cfg)
     if authed:

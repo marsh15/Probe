@@ -10,13 +10,22 @@ from probe.checks.context import ScanContext
 from probe.checks.normalize_volatile import normalize_volatile
 from probe.checks.registry import register
 from probe.checks.support import make_finding, request_step
-from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severity, ToolInfo
+from probe.engine.outcomes import (
+    CheckMeta,
+    DisclosureTier,
+    Era,
+    Family,
+    Finding,
+    Severity,
+    ToolInfo,
+)
 from probe.engine.outcomes import Transport as TransportKind
 from probe.wire.errors import RequestTimeout
 from probe.wire.jsonrpc import ErrorResponse, Response, ResultResponse
 
 _CALLS = 8
-_TOOLS_TRIED = 3
+_TOOLS_JUDGED = 3  # tools that get a burst
+_TOOLS_TRIED = 8  # tools looked at to find those
 
 
 def _comparable(response: Response | None) -> Any:
@@ -73,26 +82,33 @@ class ConcurrencyConsistent(Check):
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         book = await campaign(ctx)
-        tried = 0
+        findings: list[Finding] = []
+        judged = tried = 0
         for plan in book.plans:
             tool = plan.tool
             args = next((c.arguments for c in plan.valid if isinstance(c.arguments, dict)), None)
-            if tool.kind in WRITE_KINDS or args is None or tried >= _TOOLS_TRIED:
+            if tool.kind in WRITE_KINDS or args is None:
                 continue
+            if judged >= _TOOLS_JUDGED or tried >= _TOOLS_TRIED:
+                break
+            tried += 1
             first = await ctx.establish_baseline(tool, args)
             if first is None:
                 continue
-            tried += 1
             again = await ctx.call(tool.name, args)  # a tool that disagrees with itself is skipped
             baseline = _comparable(first.response)
             if _comparable(again.response) != baseline:
                 continue
-            return await self._judge(ctx, tool, args, baseline)
-        return CheckOutcome.na("could not establish a successful, repeatable baseline call")
+            judged += 1
+            if (finding := await self._judge(ctx, tool, args, baseline)) is not None:
+                findings.append(finding)
+        if not judged:
+            return CheckOutcome.na("could not establish a successful, repeatable baseline call")
+        return CheckOutcome(findings)
 
     async def _judge(
         self, ctx: ScanContext, tool: ToolInfo, arguments: dict[str, Any], baseline: Any
-    ) -> CheckOutcome:
+    ) -> Finding | None:
         problems: list[str] = []
         for _ in range(2):  # a mismatch must show up twice to count
             replies = await _burst(ctx, tool, arguments)
@@ -100,22 +116,18 @@ class ConcurrencyConsistent(Check):
             if not await ctx.liveness():  # a dead target is recorded and restarted here
                 problems.append("the server stopped answering")
             if not problems:
-                return CheckOutcome()
-        return CheckOutcome(
-            [
-                make_finding(
-                    self,
-                    ctx,
-                    severity=Severity.MEDIUM,
-                    title=f"Concurrent calls to {tool.name} disagreed",
-                    message=clip("; ".join(sorted(set(problems))), 400),
-                    tool=tool.name,
-                    case_id=f"concurrency:{tool.name}",
-                    steps=[request_step("tools/call", {"name": tool.name, "arguments": arguments})],
-                    expect={"answers": f"{_CALLS} identical answers"},
-                    observations={"calls": _CALLS, "problems": sorted(set(problems))[:5]},
-                )
-            ]
+                return None
+        return make_finding(
+            self,
+            ctx,
+            severity=Severity.MEDIUM,
+            title=f"Concurrent calls to {tool.name} disagreed",
+            message=clip("; ".join(sorted(set(problems))), 400),
+            tool=tool.name,
+            case_id=f"concurrency:{tool.name}",
+            steps=[request_step("tools/call", {"name": tool.name, "arguments": arguments})],
+            expect={"answers": f"{_CALLS} identical answers"},
+            observations={"calls": _CALLS, "problems": sorted(set(problems))[:5]},
         )
 
     @staticmethod

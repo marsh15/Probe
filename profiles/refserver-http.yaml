@@ -16,3 +16,6 @@ auth:
     - {name: alice, token: "probe_fake_alice_{token}"}
     - {name: bob, token: "probe_fake_bob_{token}"}
 notes: The clean reference server over HTTP. Injected bugs are switched on with PROBE_REF_BUGS.
+inputs:
+  notes_get: [{id: 1}]
+  notes_update: [{id: 1, body: "probe replay body"}]

@@ -25,16 +25,13 @@ def test_unknown_ids_rejected(spec: str) -> None:
 
 
 def test_known_but_unimplemented_rejected() -> None:
-    assert "b17" not in bugs.IMPLEMENTED
+    assert "b31" not in bugs.IMPLEMENTED
     with pytest.raises(bugs.BugConfigError, match="not implemented"):
-        bugs.parse("b17")
+        bugs.parse("b31")
 
 
 def test_the_implemented_bugs_are_the_expected_set() -> None:
-    expected = {
-        f"b{n:02d}"
-        for n in (*range(1, 9), *range(10, 14), 15, 16, 25, 26, 28, 29, 30, *range(50, 54), 55, 56)
-    }
+    expected = {f"b{n:02d}" for n in (*range(1, 31), *range(50, 59))}
     assert expected == bugs.IMPLEMENTED
     assert bugs.parse("b01, b56") == {"b01", "b56"}
 

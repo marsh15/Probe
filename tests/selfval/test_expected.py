@@ -9,10 +9,7 @@ import yaml
 
 EXPECTED = yaml.safe_load((Path(__file__).parent / "expected.yaml").read_text())
 CHECK_ID = re.compile(r"[a-z]+\.[a-z0-9_.]+")
-IMPLEMENTED = {
-    f"b{n:02d}"
-    for n in (*range(1, 9), *range(10, 14), 15, 16, 25, 26, 28, 29, 30, *range(50, 54), 55, 56)
-}
+IMPLEMENTED = {f"b{n:02d}" for n in (*range(1, 31), *range(50, 59))}  # b01-b30, b50-b58
 
 
 def test_covers_the_clean_baseline_and_exactly_the_implemented_bugs() -> None:
@@ -35,5 +32,6 @@ def test_entries_are_well_formed(name: str) -> None:
     assert all(entry.get("justification", {}).values())
 
 
-def test_http_only_bugs_are_the_three_header_and_origin_bugs() -> None:
-    assert {n for n, e in EXPECTED.items() if e["transports"] == ["http"]} == {"b05", "b06", "b51"}
+def test_http_only_bugs_are_the_header_origin_and_cache_scope_bugs() -> None:
+    http_only = {n for n, e in EXPECTED.items() if e["transports"] == ["http"]}
+    assert http_only == {"b05", "b06", "b14", "b51"}

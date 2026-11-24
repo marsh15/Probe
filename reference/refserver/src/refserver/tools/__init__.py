@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 from mcp.types import ToolAnnotations
 
+from refserver import bugs
+
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
 
@@ -15,11 +17,14 @@ if TYPE_CHECKING:
 def hints(
     *, read_only: bool, destructive: bool, idempotent: bool, open_world: bool = False
 ) -> ToolAnnotations:
-    """Annotations with every hint explicit, so no client falls back to a spec default."""
+    """Annotations with every hint explicit, so no client falls back to a spec default.
+
+    b18: writing tools leave idempotentHint out.
+    """
     return ToolAnnotations(
         read_only_hint=read_only,
         destructive_hint=destructive,
-        idempotent_hint=idempotent,
+        idempotent_hint=None if bugs.is_on("b18") and not read_only else idempotent,
         open_world_hint=open_world,
     )
 

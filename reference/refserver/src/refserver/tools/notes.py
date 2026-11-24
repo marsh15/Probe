@@ -9,6 +9,8 @@ import hashlib
 import hmac
 import json
 import sqlite3
+import threading
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from typing import TYPE_CHECKING, Annotated
@@ -16,6 +18,7 @@ from typing import TYPE_CHECKING, Annotated
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
+from refserver import bugs
 from refserver.tools import READ, hints
 
 if TYPE_CHECKING:
@@ -25,7 +28,11 @@ if TYPE_CHECKING:
 
     from refserver.config import Config
 
+# b27: scratch space shared by concurrent notes_get calls.
+_SCRATCH: list[str] = []
+_SCRATCH_LOCK = threading.Lock()
 SEARCH_MAX_ITEMS = 100
+B22_ITEMS = 10_000
 SEARCH_MAX_BYTES = 256 * 1024
 _SNIPPET = 160
 
@@ -73,6 +80,18 @@ def connect(db_path: Path) -> Iterator[sqlite3.Connection]:
             yield conn
     finally:
         conn.close()
+
+
+def _through_scratch(text: str) -> str:
+    """b27: write to a shared buffer, pause, read it all back: concurrent calls see each other's
+    writes (the first to wake takes everyone's text, the rest get nothing)."""
+    with _SCRATCH_LOCK:
+        _SCRATCH.extend(text)
+    time.sleep(0.01)
+    with _SCRATCH_LOCK:
+        mixed = "".join(_SCRATCH)
+        _SCRATCH.clear()
+    return mixed
 
 
 def now_iso() -> str:
@@ -171,6 +190,8 @@ def register(mcp: MCPServer, cfg: Config) -> None:
                 raise ToolError(f"note {id} not found; use notes_list or search_notes to find ids")
             new_title = row["title"] if title is None else title
             new_body = row["body"] if body is None else body
+            if bugs.is_on("b17") and body is not None:
+                new_body = row["body"] + body  # the bug: a replay appends again
             # Only touch updated_at on a real change, so a replay leaves the row byte-identical.
             if (new_title, new_body) != (row["title"], row["body"]):
                 conn.execute(
@@ -197,7 +218,10 @@ def register(mcp: MCPServer, cfg: Config) -> None:
             row = conn.execute("SELECT * FROM notes WHERE id = ?", (id,)).fetchone()
         if row is None:
             raise ToolError(f"note {id} not found; use notes_list or search_notes to find ids")
-        return _note(row)
+        note = _note(row)
+        if bugs.is_on("b27"):
+            note.body = _through_scratch(note.body)
+        return note
 
     @mcp.tool(annotations=READ)
     def notes_list(
@@ -221,6 +245,8 @@ def register(mcp: MCPServer, cfg: Config) -> None:
             for r in page
         ]
         next_cursor = cursors.encode(page[-1]["id"]) if len(rows) > limit else None
+        if bugs.is_on("b24") and cursor and next_cursor is not None:
+            next_cursor = cursors.encode(0)  # the bug: the second page links back to the first
         return NotesPage(items=items, next_cursor=next_cursor)
 
     @mcp.tool(structured_output=False, annotations=READ)
@@ -239,6 +265,12 @@ def register(mcp: MCPServer, cfg: Config) -> None:
                 "WHERE instr(lower(title || ' ' || body), lower(?)) > 0 ORDER BY id LIMIT ?",
                 (query, limit + 1),
             ).fetchall()
+        if bugs.is_on("b22") and rows:
+            # the bug: the limit and the size cap are ignored
+            every = [dict(id=r["id"], title=r["title"], snippet=r["body"][:_SNIPPET]) for r in rows]
+            return json.dumps(
+                {"items": [every[i % len(every)] for i in range(B22_ITEMS)], "truncated": False}
+            )
         items: list[dict[str, object]] = []
         size = 0
         truncated = len(rows) > limit

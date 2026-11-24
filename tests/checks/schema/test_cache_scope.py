@@ -110,3 +110,15 @@ async def test_clean_refserver_passes(seeded_data: Path, tmp_path: Path) -> None
         ) as scan:
             result = await scan.run(CacheScopeCorrect)
     assert result.status is Status.PASS, (result.reason, result.findings)
+
+
+async def test_b14_refserver_is_caught(seeded_data: Path, tmp_path: Path) -> None:
+    """b14: the per-user tool list is marked public."""
+    tokens = "alice:probe_fake_alice_t,bob:probe_fake_bob_t"
+    with launch_http(seeded_data, bugs="b14", extra_env={"REFSERVER_TOKENS": tokens}) as url:
+        headers = {"Authorization": "Bearer probe_fake_alice_t"}
+        async with url_scan(
+            url, tmp_path, headers=headers, profile=profile(), auth_identities=identities()
+        ) as scan:
+            result = await scan.run(CacheScopeCorrect)
+    assert result.status is Status.FAIL, (result.reason, result.findings)

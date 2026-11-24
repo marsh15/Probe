@@ -55,17 +55,11 @@ def apply(bug: str, message: dict[str, Any], info: RequestInfo | None = MODERN_R
 
 
 def test_every_implemented_bug_is_either_a_response_rewrite_or_has_its_own_hook() -> None:
+    # request side, stdout, crashes, middleware, or the tool's own code
     own_hook = {
-        "b05",
-        "b06",
-        "b07",
-        "b08",
-        "b25",
-        "b26",
-        "b28",
-        "b30",
-        "b51",
-    }  # request side, stdout, or crash
+        "b05", "b06", "b07", "b08", "b14", "b17", "b18", "b19", "b20", "b22", "b24",
+        "b25", "b26", "b27", "b28", "b30", "b51", "b57", "b58",
+    }  # fmt: skip
     assert mutations.RESPONSE_BUGS | own_hook == bugs.IMPLEMENTED
 
 

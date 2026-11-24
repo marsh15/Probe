@@ -11,6 +11,7 @@ for the bugs that are switched on. Responses are never mutated in place.
 from __future__ import annotations
 
 import copy
+import json
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -25,7 +26,7 @@ EXTRA_LEGACY_TOOL = {
 # Bugs applied to server responses, in either transport.
 RESPONSE_BUGS = frozenset(
     {"b01", "b02", "b03", "b04", "b10", "b11", "b12", "b13", "b15", "b16", "b50", "b52", "b53"}
-    | {"b29", "b55", "b56"}
+    | {"b09", "b21", "b23", "b29", "b54", "b55", "b56"}
 )
 
 
@@ -33,6 +34,7 @@ RESPONSE_BUGS = frozenset(
 class RequestInfo:
     method: str | None
     modern: bool  # the request carried per-request _meta with a protocol version
+    tool: str | None = None  # the tool name, for tools/call
 
 
 @dataclass
@@ -52,7 +54,12 @@ def request_info(message: Any) -> RequestInfo | None:
     params = message.get("params")
     meta = params.get("_meta") if isinstance(params, dict) else None
     modern = isinstance(meta, dict) and PROTOCOL_VERSION_META in meta
-    return RequestInfo(message["method"], modern)
+    tool = (
+        params.get("name")
+        if isinstance(params, dict) and message["method"] == "tools/call"
+        else None
+    )
+    return RequestInfo(message["method"], modern, tool if isinstance(tool, str) else None)
 
 
 def _error(code: int, message: str) -> dict[str, Any]:
@@ -82,6 +89,8 @@ def _mutate_error(active: frozenset[str], info: RequestInfo | None, message: dic
         out["error"] = _error(-32602, "Invalid params")
     elif code == -32602 and "b04" in active:
         out["error"] = _error(-32050, "Invalid params")
+    if "b21" in active:
+        out["error"]["message"] = "Error"  # the bug: no error says what went wrong
     return out
 
 
@@ -107,7 +116,54 @@ def _mutate_result(
         result.pop("resultType", None)
     if method == "tools/list":
         _mutate_tools_list(active, info, result, state)
+    if method == "tools/call":
+        replaced = _mutate_tool_result(active, info, message, result)
+        if replaced is not None:
+            return replaced
     return out
+
+
+def _mutate_tool_result(
+    active: frozenset[str],
+    info: RequestInfo | None,
+    message: dict[str, Any],
+    result: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Tool-result bugs; returns a replacement message when the result becomes an error."""
+    tool = info.tool if info else None
+    structured = result.get("structuredContent")
+    if "b09" in active and tool == "notes_get" and isinstance(structured, dict):
+        # the bug: the id comes back as a string although the output schema says integer
+        structured["id"] = str(structured.get("id"))
+        _rewrite_mirror(result, structured)
+    if "b54" in active and "structuredContent" in result:
+        result["content"] = []  # the bug: no JSON text block next to structuredContent
+    if "b21" in active and result.get("isError") is True:
+        result["content"] = [{"type": "text", "text": "Error"}]
+    if "b23" in active and tool == "search_notes" and _is_empty_search(result):
+        return {
+            "jsonrpc": "2.0",
+            "id": message.get("id"),
+            "error": _error(-32603, "Internal error"),  # the bug: no match is an internal error
+        }
+    return None
+
+
+def _rewrite_mirror(result: dict[str, Any], structured: dict[str, Any]) -> None:
+    content = result.get("content")
+    if isinstance(content, list) and content and isinstance(content[0], dict):
+        content[0]["text"] = json.dumps(structured)
+
+
+def _is_empty_search(result: dict[str, Any]) -> bool:
+    content = result.get("content")
+    if not isinstance(content, list) or not content or not isinstance(content[0], dict):
+        return False
+    try:
+        found = json.loads(content[0].get("text", ""))
+    except ValueError:
+        return False
+    return isinstance(found, dict) and found.get("items") == []
 
 
 def _mutate_tools_list(
