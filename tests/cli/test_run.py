@@ -64,7 +64,7 @@ def test_an_unavailable_target_exits_3_with_a_report(tmp_path: Path) -> None:
         (["--mode", "warp"], "unknown mode"),
         (["--era", "ancient"], "unknown era"),
         (["--fail-on", "sometimes"], "--fail-on"),
-        (["--format", "html"], "not available yet"),
+        (["--format", "sarif"], "not available yet"),
         (["--format", ""], "not available yet"),
         (["--target-env", "NOEQUALS"], "KEY=VALUE"),
         (["--profile", "/no/such.yaml"], "cannot read profile"),
@@ -229,3 +229,13 @@ def test_min_score_keeps_error_exit_precedence(
     monkeypatch.setattr(import_module("probe.cli.run"), "run_scan", broken_scan)
     result = run(tmp_path, "--min-score", "100")
     assert result.exit_code == code
+
+
+def test_html_report_is_written_by_default_and_json_only_skips_it(tmp_path: Path) -> None:
+    run(tmp_path, "--fail-on", "none")
+    page = (tmp_path / "out" / "report.html").read_text()
+    assert "<h1>" in page and "report.json" in page
+    only_json = tmp_path / "j"
+    run(only_json, "--fail-on", "none", "--format", "json")
+    assert (only_json / "out" / "report.json").exists()
+    assert not (only_json / "out" / "report.html").exists()

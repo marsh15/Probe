@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="{{ csp }}">
+<title>Probe report: {{ name }}</title>
+<style>{{ css }}</style>
+</head>
+<body>
+<a class="skip" href="#summary">Skip to the summary</a>
+<header class="band">
+  <p class="muted" style="margin:0">Probe scan report</p>
+  <h1>{{ name }}</h1>
+  <div class="meta">
+    {% if version %}<span>version {{ version }}</span>{% endif %}
+    <span>{{ transport }}</span>
+    <span class="chip">{{ era }}</span>
+    <span>scanned {{ scanned }}</span>
+    <span>Probe {{ report.probe_version }}</span>
+    <button id="theme" type="button" aria-pressed="false" class="controls">Toggle theme</button>
+  </div>
+  <nav class="toc" aria-label="Sections">
+    <a href="#summary">Summary</a><a href="#families">Families</a><a href="#findings">Findings</a>
+    <a href="#tools">Tools</a><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="#metadata">Metadata</a>
+  </nav>
+</header>
+<main>
+<section id="summary" aria-labelledby="h-summary">
+  <h2 id="h-summary">Summary</h2>
+  {% if score.grade %}
+  <div class="score">
+    <div><span class="grade">{{ score.grade }}</span><small>grade</small></div>
+    <div><span class="big">{{ "%.1f"|format(score.overall) }}</span><small>overall score (0 to 100)</small></div>
+    <div><span class="big">{{ "%.1f"|format(score.coverage) }}%</span><small>coverage of the catalog</small>
+      {{ coverage_meter }}</div>
+  </div>
+  {% if score.caps_applied %}
+  <p class="caps">Grade capped: {{ score.caps_applied|join("; ")|replace("_", " ") }}.</p>
+  {% endif %}
+  {% else %}
+  <p class="score"><span class="big">Not graded</span></p>
+  <p>{{ ungraded_reason }}</p>
+  {% endif %}
+  <p class="muted">Scoring profile: {{ report.scoring_profile }}, scoring version {{ report.scoring_version }}.
+  A high grade with low coverage is limited evidence: grade and coverage are separate measurements.</p>
+</section>
+
+<section id="families" aria-labelledby="h-families">
+  <h2 id="h-families">Families</h2>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Family scores"><table>
+    <caption class="sr">Score and check counts for each family</caption>
+    <thead><tr><th scope="col">Family</th><th scope="col" class="num">Score</th><th scope="col">Meter</th>
+    <th scope="col" class="num">Pass</th><th scope="col" class="num">Fail</th>
+    <th scope="col" class="num">Not applicable</th><th scope="col" class="num">Error or skipped</th></tr></thead>
+    <tbody>
+    {% for f in families %}
+    <tr><th scope="row">{{ f.name }}</th>
+      <td class="num">{% if f.score is none %}n/a{% else %}{{ "%.1f"|format(f.score) }}{% endif %}</td>
+      <td>{{ f.meter }}</td>
+      <td class="num">{{ f.counts.passed }}</td><td class="num">{{ f.counts.failed }}</td>
+      <td class="num">{{ f.counts.na }}</td><td class="num">{{ f.counts.other }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</section>
+
+<section id="findings" aria-labelledby="h-findings">
+  <h2 id="h-findings">Findings ({{ report.findings|length }})</h2>
+  {% if not groups %}<p>No findings.</p>{% endif %}
+  <div class="controls"><button id="expand-all" type="button" aria-pressed="false">Expand all</button></div>
+  {% for group in groups %}
+  <h3 class="sev sev-{{ group.severity }}">{{ group.glyph }} {{ group.label }} ({{ group.findings|length }})</h3>
+  {% for f in group.findings %}
+  <details class="finding" id="f-{{ f.finding_id }}">
+    <summary><span class="sev sev-{{ group.severity }}">{{ group.glyph }} {{ group.label }}</span>
+      <strong>{{ f.title }}</strong>
+      <span class="muted">{{ f.check_id }}{% if f.tool %} on {{ f.tool }}{% endif %}</span></summary>
+    <div class="body">
+      <p>{{ f.message }}</p>
+      {% if f.evidence.excerpt %}<pre>{{ f.evidence.excerpt }}</pre>{% endif %}
+      {% if observations[f.finding_id] %}<pre>{{ observations[f.finding_id] }}</pre>{% endif %}
+      <dl>
+        <dt>Finding id</dt><dd class="mono">{{ f.finding_id }}</dd>
+        <dt>Case</dt><dd class="mono">{{ f.repro.case_id }}</dd>
+        {% if details[f.check_id].spec_refs %}<dt>Spec</dt><dd>{{ details[f.check_id].spec_refs|join(", ") }}</dd>{% endif %}
+        {% if details[f.check_id].rationale %}<dt>Why it matters</dt><dd>{{ details[f.check_id].rationale }}</dd>{% endif %}
+        {% if details[f.check_id].remediation %}<dt>How to fix</dt><dd>{{ details[f.check_id].remediation }}</dd>{% endif %}
+        <dt>Reproduce</dt>
+        <dd class="repro"><code>{{ f.repro.command }}</code>
+          <button class="copy" type="button" data-copy="{{ f.repro.command }}">Copy</button></dd>
+      </dl>
+    </div>
+  </details>
+  {% endfor %}
+  {% endfor %}
+  {% if hidden_findings %}<p class="muted">{{ hidden_findings }} more findings are in report.json; this page shows the {{ shown_findings }} most severe.</p>{% endif %}
+</section>
+
+<section id="tools" aria-labelledby="h-tools">
+  <h2 id="h-tools">Tools ({{ report.tools|length }})</h2>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Tools"><table>
+    <caption class="sr">Tools the server offers and how Probe classified them</caption>
+    <thead><tr><th scope="col">Tool</th><th scope="col">Kind</th><th scope="col">Why</th>
+    <th scope="col" class="num">Cases</th><th scope="col">Flags</th></tr></thead>
+    <tbody>
+    {% for t in report.tools %}
+    <tr><th scope="row" class="mono">{{ t.name }}</th><td><span class="chip">{{ t.kind|string }}</span></td>
+      <td>{{ t.classification_reason }} <span class="muted">({{ t.classification_source }})</span></td>
+      <td class="num">{{ t.cases_run }}</td><td>{{ t.flags|map("string")|join(", ") }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</section>
+
+<section id="checks" aria-labelledby="h-checks">
+  <h2 id="h-checks">Checks ({{ report.results|length }})</h2>
+  <div class="controls">
+    <label>Search <input id="check-q" type="search"></label>
+    <label>Status <select id="check-status"><option value="">all</option>
+      {% for s in statuses %}<option value="{{ s }}">{{ s }}</option>{% endfor %}</select></label>
+  </div>
+  <div class="table-wrap" tabindex="0" role="region" aria-label="Checks"><table id="checks-table">
+    <caption class="sr">Every check and what happened to it</caption>
+    <thead><tr><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Status</th>
+    <th scope="col">Detail</th><th scope="col" class="num">Calls</th></tr></thead>
+    <tbody>
+    {% for r in report.results %}
+    <tr data-status="{{ r.status|string }}"><th scope="row"><span class="mono">{{ r.check_id }}</span><br>{{ r.title }}</th>
+      <td><span class="sev sev-{{ r.severity|string }}">{{ glyphs[r.severity|string] }} {{ r.severity|string }}</span></td>
+      <td><span class="st-{{ r.status|string }}">{{ status_glyph[r.status|string] }} {{ r.status|string|replace("_", " ") }}</span></td>
+      <td>{{ r.reason or "" }}</td><td class="num">{{ r.calls }}</td></tr>
+    {% endfor %}
+    </tbody></table></div>
+</section>
+
+<section id="limits" aria-labelledby="h-limits">
+  <h2 id="h-limits">Limitations</h2>
+  <p><strong>{{ report.honesty }}</strong></p>
+  {% if report.limitations %}<ul>{% for l in report.limitations %}<li>{{ l }}</li>{% endfor %}</ul>{% endif %}
+  <p>Probe tests what a server does when called through the checks in its catalog. It does not read source code,
+  and it cannot show that a server is free of other problems.</p>
+</section>
+
+<section id="metadata" aria-labelledby="h-metadata">
+  <h2 id="h-metadata">Scan metadata</h2>
+  <dl>
+    {% for k, v in metadata %}<dt>{{ k }}</dt><dd class="mono">{{ v }}</dd>{% endfor %}
+  </dl>
+</section>
+</main>
+<footer>Generated by Probe {{ report.probe_version }}. All text from the scanned server is shown escaped.</footer>
+<script>{{ js }}</script>
+</body>
+</html>

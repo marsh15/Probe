@@ -1,0 +1,1439 @@
+# serializer version: 1
+# name: test_snapshots[buggy]
+  '''
+  <!doctype html>
+  <html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-koToZXO1PBTvqjNyyUY3iF2mfdYF79m3SB8fYju2/IA='; img-src data:; base-uri 'none'; form-action 'none'">
+  <title>Probe report: python</title>
+  <style>:root{--paper:#FAF8F3;--ink:#1B1B1A;--muted:#66645E;--rule:#E3DFD4;--panel:#FFFFFF;--accent:#D9480F;--link:#B23A08;
+  --critical:#B42318;--high:#C2410C;--medium:#8F5606;--low:#1D4ED8;--info:#5B6270;--pass:#15803D;
+  --serif:"Source Serif 4",ui-serif,Georgia,serif;--sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;color-scheme:light}
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#121211;--ink:#ECEAE4;--muted:#A8A59C;
+  --rule:#2A2926;--panel:#1A1A18;--accent:#FF7A3D;--link:#FF9A66;--critical:#FF8A80;--high:#FFA05C;--medium:#F0C04A;
+  --low:#7FB0FF;--info:#A9AFBA;--pass:#5FD38A;color-scheme:dark}}
+  :root[data-theme=dark]{--paper:#121211;--ink:#ECEAE4;--muted:#A8A59C;--rule:#2A2926;--panel:#1A1A18;
+  --accent:#FF7A3D;--link:#FF9A66;--critical:#FF8A80;--high:#FFA05C;--medium:#F0C04A;--low:#7FB0FF;--info:#A9AFBA;
+  --pass:#5FD38A;color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans)}
+  main,header.band,footer{max-width:1200px;margin:0 auto;padding:0 16px}
+  a{color:var(--link)}
+  h1,h2,h3{font-family:var(--serif);line-height:1.2;margin:0}
+  h1{font-size:31px}h2{font-size:25px;margin:48px 0 16px;border-bottom:1px solid var(--rule);padding-bottom:8px}
+  h3{font-size:20px}
+  p{max-width:72ch}
+  code,pre,.mono{font-family:var(--mono);font-size:14px}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--rule);
+  border-radius:4px;padding:12px;margin:8px 0}
+  .skip{position:absolute;left:-999px}.skip:focus{left:16px;top:8px;background:var(--panel);padding:8px;z-index:9}
+  header.band{padding-top:24px;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+  .band .meta{color:var(--muted);font-size:14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px;margin-top:8px}
+  .chip{display:inline-block;border:1px solid var(--rule);border-radius:4px;padding:0 8px;font-size:12px;
+  background:var(--panel);color:var(--ink)}
+  .sev{font-weight:600;white-space:nowrap}
+  .sev-critical{color:var(--critical)}.sev-high{color:var(--high)}.sev-medium{color:var(--medium)}
+  .sev-low{color:var(--low)}.sev-info{color:var(--info)}.st-pass{color:var(--pass)}
+  .st-fail{color:var(--critical)}.st-error{color:var(--high)}.st-not_applicable,.st-skipped{color:var(--muted)}
+  .score{display:flex;flex-wrap:wrap;gap:32px;align-items:center;margin-top:24px}
+  .grade{font:700 96px/1 var(--serif);color:var(--accent)}
+  .big{font:600 39px/1.1 var(--serif)}
+  .score small{display:block;color:var(--muted);font-size:14px}
+  .caps{margin-top:16px;border-left:4px solid var(--accent);padding:4px 12px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;max-width:1200px;background:var(--panel);font-size:14px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:4px}
+  svg.bar{display:block;max-width:100%;height:12px}
+  svg.bar .track{fill:var(--rule)}svg.bar .fill{fill:var(--accent)}
+  details.finding{border:1px solid var(--rule);border-radius:4px;background:var(--panel);margin:8px 0}
+  details.finding>summary{cursor:pointer;padding:12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+  details.finding .body{padding:0 12px 12px}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:8px 0}
+  dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  .repro{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{font:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--rule);
+  border-radius:4px;padding:4px 12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .controls{display:none;gap:8px;margin:8px 0;flex-wrap:wrap}.js .controls{display:flex}
+  .js .nojs{display:none}.copy{display:none}.js .copy{display:inline-block}
+  .muted{color:var(--muted)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  nav.toc{display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:14px}
+  footer{padding-top:24px;padding-bottom:48px;color:var(--muted);font-size:14px}
+  @media (max-width:640px){.grade{font-size:72px}dl{grid-template-columns:1fr}h1{font-size:25px}}
+  @media print{.controls,.copy,#theme,nav.toc{display:none!important}body{background:#fff;color:#000}
+  details.finding{break-inside:avoid}}
+  </style>
+  </head>
+  <body>
+  <a class="skip" href="#summary">Skip to the summary</a>
+  <header class="band">
+    <p class="muted" style="margin:0">Probe scan report</p>
+    <h1>python</h1>
+    <div class="meta">
+      <span>version 0.1.0</span>
+      <span>stdio</span>
+      <span class="chip">2026-07-28 ✓</span>
+      <span>scanned 2026-11-24 08:57 UTC</span>
+      <span>Probe 0.1.0.dev0</span>
+      <button id="theme" type="button" aria-pressed="false" class="controls">Toggle theme</button>
+    </div>
+    <nav class="toc" aria-label="Sections">
+      <a href="#summary">Summary</a><a href="#families">Families</a><a href="#findings">Findings</a>
+      <a href="#tools">Tools</a><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="#metadata">Metadata</a>
+    </nav>
+  </header>
+  <main>
+  <section id="summary" aria-labelledby="h-summary">
+    <h2 id="h-summary">Summary</h2>
+    
+    <div class="score">
+      <div><span class="grade">B</span><small>grade</small></div>
+      <div><span class="big">84.9</span><small>overall score (0 to 100)</small></div>
+      <div><span class="big">54.2%</span><small>coverage of the catalog</small>
+        <svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>Coverage: 54.2 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="130.1" height="12" rx="2"/></svg></div>
+    </div>
+    
+    <p class="caps">Grade capped: high instance caps at B.</p>
+    
+    
+    <p class="muted">Scoring profile: full, scoring version 1.0.
+    A high grade with low coverage is limited evidence: grade and coverage are separate measurements.</p>
+  </section>
+  
+  <section id="families" aria-labelledby="h-families">
+    <h2 id="h-families">Families</h2>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Family scores"><table>
+      <caption class="sr">Score and check counts for each family</caption>
+      <thead><tr><th scope="col">Family</th><th scope="col" class="num">Score</th><th scope="col">Meter</th>
+      <th scope="col" class="num">Pass</th><th scope="col" class="num">Fail</th>
+      <th scope="col" class="num">Not applicable</th><th scope="col" class="num">Error or skipped</th></tr></thead>
+      <tbody>
+      
+      <tr><th scope="row">safety</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>safety score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">3</td><td class="num">0</td>
+        <td class="num">2</td><td class="num">7</td></tr>
+      
+      <tr><th scope="row">behavior</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>behavior score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">13</td><td class="num">0</td>
+        <td class="num">2</td><td class="num">1</td></tr>
+      
+      <tr><th scope="row">schema</th>
+        <td class="num">72.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>schema score: 72.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="172.8" height="12" rx="2"/></svg></td>
+        <td class="num">10</td><td class="num">2</td>
+        <td class="num">1</td><td class="num">0</td></tr>
+      
+      <tr><th scope="row">protocol</th>
+        <td class="num">53.3</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>protocol score: 53.3 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="127.9" height="12" rx="2"/></svg></td>
+        <td class="num">6</td><td class="num">2</td>
+        <td class="num">3</td><td class="num">1</td></tr>
+      
+      <tr><th scope="row">operability</th>
+        <td class="num">75.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>operability score: 75.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="180.0" height="12" rx="2"/></svg></td>
+        <td class="num">3</td><td class="num">1</td>
+        <td class="num">0</td><td class="num">2</td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="findings" aria-labelledby="h-findings">
+    <h2 id="h-findings">Findings (7)</h2>
+    
+    <div class="controls"><button id="expand-all" type="button" aria-pressed="false">Expand all</button></div>
+    
+    <h3 class="sev sev-high">▲ High (2)</h3>
+    
+    <details class="finding" id="f-d9443086f45eab93">
+      <summary><span class="sev sev-high">▲ High</span>
+        <strong>tools/list page 1 does not match the schema</strong>
+        <span class="muted">schema.tools_list_valid</span></summary>
+      <div class="body">
+        <p>(result): &#39;resultType&#39; is a required property</p>
+        
+        <pre>{
+    &#34;page&#34;: 1,
+    &#34;problems&#34;: [
+      &#34;(result): &#39;resultType&#39; is a required property&#34;
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">d9443086f45eab93</dd>
+          <dt>Case</dt><dd class="mono">tools-list:page-1</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/tools#listing-tools</dd>
+          <dt>Why it matters</dt><dd>Clients parse tools/list with the official schema. A tool without inputSchema or a result with the wrong shape breaks every client that validates strictly.</dd>
+          <dt>How to fix</dt><dd>Return tools/list results that validate against the version&#39;s schema.json.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding d9443086f45eab93</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding d9443086f45eab93">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    <details class="finding" id="f-dd7555e6e4c0ad3a">
+      <summary><span class="sev sev-high">▲ High</span>
+        <strong>server/discover result is incomplete</strong>
+        <span class="muted">protocol.discover_implemented</span></summary>
+      <div class="body">
+        <p>resultType is missing</p>
+        
+        <pre>{
+    &#34;problems&#34;: [
+      &#34;resultType is missing&#34;
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">dd7555e6e4c0ad3a</dd>
+          <dt>Case</dt><dd class="mono">discover:incomplete</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/discover</dd>
+          <dt>Why it matters</dt><dd>Clients detect a server&#39;s era and supported versions with server/discover. A modern-capable server without it looks like a legacy server and is driven with the wrong protocol.</dd>
+          <dt>How to fix</dt><dd>Implement server/discover and return supportedVersions, capabilities, resultType, ttlMs and cacheScope.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding dd7555e6e4c0ad3a</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding dd7555e6e4c0ad3a">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    
+    <h3 class="sev sev-medium">◆ Medium (2)</h3>
+    
+    <details class="finding" id="f-257b54e714b7bfc5">
+      <summary><span class="sev sev-medium">◆ Medium</span>
+        <strong>Unresolvable or remote $ref: notes_create</strong>
+        <span class="muted">schema.refs_resolvable on notes_create</span></summary>
+      <div class="body">
+        <p>inputSchema: #/$defs/missing is unresolvable</p>
+        
+        <pre>{
+    &#34;problems&#34;: [
+      &#34;inputSchema: #/$defs/missing is unresolvable&#34;
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">257b54e714b7bfc5</dd>
+          <dt>Case</dt><dd class="mono">refs:notes_create</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/tools#tool</dd>
+          <dt>Why it matters</dt><dd>A $ref that points nowhere makes the schema unusable. A remote $ref makes clients fetch URLs the server chose, which leaks requests and invites SSRF.</dd>
+          <dt>How to fix</dt><dd>Inline remote definitions under $defs and make every $ref point inside the schema.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding 257b54e714b7bfc5</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding 257b54e714b7bfc5">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    <details class="finding" id="f-c9276d64428bb6da">
+      <summary><span class="sev sev-medium">◆ Medium</span>
+        <strong>Results without resultType</strong>
+        <span class="muted">protocol.result_type_present</span></summary>
+      <div class="body">
+        <p>357 result(s) lacked resultType (methods: resources/list, server/discover, tools/call, tools/list)</p>
+        
+        <pre>{
+    &#34;count&#34;: 357,
+    &#34;methods&#34;: [
+      &#34;resources/list&#34;,
+      &#34;server/discover&#34;,
+      &#34;tools/call&#34;,
+      &#34;tools/list&#34;
+    ],
+    &#34;trace_seq&#34;: [
+      1,
+      3,
+      5,
+      7,
+      9
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">c9276d64428bb6da</dd>
+          <dt>Case</dt><dd class="mono">result-type:missing</dd>
+          <dt>Spec</dt><dd>2026-07-28/schema#result</dd>
+          <dt>Why it matters</dt><dd>resultType tells a client whether a result is complete or needs more input. Without it, clients cannot tell a finished result from an input request.</dd>
+          <dt>How to fix</dt><dd>Include resultType (&#34;complete&#34; or &#34;input_required&#34;) in every result.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding c9276d64428bb6da</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding c9276d64428bb6da">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    
+    <h3 class="sev sev-low">● Low (1)</h3>
+    
+    <details class="finding" id="f-b227f850ebe28aa0">
+      <summary><span class="sev sev-low">● Low</span>
+        <strong>Read tools withstand concurrent bursts</strong>
+        <span class="muted">operability.burst_resilient on notes_get</span></summary>
+      <div class="body">
+        <p>garbled tool result: (result): &#39;resultType&#39; is a required property</p>
+        
+        <pre>{
+    &#34;concurrent_calls&#34;: 50,
+    &#34;problems&#34;: [
+      &#34;garbled tool result: (result): &#39;resultType&#39; is a required property&#34;
+    ],
+    &#34;reproduced_crash&#34;: false
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">b227f850ebe28aa0</dd>
+          <dt>Case</dt><dd class="mono">burst:notes_get</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/tools#error-handling</dd>
+          <dt>Why it matters</dt><dd>A short traffic spike should yield usable results or explicit rate-limit errors.</dd>
+          <dt>How to fix</dt><dd>Bound concurrency and return well-formed results or rate-limit errors with retry guidance.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding b227f850ebe28aa0</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding b227f850ebe28aa0">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    
+    <h3 class="sev sev-info">○ Info (2)</h3>
+    
+    <details class="finding" id="f-513f8a442622ff40">
+      <summary><span class="sev sev-info">○ Info</span>
+        <strong>Some input schemas are not strict</strong>
+        <span class="muted">schema.input_schema_strict</span></summary>
+      <div class="body">
+        <p>15 tool(s) allow additional properties or list no required parameters.</p>
+        
+        <pre>{
+    &#34;count&#34;: 15,
+    &#34;tools&#34;: [
+      &#34;notes_create&#34;,
+      &#34;notes_update&#34;,
+      &#34;notes_delete&#34;,
+      &#34;notes_get&#34;,
+      &#34;notes_list&#34;,
+      &#34;search_notes&#34;,
+      &#34;fetch_url&#34;,
+      &#34;read_file&#34;,
+      &#34;write_file&#34;,
+      &#34;query_db&#34;,
+      &#34;git_log&#34;,
+      &#34;slow_report&#34;,
+      &#34;purge_notes&#34;,
+      &#34;call_backend&#34;,
+      &#34;long_export&#34;
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">513f8a442622ff40</dd>
+          <dt>Case</dt><dd class="mono">input-schema-strict:summary</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/tools#tool</dd>
+          <dt>Why it matters</dt><dd>Schemas that forbid extra properties and list required ones reject malformed calls early. Loose ones accept whatever a model invents.</dd>
+          <dt>How to fix</dt><dd>Set &#34;additionalProperties&#34;: false and list required parameters.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding 513f8a442622ff40</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding 513f8a442622ff40">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    <details class="finding" id="f-9a6ec162a9613023">
+      <summary><span class="sev sev-info">○ Info</span>
+        <strong>Startup latency is recorded</strong>
+        <span class="muted">operability.startup_time</span></summary>
+      <div class="body">
+        <p>First successful response after 623.6 ms.</p>
+        
+        <pre>{
+    &#34;startup_ms&#34;: 623.59912109375
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">9a6ec162a9613023</dd>
+          <dt>Case</dt><dd class="mono">startup</dd>
+          <dt>Spec</dt><dd>2026-07-28/basic/lifecycle#initialization</dd>
+          <dt>Why it matters</dt><dd>Time to the first successful response describes cold-start operability.</dd>
+          <dt>How to fix</dt><dd>Investigate cold starts longer than 30 seconds.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding 9a6ec162a9613023</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding 9a6ec162a9613023">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    
+    
+  </section>
+  
+  <section id="tools" aria-labelledby="h-tools">
+    <h2 id="h-tools">Tools (15)</h2>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Tools"><table>
+      <caption class="sr">Tools the server offers and how Probe classified them</caption>
+      <thead><tr><th scope="col">Tool</th><th scope="col">Kind</th><th scope="col">Why</th>
+      <th scope="col" class="num">Cases</th><th scope="col">Flags</th></tr></thead>
+      <tbody>
+      
+      <tr><th scope="row" class="mono">notes_create</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_update</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_delete</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_get</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_list</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>paginated</td></tr>
+      
+      <tr><th scope="row" class="mono">search_notes</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">fetch_url</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>url_param</td></tr>
+      
+      <tr><th scope="row" class="mono">read_file</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>path_param</td></tr>
+      
+      <tr><th scope="row" class="mono">write_file</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>path_param</td></tr>
+      
+      <tr><th scope="row" class="mono">query_db</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>sql_param</td></tr>
+      
+      <tr><th scope="row" class="mono">git_log</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>command_param</td></tr>
+      
+      <tr><th scope="row" class="mono">slow_report</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">purge_notes</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">call_backend</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">long_export</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="checks" aria-labelledby="h-checks">
+    <h2 id="h-checks">Checks (59)</h2>
+    <div class="controls">
+      <label>Search <input id="check-q" type="search"></label>
+      <label>Status <select id="check-status"><option value="">all</option>
+        <option value="fail">fail</option><option value="not_applicable">not_applicable</option><option value="pass">pass</option><option value="skipped">skipped</option></select></label>
+    </div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Checks"><table id="checks-table">
+      <caption class="sr">Every check and what happened to it</caption>
+      <thead><tr><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Status</th>
+      <th scope="col">Detail</th><th scope="col" class="num">Calls</th></tr></thead>
+      <tbody>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.idempotency_declared</span><br>Tools that change data say whether repeating them is safe</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.destructive_annotated</span><br>Tools that sound destructive say so in their annotations</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">safety.oauth_scopes_minimal</span><br>OAuth metadata asks for narrow scopes</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.cache_ttl_sane</span><br>Cache lifetimes are not absurdly long</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.descriptions_present</span><br>Tools and their required parameters are described</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.input_schema_strict</span><br>Input schemas are strict (information only)</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.input_schema_valid</span><br>Every inputSchema is a valid JSON Schema with an object root</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="fail"><th scope="row"><span class="mono">schema.refs_resolvable</span><br>Schema references resolve inside the schema</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-fail">✖ fail</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.tool_names_valid</span><br>Tool names are well formed and unique</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="fail"><th scope="row"><span class="mono">schema.tools_list_valid</span><br>tools/list results conform to the protocol schema</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-fail">✖ fail</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.x_mcp_header_valid</span><br>x-mcp-header annotations obey their constraints</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.empty_result_ok</span><br>A search that matches nothing is not an error</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.pagination_sound</span><br>Paged results end, do not repeat, and reject bad cursors</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">23</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.stateless_consistent</span><br>Two fresh instances of the server answer alike</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">12</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">operability.logs_no_secrets</span><br>Logs omit sensitive tool arguments</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.meta_tolerated</span><br>Tools tolerate tracing and unknown metadata</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">11</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">operability.trace_propagated</span><br>Outbound calls preserve the trace id</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.deprecated_features</span><br>Uses of deprecated MCP features</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="fail"><th scope="row"><span class="mono">protocol.discover_implemented</span><br>server/discover is implemented and well formed</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-fail">✖ fail</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">protocol.era_parity</span><br>A dual-era server offers the same tools in both eras</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>not part of standard mode</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.unknown_method_error</span><br>An unknown method is answered with -32601</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.unsupported_version_error</span><br>An unsupported protocol version is rejected with -32022</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">schema.cache_scope_correct</span><br>Lists that differ between users are not marked public</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.tool_order_deterministic</span><br>tools/list returns the same tools in the same order every time</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">4</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">behavior.mrtr_wellformed</span><br>Requests for input are well formed and the retry completes</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool asked for input during the valid-input campaign</td><td class="num">83</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">behavior.replay_idempotent</span><br>A tool that promises idempotence changes nothing the second time</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">behavior.tasks_lifecycle</span><br>Tasks are created durably, reach a terminal state and can be cancelled</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool returned a task when the extension was declared</td><td class="num">6</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.valid_input_accepted</span><br>Input that fits the schema is not rejected</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.output_conforms</span><br>Structured results match the tool&#39;s outputSchema</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.structured_text_mirror</span><br>Structured results are also returned as JSON text</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.boundary_robust</span><br>Extreme but allowed input does not crash the server</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">72</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.errors_actionable</span><br>Error messages tell the caller what to fix</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">52</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.invalid_input_rejected</span><br>Input that breaks the schema is refused and changes nothing</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.header_mismatch_rejected</span><br>Headers that disagree with the request body are rejected</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.malformed_jsonrpc_handled</span><br>Malformed JSON-RPC input gets an error and does not hurt the server</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">3</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.origin_validated</span><br>A request from an untrusted Origin is rejected</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.required_headers_enforced</span><br>Requests missing the required headers are rejected</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.annotations_truthful</span><br>Tools marked read-only change nothing</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.file_scheme_blocked</span><br>URL tools do not disclose local files through file URLs</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.no_command_injection</span><br>Input cannot add commands or options to what a tool runs</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.no_secret_leak</span><br>Credentials the server holds never appear in what it sends back</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.path_contained</span><br>File tools stay inside their allowed directories</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.readonly_enforced</span><br>Read tools cannot be made to change anything</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">safety.request_state_integrity</span><br>A forged or borrowed requestState is refused</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool asked for input during the valid-input campaign</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.ssrf_blocked</span><br>URL tools block private networks and private redirect destinations</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.cancellation_honored</span><br>A cancelled request is dropped and the server stays responsive</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.concurrency_consistent</span><br>Concurrent identical calls get identical answers</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">27</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.no_head_of_line_blocking</span><br>One slow call does not hold up other requests</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">2</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.output_bounded</span><br>A single result stays under 1 MiB</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">3</td></tr>
+      
+      <tr data-status="fail"><th scope="row"><span class="mono">operability.burst_resilient</span><br>Read tools withstand concurrent bursts</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-fail">✖ fail</span></td>
+        <td></td><td class="num">50</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.startup_time</span><br>Startup latency is recorded</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.error_code_ranges</span><br>Error codes stay inside the ranges the spec allows</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="fail"><th scope="row"><span class="mono">protocol.result_type_present</span><br>Every modern result carries resultType</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-fail">✖ fail</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.stdout_clean</span><br>Standard output carries only MCP messages</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.no_hidden_instructions</span><br>Descriptions and answers carry no hidden or injected instructions</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.no_stack_traces</span><br>Errors do not show stack traces</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.cache_fields_present</span><br>Cacheable results carry ttlMs and cacheScope</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.survives_campaign</span><br>The server stays up for the whole scan</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.clean_shutdown</span><br>Stdio targets stop without SIGKILL</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="limits" aria-labelledby="h-limits">
+    <h2 id="h-limits">Limitations</h2>
+    <p><strong>No issues found by Probe v1.0 checks is not a security guarantee.</strong></p>
+    <ul><li>5 check(s) not_applicable: applies to http targets; this one is stdio</li><li>2 check(s) not_applicable: no tool asked for input during the valid-input campaign</li><li>1 check(s) not_applicable: no tool returned a task when the extension was declared</li><li>1 check(s) skipped: not part of standard mode</li><li>10 check(s) skipped: requires sandbox (fixtures)</li><li>6 tool(s) that may write were not called (use --allow-side-effects or a sandbox)</li></ul>
+    <p>Probe tests what a server does when called through the checks in its catalog. It does not read source code,
+    and it cannot show that a server is free of other problems.</p>
+  </section>
+  
+  <section id="metadata" aria-labelledby="h-metadata">
+    <h2 id="h-metadata">Scan metadata</h2>
+    <dl>
+      <dt>scan id</dt><dd class="mono">de5178cbbfaa</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">62.8 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.1</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
+    </dl>
+  </section>
+  </main>
+  <footer>Generated by Probe 0.1.0.dev0. All text from the scanned server is shown escaped.</footer>
+  <script>(function(){
+  var d=document,r=d.documentElement;r.classList.add("js");
+  function $(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s));}
+  var t=d.getElementById("theme");
+  if(t){t.addEventListener("click",function(){
+  var dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  r.setAttribute("data-theme",dark?"light":"dark");t.setAttribute("aria-pressed",String(!dark));});}
+  $("button.copy").forEach(function(b){b.addEventListener("click",function(){
+  var s=b.getAttribute("data-copy")||"";
+  if(navigator.clipboard){navigator.clipboard.writeText(s).then(function(){b.textContent="Copied";});}});});
+  var rows=$("#checks-table tbody tr"),q=d.getElementById("check-q"),st=d.getElementById("check-status");
+  function filter(){var text=(q&&q.value||"").toLowerCase(),s=st&&st.value||"";
+  rows.forEach(function(row){var ok=(!s||row.getAttribute("data-status")===s)&&(!text||row.textContent.toLowerCase().indexOf(text)>=0);
+  row.hidden=!ok;});}
+  if(q){q.addEventListener("input",filter);}if(st){st.addEventListener("change",filter);}
+  var all=d.getElementById("expand-all");
+  if(all){all.addEventListener("click",function(){var open=all.getAttribute("aria-pressed")!=="true";
+  $("details.finding").forEach(function(x){x.open=open;});all.setAttribute("aria-pressed",String(open));});}
+  addEventListener("beforeprint",function(){$("details").forEach(function(x){x.open=true;});});
+  })();</script>
+  </body>
+  </html>
+  '''
+# ---
+# name: test_snapshots[clean]
+  '''
+  <!doctype html>
+  <html lang="en">
+  <head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'sha256-koToZXO1PBTvqjNyyUY3iF2mfdYF79m3SB8fYju2/IA='; img-src data:; base-uri 'none'; form-action 'none'">
+  <title>Probe report: python</title>
+  <style>:root{--paper:#FAF8F3;--ink:#1B1B1A;--muted:#66645E;--rule:#E3DFD4;--panel:#FFFFFF;--accent:#D9480F;--link:#B23A08;
+  --critical:#B42318;--high:#C2410C;--medium:#8F5606;--low:#1D4ED8;--info:#5B6270;--pass:#15803D;
+  --serif:"Source Serif 4",ui-serif,Georgia,serif;--sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;color-scheme:light}
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#121211;--ink:#ECEAE4;--muted:#A8A59C;
+  --rule:#2A2926;--panel:#1A1A18;--accent:#FF7A3D;--link:#FF9A66;--critical:#FF8A80;--high:#FFA05C;--medium:#F0C04A;
+  --low:#7FB0FF;--info:#A9AFBA;--pass:#5FD38A;color-scheme:dark}}
+  :root[data-theme=dark]{--paper:#121211;--ink:#ECEAE4;--muted:#A8A59C;--rule:#2A2926;--panel:#1A1A18;
+  --accent:#FF7A3D;--link:#FF9A66;--critical:#FF8A80;--high:#FFA05C;--medium:#F0C04A;--low:#7FB0FF;--info:#A9AFBA;
+  --pass:#5FD38A;color-scheme:dark}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.5 var(--sans)}
+  main,header.band,footer{max-width:1200px;margin:0 auto;padding:0 16px}
+  a{color:var(--link)}
+  h1,h2,h3{font-family:var(--serif);line-height:1.2;margin:0}
+  h1{font-size:31px}h2{font-size:25px;margin:48px 0 16px;border-bottom:1px solid var(--rule);padding-bottom:8px}
+  h3{font-size:20px}
+  p{max-width:72ch}
+  code,pre,.mono{font-family:var(--mono);font-size:14px}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--panel);border:1px solid var(--rule);
+  border-radius:4px;padding:12px;margin:8px 0}
+  .skip{position:absolute;left:-999px}.skip:focus{left:16px;top:8px;background:var(--panel);padding:8px;z-index:9}
+  header.band{padding-top:24px;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+  .band .meta{color:var(--muted);font-size:14px;display:flex;align-items:center;flex-wrap:wrap;gap:4px 16px;margin-top:8px}
+  .chip{display:inline-block;border:1px solid var(--rule);border-radius:4px;padding:0 8px;font-size:12px;
+  background:var(--panel);color:var(--ink)}
+  .sev{font-weight:600;white-space:nowrap}
+  .sev-critical{color:var(--critical)}.sev-high{color:var(--high)}.sev-medium{color:var(--medium)}
+  .sev-low{color:var(--low)}.sev-info{color:var(--info)}.st-pass{color:var(--pass)}
+  .st-fail{color:var(--critical)}.st-error{color:var(--high)}.st-not_applicable,.st-skipped{color:var(--muted)}
+  .score{display:flex;flex-wrap:wrap;gap:32px;align-items:center;margin-top:24px}
+  .grade{font:700 96px/1 var(--serif);color:var(--accent)}
+  .big{font:600 39px/1.1 var(--serif)}
+  .score small{display:block;color:var(--muted);font-size:14px}
+  .caps{margin-top:16px;border-left:4px solid var(--accent);padding:4px 12px;background:var(--panel)}
+  table{border-collapse:collapse;width:100%;max-width:1200px;background:var(--panel);font-size:14px}
+  th,td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+  th{font-weight:600;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+  td.num,th.num{text-align:right;font-variant-numeric:tabular-nums}
+  .table-wrap{overflow-x:auto;border:1px solid var(--rule);border-radius:4px}
+  svg.bar{display:block;max-width:100%;height:12px}
+  svg.bar .track{fill:var(--rule)}svg.bar .fill{fill:var(--accent)}
+  details.finding{border:1px solid var(--rule);border-radius:4px;background:var(--panel);margin:8px 0}
+  details.finding>summary{cursor:pointer;padding:12px;display:flex;flex-wrap:wrap;gap:4px 12px;align-items:baseline}
+  details.finding .body{padding:0 12px 12px}
+  dl{display:grid;grid-template-columns:max-content 1fr;gap:4px 16px;margin:8px 0}
+  dt{color:var(--muted)}dd{margin:0;overflow-wrap:anywhere}
+  .repro{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+  button{font:inherit;font-size:13px;background:var(--panel);color:var(--ink);border:1px solid var(--rule);
+  border-radius:4px;padding:4px 12px;cursor:pointer}
+  button:hover{border-color:var(--accent)}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .controls{display:none;gap:8px;margin:8px 0;flex-wrap:wrap}.js .controls{display:flex}
+  .js .nojs{display:none}.copy{display:none}.js .copy{display:inline-block}
+  .muted{color:var(--muted)}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  nav.toc{display:flex;gap:16px;flex-wrap:wrap;padding:8px 0;font-size:14px}
+  footer{padding-top:24px;padding-bottom:48px;color:var(--muted);font-size:14px}
+  @media (max-width:640px){.grade{font-size:72px}dl{grid-template-columns:1fr}h1{font-size:25px}}
+  @media print{.controls,.copy,#theme,nav.toc{display:none!important}body{background:#fff;color:#000}
+  details.finding{break-inside:avoid}}
+  </style>
+  </head>
+  <body>
+  <a class="skip" href="#summary">Skip to the summary</a>
+  <header class="band">
+    <p class="muted" style="margin:0">Probe scan report</p>
+    <h1>python</h1>
+    <div class="meta">
+      <span>version 0.1.0</span>
+      <span>stdio</span>
+      <span class="chip">2026-07-28 ✓</span>
+      <span>scanned 2026-11-24 08:56 UTC</span>
+      <span>Probe 0.1.0.dev0</span>
+      <button id="theme" type="button" aria-pressed="false" class="controls">Toggle theme</button>
+    </div>
+    <nav class="toc" aria-label="Sections">
+      <a href="#summary">Summary</a><a href="#families">Families</a><a href="#findings">Findings</a>
+      <a href="#tools">Tools</a><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="#metadata">Metadata</a>
+    </nav>
+  </header>
+  <main>
+  <section id="summary" aria-labelledby="h-summary">
+    <h2 id="h-summary">Summary</h2>
+    
+    <div class="score">
+      <div><span class="grade">A</span><small>grade</small></div>
+      <div><span class="big">100.0</span><small>overall score (0 to 100)</small></div>
+      <div><span class="big">54.2%</span><small>coverage of the catalog</small>
+        <svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>Coverage: 54.2 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="130.1" height="12" rx="2"/></svg></div>
+    </div>
+    
+    
+    <p class="muted">Scoring profile: full, scoring version 1.0.
+    A high grade with low coverage is limited evidence: grade and coverage are separate measurements.</p>
+  </section>
+  
+  <section id="families" aria-labelledby="h-families">
+    <h2 id="h-families">Families</h2>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Family scores"><table>
+      <caption class="sr">Score and check counts for each family</caption>
+      <thead><tr><th scope="col">Family</th><th scope="col" class="num">Score</th><th scope="col">Meter</th>
+      <th scope="col" class="num">Pass</th><th scope="col" class="num">Fail</th>
+      <th scope="col" class="num">Not applicable</th><th scope="col" class="num">Error or skipped</th></tr></thead>
+      <tbody>
+      
+      <tr><th scope="row">safety</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>safety score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">3</td><td class="num">0</td>
+        <td class="num">2</td><td class="num">7</td></tr>
+      
+      <tr><th scope="row">behavior</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>behavior score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">13</td><td class="num">0</td>
+        <td class="num">2</td><td class="num">1</td></tr>
+      
+      <tr><th scope="row">schema</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>schema score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">12</td><td class="num">0</td>
+        <td class="num">1</td><td class="num">0</td></tr>
+      
+      <tr><th scope="row">protocol</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>protocol score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">8</td><td class="num">0</td>
+        <td class="num">3</td><td class="num">1</td></tr>
+      
+      <tr><th scope="row">operability</th>
+        <td class="num">100.0</td>
+        <td><svg class="bar" role="img" viewBox="0 0 240 12" width="240" height="12" preserveAspectRatio="none"><title>operability score: 100.0 out of 100</title><rect class="track" x="0" y="0" width="240" height="12" rx="2"/><rect class="fill" x="0" y="0" width="240.0" height="12" rx="2"/></svg></td>
+        <td class="num">4</td><td class="num">0</td>
+        <td class="num">0</td><td class="num">2</td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="findings" aria-labelledby="h-findings">
+    <h2 id="h-findings">Findings (2)</h2>
+    
+    <div class="controls"><button id="expand-all" type="button" aria-pressed="false">Expand all</button></div>
+    
+    <h3 class="sev sev-info">○ Info (2)</h3>
+    
+    <details class="finding" id="f-513f8a442622ff40">
+      <summary><span class="sev sev-info">○ Info</span>
+        <strong>Some input schemas are not strict</strong>
+        <span class="muted">schema.input_schema_strict</span></summary>
+      <div class="body">
+        <p>15 tool(s) allow additional properties or list no required parameters.</p>
+        
+        <pre>{
+    &#34;count&#34;: 15,
+    &#34;tools&#34;: [
+      &#34;notes_create&#34;,
+      &#34;notes_update&#34;,
+      &#34;notes_delete&#34;,
+      &#34;notes_get&#34;,
+      &#34;notes_list&#34;,
+      &#34;search_notes&#34;,
+      &#34;fetch_url&#34;,
+      &#34;read_file&#34;,
+      &#34;write_file&#34;,
+      &#34;query_db&#34;,
+      &#34;git_log&#34;,
+      &#34;slow_report&#34;,
+      &#34;purge_notes&#34;,
+      &#34;call_backend&#34;,
+      &#34;long_export&#34;
+    ]
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">513f8a442622ff40</dd>
+          <dt>Case</dt><dd class="mono">input-schema-strict:summary</dd>
+          <dt>Spec</dt><dd>2026-07-28/server/tools#tool</dd>
+          <dt>Why it matters</dt><dd>Schemas that forbid extra properties and list required ones reject malformed calls early. Loose ones accept whatever a model invents.</dd>
+          <dt>How to fix</dt><dd>Set &#34;additionalProperties&#34;: false and list required parameters.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding 513f8a442622ff40</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding 513f8a442622ff40">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    <details class="finding" id="f-9a6ec162a9613023">
+      <summary><span class="sev sev-info">○ Info</span>
+        <strong>Startup latency is recorded</strong>
+        <span class="muted">operability.startup_time</span></summary>
+      <div class="body">
+        <p>First successful response after 727.5 ms.</p>
+        
+        <pre>{
+    &#34;startup_ms&#34;: 727.47802734375
+  }</pre>
+        <dl>
+          <dt>Finding id</dt><dd class="mono">9a6ec162a9613023</dd>
+          <dt>Case</dt><dd class="mono">startup</dd>
+          <dt>Spec</dt><dd>2026-07-28/basic/lifecycle#initialization</dd>
+          <dt>Why it matters</dt><dd>Time to the first successful response describes cold-start operability.</dd>
+          <dt>How to fix</dt><dd>Investigate cold starts longer than 30 seconds.</dd>
+          <dt>Reproduce</dt>
+          <dd class="repro"><code>probe repro report.json --finding 9a6ec162a9613023</code>
+            <button class="copy" type="button" data-copy="probe repro report.json --finding 9a6ec162a9613023">Copy</button></dd>
+        </dl>
+      </div>
+    </details>
+    
+    
+    
+  </section>
+  
+  <section id="tools" aria-labelledby="h-tools">
+    <h2 id="h-tools">Tools (15)</h2>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Tools"><table>
+      <caption class="sr">Tools the server offers and how Probe classified them</caption>
+      <thead><tr><th scope="col">Tool</th><th scope="col">Kind</th><th scope="col">Why</th>
+      <th scope="col" class="num">Cases</th><th scope="col">Flags</th></tr></thead>
+      <tbody>
+      
+      <tr><th scope="row" class="mono">notes_create</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_update</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_delete</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_get</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">notes_list</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>paginated</td></tr>
+      
+      <tr><th scope="row" class="mono">search_notes</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">fetch_url</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>url_param</td></tr>
+      
+      <tr><th scope="row" class="mono">read_file</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>path_param</td></tr>
+      
+      <tr><th scope="row" class="mono">write_file</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>path_param</td></tr>
+      
+      <tr><th scope="row" class="mono">query_db</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>sql_param</td></tr>
+      
+      <tr><th scope="row" class="mono">git_log</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td>command_param</td></tr>
+      
+      <tr><th scope="row" class="mono">slow_report</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">purge_notes</th><td><span class="chip">destructive</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">call_backend</th><td><span class="chip">read</span></td>
+        <td>readOnlyHint is strictly true <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      <tr><th scope="row" class="mono">long_export</th><td><span class="chip">write</span></td>
+        <td>readOnlyHint is not strictly true; destructiveHint is strictly false <span class="muted">(annotations)</span></td>
+        <td class="num">0</td><td></td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="checks" aria-labelledby="h-checks">
+    <h2 id="h-checks">Checks (59)</h2>
+    <div class="controls">
+      <label>Search <input id="check-q" type="search"></label>
+      <label>Status <select id="check-status"><option value="">all</option>
+        <option value="not_applicable">not_applicable</option><option value="pass">pass</option><option value="skipped">skipped</option></select></label>
+    </div>
+    <div class="table-wrap" tabindex="0" role="region" aria-label="Checks"><table id="checks-table">
+      <caption class="sr">Every check and what happened to it</caption>
+      <thead><tr><th scope="col">Check</th><th scope="col">Severity</th><th scope="col">Status</th>
+      <th scope="col">Detail</th><th scope="col" class="num">Calls</th></tr></thead>
+      <tbody>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.idempotency_declared</span><br>Tools that change data say whether repeating them is safe</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.destructive_annotated</span><br>Tools that sound destructive say so in their annotations</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">safety.oauth_scopes_minimal</span><br>OAuth metadata asks for narrow scopes</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.cache_ttl_sane</span><br>Cache lifetimes are not absurdly long</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.descriptions_present</span><br>Tools and their required parameters are described</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.input_schema_strict</span><br>Input schemas are strict (information only)</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.input_schema_valid</span><br>Every inputSchema is a valid JSON Schema with an object root</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.refs_resolvable</span><br>Schema references resolve inside the schema</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.tool_names_valid</span><br>Tool names are well formed and unique</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.tools_list_valid</span><br>tools/list results conform to the protocol schema</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.x_mcp_header_valid</span><br>x-mcp-header annotations obey their constraints</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.empty_result_ok</span><br>A search that matches nothing is not an error</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.pagination_sound</span><br>Paged results end, do not repeat, and reject bad cursors</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">23</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.stateless_consistent</span><br>Two fresh instances of the server answer alike</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">12</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">operability.logs_no_secrets</span><br>Logs omit sensitive tool arguments</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.meta_tolerated</span><br>Tools tolerate tracing and unknown metadata</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">11</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">operability.trace_propagated</span><br>Outbound calls preserve the trace id</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.deprecated_features</span><br>Uses of deprecated MCP features</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.discover_implemented</span><br>server/discover is implemented and well formed</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">protocol.era_parity</span><br>A dual-era server offers the same tools in both eras</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>not part of standard mode</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.unknown_method_error</span><br>An unknown method is answered with -32601</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.unsupported_version_error</span><br>An unsupported protocol version is rejected with -32022</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">schema.cache_scope_correct</span><br>Lists that differ between users are not marked public</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.tool_order_deterministic</span><br>tools/list returns the same tools in the same order every time</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">4</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">behavior.mrtr_wellformed</span><br>Requests for input are well formed and the retry completes</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool asked for input during the valid-input campaign</td><td class="num">83</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">behavior.replay_idempotent</span><br>A tool that promises idempotence changes nothing the second time</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">behavior.tasks_lifecycle</span><br>Tasks are created durably, reach a terminal state and can be cancelled</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool returned a task when the extension was declared</td><td class="num">6</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.valid_input_accepted</span><br>Input that fits the schema is not rejected</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.output_conforms</span><br>Structured results match the tool&#39;s outputSchema</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.structured_text_mirror</span><br>Structured results are also returned as JSON text</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.boundary_robust</span><br>Extreme but allowed input does not crash the server</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">72</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.errors_actionable</span><br>Error messages tell the caller what to fix</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">52</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.invalid_input_rejected</span><br>Input that breaks the schema is refused and changes nothing</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.header_mismatch_rejected</span><br>Headers that disagree with the request body are rejected</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.malformed_jsonrpc_handled</span><br>Malformed JSON-RPC input gets an error and does not hurt the server</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">3</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.origin_validated</span><br>A request from an untrusted Origin is rejected</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">protocol.required_headers_enforced</span><br>Requests missing the required headers are rejected</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>applies to http targets; this one is stdio</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.annotations_truthful</span><br>Tools marked read-only change nothing</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.file_scheme_blocked</span><br>URL tools do not disclose local files through file URLs</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.no_command_injection</span><br>Input cannot add commands or options to what a tool runs</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.no_secret_leak</span><br>Credentials the server holds never appear in what it sends back</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.path_contained</span><br>File tools stay inside their allowed directories</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.readonly_enforced</span><br>Read tools cannot be made to change anything</th>
+        <td><span class="sev sev-critical">✖ critical</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="not_applicable"><th scope="row"><span class="mono">safety.request_state_integrity</span><br>A forged or borrowed requestState is refused</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-not_applicable">- not applicable</span></td>
+        <td>no tool asked for input during the valid-input campaign</td><td class="num">0</td></tr>
+      
+      <tr data-status="skipped"><th scope="row"><span class="mono">safety.ssrf_blocked</span><br>URL tools block private networks and private redirect destinations</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-skipped">- skipped</span></td>
+        <td>requires sandbox (fixtures)</td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.cancellation_honored</span><br>A cancelled request is dropped and the server stays responsive</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.concurrency_consistent</span><br>Concurrent identical calls get identical answers</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">27</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.no_head_of_line_blocking</span><br>One slow call does not hold up other requests</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">2</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.output_bounded</span><br>A single result stays under 1 MiB</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">3</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.burst_resilient</span><br>Read tools withstand concurrent bursts</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">50</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.startup_time</span><br>Startup latency is recorded</th>
+        <td><span class="sev sev-info">○ info</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.error_code_ranges</span><br>Error codes stay inside the ranges the spec allows</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">1</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.result_type_present</span><br>Every modern result carries resultType</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">protocol.stdout_clean</span><br>Standard output carries only MCP messages</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.no_hidden_instructions</span><br>Descriptions and answers carry no hidden or injected instructions</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">safety.no_stack_traces</span><br>Errors do not show stack traces</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">schema.cache_fields_present</span><br>Cacheable results carry ttlMs and cacheScope</th>
+        <td><span class="sev sev-medium">◆ medium</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">behavior.survives_campaign</span><br>The server stays up for the whole scan</th>
+        <td><span class="sev sev-high">▲ high</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      <tr data-status="pass"><th scope="row"><span class="mono">operability.clean_shutdown</span><br>Stdio targets stop without SIGKILL</th>
+        <td><span class="sev sev-low">● low</span></td>
+        <td><span class="st-pass">✓ pass</span></td>
+        <td></td><td class="num">0</td></tr>
+      
+      </tbody></table></div>
+  </section>
+  
+  <section id="limits" aria-labelledby="h-limits">
+    <h2 id="h-limits">Limitations</h2>
+    <p><strong>No issues found by Probe v1.0 checks is not a security guarantee.</strong></p>
+    <ul><li>5 check(s) not_applicable: applies to http targets; this one is stdio</li><li>2 check(s) not_applicable: no tool asked for input during the valid-input campaign</li><li>1 check(s) not_applicable: no tool returned a task when the extension was declared</li><li>1 check(s) skipped: not part of standard mode</li><li>10 check(s) skipped: requires sandbox (fixtures)</li><li>6 tool(s) that may write were not called (use --allow-side-effects or a sandbox)</li></ul>
+    <p>Probe tests what a server does when called through the checks in its catalog. It does not read source code,
+    and it cannot show that a server is free of other problems.</p>
+  </section>
+  
+  <section id="metadata" aria-labelledby="h-metadata">
+    <h2 id="h-metadata">Scan metadata</h2>
+    <dl>
+      <dt>scan id</dt><dd class="mono">409deab06062</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">63.6 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.1</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
+    </dl>
+  </section>
+  </main>
+  <footer>Generated by Probe 0.1.0.dev0. All text from the scanned server is shown escaped.</footer>
+  <script>(function(){
+  var d=document,r=d.documentElement;r.classList.add("js");
+  function $(s,c){return Array.prototype.slice.call((c||d).querySelectorAll(s));}
+  var t=d.getElementById("theme");
+  if(t){t.addEventListener("click",function(){
+  var dark=r.getAttribute("data-theme")==="dark"||(!r.getAttribute("data-theme")&&matchMedia("(prefers-color-scheme: dark)").matches);
+  r.setAttribute("data-theme",dark?"light":"dark");t.setAttribute("aria-pressed",String(!dark));});}
+  $("button.copy").forEach(function(b){b.addEventListener("click",function(){
+  var s=b.getAttribute("data-copy")||"";
+  if(navigator.clipboard){navigator.clipboard.writeText(s).then(function(){b.textContent="Copied";});}});});
+  var rows=$("#checks-table tbody tr"),q=d.getElementById("check-q"),st=d.getElementById("check-status");
+  function filter(){var text=(q&&q.value||"").toLowerCase(),s=st&&st.value||"";
+  rows.forEach(function(row){var ok=(!s||row.getAttribute("data-status")===s)&&(!text||row.textContent.toLowerCase().indexOf(text)>=0);
+  row.hidden=!ok;});}
+  if(q){q.addEventListener("input",filter);}if(st){st.addEventListener("change",filter);}
+  var all=d.getElementById("expand-all");
+  if(all){all.addEventListener("click",function(){var open=all.getAttribute("aria-pressed")!=="true";
+  $("details.finding").forEach(function(x){x.open=open;});all.setAttribute("aria-pressed",String(open));});}
+  addEventListener("beforeprint",function(){$("details").forEach(function(x){x.open=true;});});
+  })();</script>
+  </body>
+  </html>
+  '''
+# ---

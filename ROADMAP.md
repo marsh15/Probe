@@ -71,5 +71,6 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T30 | Operability checks | done |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |
 | T33 | `probe repro`, repro bundles and `--export-script` | done locally (stdio bug b03 and real HTTP servers); the sandbox b31/b34 run waits for Docker |
+| T34 | Single-file HTML report | done (snapshots, axe 0 serious/critical in both themes at 375 and 1280, XSS, CSP, size cap) |
 
 Remaining later tasks are added here when their stage starts.

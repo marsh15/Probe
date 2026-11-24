@@ -1,0 +1,1274 @@
+{
+  "schema_version": "1.0",
+  "probe_version": "0.1.0.dev0",
+  "catalog_version": "0.1",
+  "scoring_version": "1.0",
+  "scoring_profile": "full",
+  "scan": {
+    "id": "409deab06062",
+    "scan_key": "99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59",
+    "status": "completed",
+    "started_at": "2026-11-24T08:56:25.642289Z",
+    "finished_at": "2026-11-24T08:57:29.282731Z",
+    "duration_ms": 63640,
+    "mode": "standard",
+    "seed": 0,
+    "sandboxed": false,
+    "platform": "darwin/arm64",
+    "runtime": "none"
+  },
+  "target": {
+    "name": "python",
+    "transport": "stdio",
+    "era": {
+      "kind": "modern",
+      "negotiated_version": "2026-07-28",
+      "supported_versions": [
+        "2026-07-28"
+      ]
+    },
+    "server_info": {
+      "name": "refserver",
+      "version": "0.1.0"
+    },
+    "package": null,
+    "image_digest": null,
+    "profile_hash": "e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208",
+    "capabilities": {
+      "prompts": {
+        "listChanged": true
+      },
+      "resources": {
+        "listChanged": true,
+        "subscribe": true
+      },
+      "tools": {
+        "listChanged": true
+      },
+      "extensions": {
+        "io.modelcontextprotocol/tasks": {}
+      }
+    },
+    "extensions": [
+      "io.modelcontextprotocol/tasks"
+    ]
+  },
+  "tools": [
+    {
+      "name": "notes_create",
+      "kind": "write",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly false",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "faa02c67fc3fca16d2b54f4cd4526b84173b6647e37877e9a77ada30ec9259e3",
+      "cases_run": 0
+    },
+    {
+      "name": "notes_update",
+      "kind": "write",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly false",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "eb4ea4873bcae57274dcbb53951beb2218e15f7d0ee41c2b5862150b150bd410",
+      "cases_run": 0
+    },
+    {
+      "name": "notes_delete",
+      "kind": "destructive",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly true",
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "eaa4b8fa03676403cd9cb4e671542018ce32f6776283a20410d9e2c319b1f3e9",
+      "cases_run": 0
+    },
+    {
+      "name": "notes_get",
+      "kind": "read",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "715baca7f75ffe46edcf026bdca95388bf6a249550ffc142e7d8d1e05c046100",
+      "cases_run": 0
+    },
+    {
+      "name": "notes_list",
+      "kind": "read",
+      "flags": [
+        "paginated"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "8b314264df665de806b36719491ddaa547684238d821f7bc00e0fef8b2a61bee",
+      "cases_run": 0
+    },
+    {
+      "name": "search_notes",
+      "kind": "read",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "a9b8b774f7433751f0aa7ded7d34b416340da6c665ab9060f25c787745ff4ba9",
+      "cases_run": 0
+    },
+    {
+      "name": "fetch_url",
+      "kind": "read",
+      "flags": [
+        "url_param"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "6446182ced1d91fc600ed9e658eea57363dc22071c43c87aa585e6e3b73b44f4",
+      "cases_run": 0
+    },
+    {
+      "name": "read_file",
+      "kind": "read",
+      "flags": [
+        "path_param"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "d0a76f5f80aeb06c875fbf983a6b1b20be6d73ed05110a3988340439983bf76d",
+      "cases_run": 0
+    },
+    {
+      "name": "write_file",
+      "kind": "destructive",
+      "flags": [
+        "path_param"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly true",
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "d6e9240a564ad94c0e9742df1ee1b17d770393049a867b2f6b005e38595d0615",
+      "cases_run": 0
+    },
+    {
+      "name": "query_db",
+      "kind": "read",
+      "flags": [
+        "sql_param"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "841dd3efe90fc91e2d54d6c2f235e5d83d2e3d86a9e9c572324f89ef657cae89",
+      "cases_run": 0
+    },
+    {
+      "name": "git_log",
+      "kind": "read",
+      "flags": [
+        "command_param"
+      ],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "1ab5aa026ff1d60edaec669433b9c13832d0e4858ee556ca538ae20c1b29d9a8",
+      "cases_run": 0
+    },
+    {
+      "name": "slow_report",
+      "kind": "read",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "2cfbe69b2d0ff7fe194a83058296d9709a272fc5fc95e4a928b619c8aad43694",
+      "cases_run": 0
+    },
+    {
+      "name": "purge_notes",
+      "kind": "destructive",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly true",
+      "annotations": {
+        "destructiveHint": true,
+        "idempotentHint": true,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "8b550186ed32d8880082451ce7f1df0f729d53ffb80c00d8d8d2111809248762",
+      "cases_run": 0
+    },
+    {
+      "name": "call_backend",
+      "kind": "read",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is strictly true",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true,
+        "readOnlyHint": true
+      },
+      "input_schema_hash": "b985802d869b7c2064f5212b004120dfb45209b425db16a6bc41005a782133fe",
+      "cases_run": 0
+    },
+    {
+      "name": "long_export",
+      "kind": "write",
+      "flags": [],
+      "classification_source": "annotations",
+      "classification_reason": "readOnlyHint is not strictly true; destructiveHint is strictly false",
+      "annotations": {
+        "destructiveHint": false,
+        "idempotentHint": false,
+        "openWorldHint": false,
+        "readOnlyHint": false
+      },
+      "input_schema_hash": "f40585c5f128caf65bc7ceff14d5a9379e10f9b0eba0ae7ef02fcae1eba21cb5",
+      "cases_run": 0
+    }
+  ],
+  "results": [
+    {
+      "check_id": "behavior.idempotency_declared",
+      "family": "behavior",
+      "title": "Tools that change data say whether repeating them is safe",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#annotations"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.destructive_annotated",
+      "family": "safety",
+      "title": "Tools that sound destructive say so in their annotations",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#annotations"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.oauth_scopes_minimal",
+      "family": "safety",
+      "title": "OAuth metadata asks for narrow scopes",
+      "severity": "medium",
+      "status": "not_applicable",
+      "reason": "applies to http targets; this one is stdio",
+      "spec_refs": [
+        "2026-07-28/basic/authorization#scope-selection-strategy",
+        "RFC9728",
+        "RFC9207"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.cache_ttl_sane",
+      "family": "schema",
+      "title": "Cache lifetimes are not absurdly long",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/schema#cacheableresult"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.descriptions_present",
+      "family": "schema",
+      "title": "Tools and their required parameters are described",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#tool"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.input_schema_strict",
+      "family": "schema",
+      "title": "Input schemas are strict (information only)",
+      "severity": "info",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#tool"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": [
+        "513f8a442622ff40"
+      ]
+    },
+    {
+      "check_id": "schema.input_schema_valid",
+      "family": "schema",
+      "title": "Every inputSchema is a valid JSON Schema with an object root",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#tool"
+      ],
+      "duration_ms": 11,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.refs_resolvable",
+      "family": "schema",
+      "title": "Schema references resolve inside the schema",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#tool"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.tool_names_valid",
+      "family": "schema",
+      "title": "Tool names are well formed and unique",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#tool-names"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.tools_list_valid",
+      "family": "schema",
+      "title": "tools/list results conform to the protocol schema",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#listing-tools"
+      ],
+      "duration_ms": 3,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.x_mcp_header_valid",
+      "family": "schema",
+      "title": "x-mcp-header annotations obey their constraints",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/transports/streamable-http#custom-headers-from-tool-parameters"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.empty_result_ok",
+      "family": "behavior",
+      "title": "A search that matches nothing is not an error",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 2254,
+      "calls": 1,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.pagination_sound",
+      "family": "behavior",
+      "title": "Paged results end, do not repeat, and reject bad cursors",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/utilities/pagination"
+      ],
+      "duration_ms": 144,
+      "calls": 23,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.stateless_consistent",
+      "family": "behavior",
+      "title": "Two fresh instances of the server answer alike",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/index",
+        "2026-07-28/server/discover"
+      ],
+      "duration_ms": 894,
+      "calls": 12,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.logs_no_secrets",
+      "family": "operability",
+      "title": "Logs omit sensitive tool arguments",
+      "severity": "medium",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "2026-07-28/server/utilities/logging#security-considerations"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.meta_tolerated",
+      "family": "operability",
+      "title": "Tools tolerate tracing and unknown metadata",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/schema#request"
+      ],
+      "duration_ms": 13906,
+      "calls": 11,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.trace_propagated",
+      "family": "operability",
+      "title": "Outbound calls preserve the trace id",
+      "severity": "low",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "2026-07-28/schema#request"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.deprecated_features",
+      "family": "protocol",
+      "title": "Uses of deprecated MCP features",
+      "severity": "info",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/deprecated"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.discover_implemented",
+      "family": "protocol",
+      "title": "server/discover is implemented and well formed",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/discover"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.era_parity",
+      "family": "protocol",
+      "title": "A dual-era server offers the same tools in both eras",
+      "severity": "low",
+      "status": "skipped",
+      "reason": "not part of standard mode",
+      "spec_refs": [
+        "2026-07-28/basic/versioning#backward-compatibility-with-initialization-based-versions"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.unknown_method_error",
+      "family": "protocol",
+      "title": "An unknown method is answered with -32601",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "https://www.jsonrpc.org/specification#error_object",
+        "2026-07-28/basic/transports/streamable-http#sending-messages-to-the-server"
+      ],
+      "duration_ms": 1,
+      "calls": 1,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.unsupported_version_error",
+      "family": "protocol",
+      "title": "An unsupported protocol version is rejected with -32022",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/versioning#protocol-version-negotiation"
+      ],
+      "duration_ms": 1,
+      "calls": 1,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.cache_scope_correct",
+      "family": "schema",
+      "title": "Lists that differ between users are not marked public",
+      "severity": "high",
+      "status": "not_applicable",
+      "reason": "applies to http targets; this one is stdio",
+      "spec_refs": [
+        "2026-07-28/schema#cacheableresult"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.tool_order_deterministic",
+      "family": "schema",
+      "title": "tools/list returns the same tools in the same order every time",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#listing-tools"
+      ],
+      "duration_ms": 869,
+      "calls": 4,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.mrtr_wellformed",
+      "family": "behavior",
+      "title": "Requests for input are well formed and the retry completes",
+      "severity": "medium",
+      "status": "not_applicable",
+      "reason": "no tool asked for input during the valid-input campaign",
+      "spec_refs": [
+        "2026-07-28/basic/patterns/mrtr"
+      ],
+      "duration_ms": 15900,
+      "calls": 83,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.replay_idempotent",
+      "family": "behavior",
+      "title": "A tool that promises idempotence changes nothing the second time",
+      "severity": "high",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "2026-07-28/server/tools#annotations"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.tasks_lifecycle",
+      "family": "behavior",
+      "title": "Tasks are created durably, reach a terminal state and can be cancelled",
+      "severity": "medium",
+      "status": "not_applicable",
+      "reason": "no tool returned a task when the extension was declared",
+      "spec_refs": [
+        "2026-07-28/tasks"
+      ],
+      "duration_ms": 5091,
+      "calls": 6,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.valid_input_accepted",
+      "family": "behavior",
+      "title": "Input that fits the schema is not rejected",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.output_conforms",
+      "family": "schema",
+      "title": "Structured results match the tool's outputSchema",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#output-schema"
+      ],
+      "duration_ms": 7,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.structured_text_mirror",
+      "family": "schema",
+      "title": "Structured results are also returned as JSON text",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#structured-content"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.boundary_robust",
+      "family": "behavior",
+      "title": "Extreme but allowed input does not crash the server",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 10428,
+      "calls": 72,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.errors_actionable",
+      "family": "behavior",
+      "title": "Error messages tell the caller what to fix",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 5166,
+      "calls": 52,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.invalid_input_rejected",
+      "family": "behavior",
+      "title": "Input that breaks the schema is refused and changes nothing",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.header_mismatch_rejected",
+      "family": "protocol",
+      "title": "Headers that disagree with the request body are rejected",
+      "severity": "medium",
+      "status": "not_applicable",
+      "reason": "applies to http targets; this one is stdio",
+      "spec_refs": [
+        "2026-07-28/basic/transports/streamable-http#server-validation"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.malformed_jsonrpc_handled",
+      "family": "protocol",
+      "title": "Malformed JSON-RPC input gets an error and does not hurt the server",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "https://www.jsonrpc.org/specification#error_object"
+      ],
+      "duration_ms": 95,
+      "calls": 3,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.origin_validated",
+      "family": "protocol",
+      "title": "A request from an untrusted Origin is rejected",
+      "severity": "high",
+      "status": "not_applicable",
+      "reason": "applies to http targets; this one is stdio",
+      "spec_refs": [
+        "2026-07-28/basic/transports/streamable-http#security-warning"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.required_headers_enforced",
+      "family": "protocol",
+      "title": "Requests missing the required headers are rejected",
+      "severity": "low",
+      "status": "not_applicable",
+      "reason": "applies to http targets; this one is stdio",
+      "spec_refs": [
+        "2026-07-28/basic/transports/streamable-http#request-metadata"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.annotations_truthful",
+      "family": "safety",
+      "title": "Tools marked read-only change nothing",
+      "severity": "high",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "2026-07-28/server/tools#annotations"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.file_scheme_blocked",
+      "family": "safety",
+      "title": "URL tools do not disclose local files through file URLs",
+      "severity": "high",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-73"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.no_command_injection",
+      "family": "safety",
+      "title": "Input cannot add commands or options to what a tool runs",
+      "severity": "critical",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-78",
+        "CWE-88"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.no_secret_leak",
+      "family": "safety",
+      "title": "Credentials the server holds never appear in what it sends back",
+      "severity": "high",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-200",
+        "CWE-532"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.path_contained",
+      "family": "safety",
+      "title": "File tools stay inside their allowed directories",
+      "severity": "critical",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-22"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.readonly_enforced",
+      "family": "safety",
+      "title": "Read tools cannot be made to change anything",
+      "severity": "critical",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-89",
+        "CWE-88"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.request_state_integrity",
+      "family": "safety",
+      "title": "A forged or borrowed requestState is refused",
+      "severity": "medium",
+      "status": "not_applicable",
+      "reason": "no tool asked for input during the valid-input campaign",
+      "spec_refs": [
+        "2026-07-28/basic/patterns/mrtr#request-state"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.ssrf_blocked",
+      "family": "safety",
+      "title": "URL tools block private networks and private redirect destinations",
+      "severity": "high",
+      "status": "skipped",
+      "reason": "requires sandbox (fixtures)",
+      "spec_refs": [
+        "CWE-918"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.cancellation_honored",
+      "family": "behavior",
+      "title": "A cancelled request is dropped and the server stays responsive",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/patterns/cancellation#behavior-requirements"
+      ],
+      "duration_ms": 2320,
+      "calls": 1,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.concurrency_consistent",
+      "family": "behavior",
+      "title": "Concurrent identical calls get identical answers",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "https://www.jsonrpc.org/specification#request_object"
+      ],
+      "duration_ms": 201,
+      "calls": 27,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.no_head_of_line_blocking",
+      "family": "behavior",
+      "title": "One slow call does not hold up other requests",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "https://www.jsonrpc.org/specification#request_object"
+      ],
+      "duration_ms": 321,
+      "calls": 2,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.output_bounded",
+      "family": "behavior",
+      "title": "A single result stays under 1 MiB",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools"
+      ],
+      "duration_ms": 36,
+      "calls": 3,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.burst_resilient",
+      "family": "operability",
+      "title": "Read tools withstand concurrent bursts",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools#error-handling"
+      ],
+      "duration_ms": 3929,
+      "calls": 50,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.startup_time",
+      "family": "operability",
+      "title": "Startup latency is recorded",
+      "severity": "info",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/lifecycle#initialization"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": [
+        "9a6ec162a9613023"
+      ]
+    },
+    {
+      "check_id": "protocol.error_code_ranges",
+      "family": "protocol",
+      "title": "Error codes stay inside the ranges the spec allows",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/schema#errors"
+      ],
+      "duration_ms": 17,
+      "calls": 1,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.result_type_present",
+      "family": "protocol",
+      "title": "Every modern result carries resultType",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/schema#result"
+      ],
+      "duration_ms": 25,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "protocol.stdout_clean",
+      "family": "protocol",
+      "title": "Standard output carries only MCP messages",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/transports/stdio"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.no_hidden_instructions",
+      "family": "safety",
+      "title": "Descriptions and answers carry no hidden or injected instructions",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "OWASP-LLM01"
+      ],
+      "duration_ms": 56,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "safety.no_stack_traces",
+      "family": "safety",
+      "title": "Errors do not show stack traces",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "CWE-209"
+      ],
+      "duration_ms": 21,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "schema.cache_fields_present",
+      "family": "schema",
+      "title": "Cacheable results carry ttlMs and cacheScope",
+      "severity": "medium",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/schema#cacheableresult"
+      ],
+      "duration_ms": 25,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "behavior.survives_campaign",
+      "family": "behavior",
+      "title": "The server stays up for the whole scan",
+      "severity": "high",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/server/tools"
+      ],
+      "duration_ms": 0,
+      "calls": 0,
+      "finding_ids": []
+    },
+    {
+      "check_id": "operability.clean_shutdown",
+      "family": "operability",
+      "title": "Stdio targets stop without SIGKILL",
+      "severity": "low",
+      "status": "pass",
+      "reason": null,
+      "spec_refs": [
+        "2026-07-28/basic/lifecycle#shutdown"
+      ],
+      "duration_ms": 860,
+      "calls": 0,
+      "finding_ids": []
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "513f8a442622ff40",
+      "check_id": "schema.input_schema_strict",
+      "family": "schema",
+      "severity": "info",
+      "tool": null,
+      "title": "Some input schemas are not strict",
+      "message": "15 tool(s) allow additional properties or list no required parameters.",
+      "evidence": {
+        "summary": "15 tool(s) allow additional properties or list no required parameters.",
+        "request_refs": [],
+        "response_refs": [],
+        "observations": {
+          "tools": [
+            "notes_create",
+            "notes_update",
+            "notes_delete",
+            "notes_get",
+            "notes_list",
+            "search_notes",
+            "fetch_url",
+            "read_file",
+            "write_file",
+            "query_db",
+            "git_log",
+            "slow_report",
+            "purge_notes",
+            "call_backend",
+            "long_export"
+          ],
+          "count": 15
+        },
+        "excerpt": null
+      },
+      "repro": {
+        "case_id": "input-schema-strict:summary",
+        "steps": [
+          {
+            "kind": "request",
+            "method": "tools/list",
+            "params": {}
+          }
+        ],
+        "expect": {
+          "additionalProperties": false
+        },
+        "command": "probe repro report.json --finding 513f8a442622ff40"
+      },
+      "disclosure": "public"
+    },
+    {
+      "finding_id": "9a6ec162a9613023",
+      "check_id": "operability.startup_time",
+      "family": "operability",
+      "severity": "info",
+      "tool": null,
+      "title": "Startup latency is recorded",
+      "message": "First successful response after 727.5 ms.",
+      "evidence": {
+        "summary": "First successful response after 727.5 ms.",
+        "request_refs": [],
+        "response_refs": [],
+        "observations": {
+          "startup_ms": 727.47802734375
+        },
+        "excerpt": null
+      },
+      "repro": {
+        "case_id": "startup",
+        "steps": [],
+        "expect": {
+          "behavior": "Investigate cold starts longer than 30 seconds."
+        },
+        "command": "probe repro report.json --finding 9a6ec162a9613023"
+      },
+      "disclosure": "public"
+    }
+  ],
+  "score": {
+    "overall": 100.0,
+    "grade": "A",
+    "coverage": 54.2,
+    "caps_applied": [],
+    "families": {
+      "protocol": {
+        "score": 100.0,
+        "applicable_weight": 15,
+        "failed_weight": 0
+      },
+      "schema": {
+        "score": 100.0,
+        "applicable_weight": 25,
+        "failed_weight": 0
+      },
+      "behavior": {
+        "score": 100.0,
+        "applicable_weight": 28,
+        "failed_weight": 0
+      },
+      "safety": {
+        "score": 100.0,
+        "applicable_weight": 5,
+        "failed_weight": 0
+      },
+      "operability": {
+        "score": 100.0,
+        "applicable_weight": 4,
+        "failed_weight": 0
+      }
+    }
+  },
+  "stats": {
+    "calls": 353,
+    "protocol_errors": 3,
+    "tool_errors": 0,
+    "restarts": 0,
+    "crashes": [],
+    "bytes_in": 864846,
+    "bytes_out": 435992,
+    "phase_ms": {
+      "static": 14,
+      "active.safe": 18069,
+      "active.write": 20998,
+      "active.adversarial": 15689,
+      "active.stress": 6807,
+      "passive": 144,
+      "post": 860
+    }
+  },
+  "llm": null,
+  "limitations": [
+    "5 check(s) not_applicable: applies to http targets; this one is stdio",
+    "2 check(s) not_applicable: no tool asked for input during the valid-input campaign",
+    "1 check(s) not_applicable: no tool returned a task when the extension was declared",
+    "1 check(s) skipped: not part of standard mode",
+    "10 check(s) skipped: requires sandbox (fixtures)",
+    "6 tool(s) that may write were not called (use --allow-side-effects or a sandbox)"
+  ],
+  "honesty": "No issues found by Probe v1.0 checks is not a security guarantee."
+}

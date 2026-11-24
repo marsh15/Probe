@@ -19,10 +19,11 @@ from probe.cli.summary import (
 from probe.config.modes import MODES
 from probe.config.profile import Profile, ProfileError, load_profile
 from probe.engine.runscan import RunConfig, SandboxUnavailable, UsageError, run_scan
+from probe.report.html import write_html
 from probe.report.json_out import write_report
 from probe.repro.bundle import write_bundles
 
-AVAILABLE_FORMATS = ("json",)  # html, sarif, md and badge arrive with the report tasks
+AVAILABLE_FORMATS = ("json", "html")  # sarif, md and badge arrive with the report tasks
 
 
 def _fail(message: str, code: int = EXIT_USAGE) -> "typer.Exit":
@@ -57,7 +58,7 @@ def run(
     out: Annotated[Path, typer.Option(help="Output directory.")] = Path("probe-out"),
     output_format: Annotated[
         str, typer.Option("--format", help="Comma-separated report formats.")
-    ] = "json",
+    ] = "json,html",
     fail_on: Annotated[str, typer.Option(help="critical, high, medium, low or none.")] = "high",
     min_score: Annotated[
         float | None, typer.Option(help="Minimum overall score (0..100); ungraded scans fail.")
@@ -141,6 +142,8 @@ def run(
         raise _fail(f"internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
     path = write_report(report, out)
     write_bundles(report, config, out)
+    if "html" in formats:
+        write_html(report, out)
     render_summary(report, console, verbose=verbose, quiet=quiet)
     console.print(f"report: {path}", highlight=False)
     raise typer.Exit(exit_code_for(report, fail_on, min_score))
