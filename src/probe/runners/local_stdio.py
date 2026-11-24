@@ -13,7 +13,7 @@ from probe.engine.outcomes import Transport as TransportKind
 from probe.runners.base import RunnerState, TargetUnavailable
 from probe.wire.limits import STDERR_RING_BYTES
 from probe.wire.recorder import Recorder
-from probe.wire.transport_base import Transport
+from probe.wire.transport_base import CloseResult, Transport
 from probe.wire.transport_stdio import StdioTransport
 
 # Servers should not behave differently on the machine that happens to run the scan.
@@ -57,6 +57,13 @@ class LocalStdioRunner:
         extra = await self._spawn()
         self._extra.append(extra)
         return extra
+
+    async def check_shutdown(self) -> CloseResult:
+        """Probe a fresh process; normal teardown still owns it if the caller is cancelled."""
+        extra = await self.second_instance()
+        if not isinstance(extra, StdioTransport):
+            raise TargetUnavailable("could not start a shutdown probe")
+        return await extra.close(grace_s=5, kill_after_s=5)
 
     async def logs(self) -> str:
         return self._transport.stderr_tail(STDERR_RING_BYTES) if self._transport else ""

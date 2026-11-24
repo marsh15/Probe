@@ -146,3 +146,31 @@ async def test_redirect_to_file_scheme_is_blocked() -> None:
     fetcher = Fetcher(resolver({"public.probe.test": [PUBLIC_IP]}), httpx.MockTransport(rec))
     with pytest.raises(ToolError, match="scheme"):
         await fetcher.fetch("http://public.probe.test/r")
+
+
+async def test_trace_context_reaches_every_redirect_hop() -> None:
+    rec = Recorder(
+        {
+            f"{PUBLIC_IP}/redirect": httpx.Response(302, headers={"location": "/hello.txt"}),
+            f"{PUBLIC_IP}/hello.txt": httpx.Response(200, text="ok"),
+        }
+    )
+    fetcher = Fetcher(resolver({"public.probe.test": [PUBLIC_IP]}), httpx.MockTransport(rec))
+    meta = {
+        "traceparent": "00-" + "a" * 32 + "-" + "b" * 16 + "-01",
+        "tracestate": "probe=operability",
+        "com.example/x": "ignored",
+    }
+    await fetcher.fetch("http://public.probe.test/redirect", meta=meta)
+    assert len(rec.requests) == 2
+    for request in rec.requests:
+        assert request.headers["traceparent"] == meta["traceparent"]
+        assert request.headers["tracestate"] == meta["tracestate"]
+        assert "com.example/x" not in request.headers
+
+
+async def test_invalid_trace_metadata_is_not_forwarded() -> None:
+    rec = Recorder({f"{PUBLIC_IP}/": httpx.Response(200, text="ok")})
+    fetcher = Fetcher(resolver({"public.probe.test": [PUBLIC_IP]}), httpx.MockTransport(rec))
+    await fetcher.fetch("http://public.probe.test/", meta={"traceparent": "invalid"})
+    assert "traceparent" not in rec.requests[0].headers

@@ -17,10 +17,12 @@ from typing import TYPE_CHECKING, Annotated
 from urllib.parse import urljoin, urlsplit
 
 import httpx
+from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from refserver.tools import hints
+from refserver.tools.backend import trace_headers
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
@@ -112,7 +114,7 @@ class Fetcher:
         extensions = {"sni_hostname": host} if scheme == "https" else {}
         return target, headers, extensions
 
-    async def fetch(self, url: str) -> dict[str, object]:
+    async def fetch(self, url: str, *, meta: dict[str, object] | None = None) -> dict[str, object]:
         async with httpx.AsyncClient(
             transport=self._transport, timeout=TIMEOUT, follow_redirects=False
         ) as client:
@@ -120,7 +122,7 @@ class Fetcher:
             for hop in range(MAX_REDIRECTS + 1):
                 target, headers, extensions = await self._vet(current)
                 request = client.build_request(
-                    "GET", target, headers=headers, extensions=extensions
+                    "GET", target, headers={**headers, **trace_headers(meta)}, extensions=extensions
                 )
                 try:
                     response = await client.send(request, stream=True)
@@ -158,9 +160,10 @@ def register(mcp: MCPServer, cfg: Config) -> None:
         annotations=hints(read_only=True, destructive=False, idempotent=True, open_world=True),
     )
     async def fetch_url(
+        ctx: Context,
         url: Annotated[
             str, Field(min_length=1, max_length=2048, description="Public http(s) URL to GET.")
         ],
     ) -> str:
         """Fetch a public http(s) URL (at most 3 redirects, body capped at 1 MiB)."""
-        return json.dumps(await fetcher.fetch(url))
+        return json.dumps(await fetcher.fetch(url, meta=dict(ctx.request_context.meta or {})))

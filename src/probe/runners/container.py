@@ -3,6 +3,7 @@
 import asyncio
 import contextlib
 import math
+import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
@@ -15,7 +16,7 @@ from probe.sandbox.docker_env import DockerEnv
 from probe.sandbox.spec import target_spec
 from probe.wire.limits import STDERR_RING_BYTES
 from probe.wire.recorder import Recorder
-from probe.wire.transport_base import Transport
+from probe.wire.transport_base import CloseResult, Transport
 from probe.wire.transport_stdio import StdioTransport
 
 _deadline_sleep = asyncio.sleep
@@ -195,6 +196,26 @@ class ContainerRunner:
 
     async def _read_logs(self, instance: _Instance) -> str:
         return instance.transport.stderr_tail(STDERR_RING_BYTES)
+
+    async def check_shutdown(self) -> CloseResult:
+        """Observe the container, rather than mistaking attachment exit for target exit."""
+        transport = await self.second_instance()
+        instance = next(i for i in self._extras if i.transport is transport)
+        try:
+            # EOF first; terminating docker start is not evidence the container stopped.
+            await instance.transport.close(grace_s=5, kill_after_s=0)  # type: ignore[call-arg]
+            state = await self._state(instance)
+            terminated = state.running
+            if state.running:
+                await _docker(lambda: instance.container.kill(signal="SIGTERM"))
+                deadline = time.monotonic() + 5
+                while state.running and time.monotonic() < deadline:
+                    await asyncio.sleep(0.05)
+                    state = await self._state(instance)
+            return CloseResult(state.exit_code, terminated, state.running)
+        finally:
+            await self._stop_instance(instance, kill=True)
+            self._extras.remove(instance)
 
     async def logs(self) -> str:
         if self._main is not None:

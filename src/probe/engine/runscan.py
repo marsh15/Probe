@@ -9,6 +9,7 @@ import contextlib
 import fnmatch
 import os
 import platform
+import time
 import uuid
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
@@ -17,6 +18,7 @@ from pathlib import Path
 from typing import Literal
 
 import probe.checks.behavior
+import probe.checks.operability
 import probe.checks.protocol
 import probe.checks.safety
 import probe.checks.schema  # noqa: F401 - registers the schema checks
@@ -35,6 +37,7 @@ from probe.config.profile import (
 )
 from probe.engine.budget import Budget
 from probe.engine.discovery import list_tools, tool_infos
+from probe.engine.fixtures import ScanFixtures as FixtureSet
 from probe.engine.outcomes import CheckResult, Mode, Status, Transport
 from probe.engine.scan import run_checks
 from probe.engine.versions import CATALOG_VERSION, SCORING_VERSION
@@ -57,7 +60,6 @@ from probe.runners.container_http import ContainerHttpRunner
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
 from probe.sandbox.docker_env import DockerEnv
-from probe.sandbox.fixtures import FixtureSet
 from probe.scoring import compute_score
 from probe.util.hashing import scan_key
 from probe.util.redact import Redactor
@@ -338,6 +340,7 @@ async def _connect(
             token=scan_token(cfg.seed, cfg.profile.hash),
         )
         await fixtures.start()
+    startup_started_ms = time.time_ns() / 1_000_000
     transport = await runner.start()
     stdio = runner.transport_kind is Transport.STDIO
     session = await Session.open(
@@ -349,7 +352,19 @@ async def _connect(
         request_timeout=request_timeout(cfg.mode, cfg.timeout_scale),
     )
     listing = await list_tools(session, timeout=request_timeout(cfg.mode, cfg.timeout_scale))
+    startup_ms = next(
+        (
+            max(0.0, record["ts_ms"] - startup_started_ms)
+            for record in (recorder.records() if recorder is not None else [])
+            if record.get("dir") == "s2c"
+            and isinstance(record.get("body"), dict)
+            and "result" in record["body"]
+            and "instance" not in record
+        ),
+        None,
+    )
     return ScanContext(
+        startup_ms=startup_ms,
         session=session,
         runner=runner,
         config=ScanConfig(

@@ -47,7 +47,8 @@ def test_fail_on_sets_the_threshold(tmp_path: Path, fail_on: str, code: int) -> 
 def test_skipping_the_failing_checks_makes_the_run_pass(tmp_path: Path) -> None:
     result = run(tmp_path, "--skip", "schema.*", "--skip", "protocol.era_parity")
     assert result.exit_code == 0, result.output
-    assert report(tmp_path)["findings"] == []
+    # info findings (such as the measured startup time) are notes, not failures
+    assert [f for f in report(tmp_path)["findings"] if f["severity"] != "info"] == []
 
 
 def test_an_unavailable_target_exits_3_with_a_report(tmp_path: Path) -> None:

@@ -4,6 +4,7 @@ The context owns the live session. Calls go through it so they are budgeted, cou
 dying target is noticed, recorded, restarted and reconnected without each check handling it.
 """
 
+import asyncio
 import contextlib
 import random
 import time
@@ -40,6 +41,10 @@ class Fixtures(Protocol):
     def canary_ip(self) -> str: ...
 
     async def canary_hits(self, since: int = 0) -> list[dict[str, Any]]: ...
+
+    async def backend_log(self, since: int = 0) -> list[dict[str, Any]]: ...
+
+    async def backend_fault(self, route: str | None, *, count: int = 1) -> bool: ...
 
     async def reset(self) -> None: ...
 
@@ -102,7 +107,11 @@ class ScanContext:
         auth_identities: Sequence[str] = (),
         second_instance_supported: bool = True,
         listing: ToolListing | None = None,
+        startup_ms: float | None = None,
     ) -> None:
+        self.startup_ms = startup_ms
+        self._death_lock = asyncio.Lock()
+        self._death_events: dict[int, CrashEvent] = {}
         self.client = session
         self.runner = runner
         self.config = config
@@ -181,10 +190,13 @@ class ScanContext:
         """One budgeted request. A dead target is recorded and restarted, then TargetCrashed."""
         self.spend()
         deadline = timeout or request_timeout(self.config.mode, self.config.timeout_scale)
+        client = self.client
+        # Concurrent calls bind to the same instance before any disconnect restarts it.
+        await asyncio.sleep(0)
         try:
-            return await self.client.request(method, params, timeout=deadline, meta=meta)
+            return await client.request(method, params, timeout=deadline, meta=meta)
         except TransportClosed as exc:
-            event = await self._handle_death(case_id, reason=exc.reason)
+            event = await self._handle_death(case_id, reason=exc.reason, transport=client.transport)
             raise TargetCrashed(event) from None
 
     async def call(
@@ -216,10 +228,14 @@ class ScanContext:
         """A budgeted request that reports the HTTP status and never raises for no answer."""
         self.spend()
         deadline = timeout or request_timeout(self.config.mode, self.config.timeout_scale)
+        client = self.client
+        # Concurrent calls bind to the same instance before any disconnect restarts it.
+        await asyncio.sleep(0)
         try:
-            return await self.client.exchange(method, params, timeout=deadline, meta=meta)
+            return await client.exchange(method, params, timeout=deadline, meta=meta)
         except TransportClosed as exc:
-            raise TargetCrashed(await self._handle_death(case_id, reason=exc.reason)) from None
+            event = await self._handle_death(case_id, reason=exc.reason, transport=client.transport)
+            raise TargetCrashed(event) from None
 
     async def raw_http(
         self,
@@ -360,7 +376,19 @@ class ScanContext:
         with contextlib.suppress(Exception):
             await old.transport.close()
 
-    async def _handle_death(self, case_id: str | None, *, reason: str) -> CrashEvent:
+    async def _handle_death(
+        self, case_id: str | None, *, reason: str, transport: Any = None
+    ) -> CrashEvent:
+        # All pending calls on one dead transport observe the same crash and restart.
+        source = transport if transport is not None else self.client.transport
+        async with self._death_lock:
+            if (event := self._death_events.get(id(source))) is not None:
+                return event
+            event = await self._record_death(case_id, reason=reason)
+            self._death_events[id(source)] = event
+            return event
+
+    async def _record_death(self, case_id: str | None, *, reason: str) -> CrashEvent:
         state = await self.runner.state()
         event = CrashEvent(
             check_id=self.current_check or "engine",
