@@ -113,6 +113,18 @@ def test_stdio_smoke_both_eras(data_root: Path, script) -> None:
         json.loads(line)  # nothing but JSON-RPC on stdout
 
 
+def _without_tasks(line: bytes) -> object:
+    message = json.loads(line)
+    result = message.get("result")
+    capabilities = result.get("capabilities") if isinstance(result, dict) else None
+    extensions = capabilities.get("extensions") if isinstance(capabilities, dict) else None
+    if isinstance(extensions, dict):
+        extensions.pop("io.modelcontextprotocol/tasks", None)
+        if not extensions:
+            del capabilities["extensions"]
+    return message
+
+
 @pytest.mark.parametrize("script", [modern_script, legacy_script], ids=["modern", "legacy"])
 def test_front_proxy_is_byte_transparent(data_root: Path, script) -> None:
     transcripts = []
@@ -122,7 +134,15 @@ def test_front_proxy_is_byte_transparent(data_root: Path, script) -> None:
         session.close()
         transcripts.append(session.raw)
     proxied, direct = transcripts
-    assert proxied == direct
+    # The only thing the proxy adds to a clean server is the Tasks extension in discover.
+    assert [_without_tasks(line) for line in proxied] == [_without_tasks(line) for line in direct]
+    assert (
+        sum(
+            proxied_line != direct_line
+            for proxied_line, direct_line in zip(proxied, direct, strict=True)
+        )
+        <= 1
+    )
 
 
 def test_cancellation_and_progress(data_root: Path) -> None:

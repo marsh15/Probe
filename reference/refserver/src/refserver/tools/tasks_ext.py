@@ -1,17 +1,14 @@
-"""Tasks extension (`io.modelcontextprotocol/tasks`) - skeleton only.
+"""long_export: export notes. Without the Tasks extension it simply runs and returns.
 
-The SDK does not implement the Tasks extension. Plan section 12.2 puts the
-real implementation in the front-proxy/middleware layer: task-augmented
-`tools/call` for `long_export`, `tasks/get|update|cancel`, an in-memory task
-table, and durable-before-return creation. Until that lands, `long_export` is
-declared (so tools/list is complete) and answers with a clear tool error.
+A client that declared `io.modelcontextprotocol/tasks` never reaches this function: the front
+proxy (stdio) and middleware (HTTP) turn its call into a task (see `refserver.tasks_layer`).
 """
 
 from __future__ import annotations
 
+import json
 from typing import TYPE_CHECKING, Annotated
 
-from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from refserver.tools import hints
@@ -20,12 +17,6 @@ if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
 
     from refserver.config import Config
-
-EXTENSION_ID = "io.modelcontextprotocol/tasks"
-
-
-class TaskTable:
-    """Placeholder for the in-memory task table (taskId -> status/result); no behavior yet."""
 
 
 def register(mcp: MCPServer, cfg: Config) -> None:
@@ -39,8 +30,5 @@ def register(mcp: MCPServer, cfg: Config) -> None:
             Field(min_length=1, max_length=1000, description="Note ids to export."),
         ],
     ) -> str:
-        """Export notes as a long-running task (Tasks extension; not implemented yet)."""
-        raise ToolError(
-            "long_export is not implemented yet: it needs the Tasks extension, "
-            "which this build lacks"
-        )
+        """Export notes; runs as a task when the client supports the Tasks extension."""
+        return json.dumps({"exported": len(items), "items": items})

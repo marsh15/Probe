@@ -58,7 +58,7 @@ async def test_tools_list_cache_hints_public_without_auth(client: Client) -> Non
     assert 0 < listing.ttl_ms <= 3_600_000
 
 
-async def test_long_export_is_a_clear_stub(client: Client) -> None:
+async def test_long_export_runs_synchronously_without_the_tasks_extension(client: Client) -> None:
     result = await client.call_tool("long_export", {"items": [1, 2]})
-    assert result.is_error
-    assert "not implemented" in result.content[0].text
+    assert not result.is_error
+    assert '"exported": 2' in result.content[0].text

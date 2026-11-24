@@ -55,6 +55,14 @@ def test_standard_headers() -> None:
     assert standard_headers("prompts/get", {"name": "héllo"})["Mcp-Name"].startswith("=?base64?")
 
 
+def test_task_requests_are_named_by_their_task_id() -> None:
+    for method in ("tasks/get", "tasks/update", "tasks/cancel"):
+        assert standard_headers(method, {"taskId": "t-1"}) == {
+            "Mcp-Method": method,
+            "Mcp-Name": "t-1",
+        }
+
+
 def test_standard_headers_without_a_usable_name() -> None:
     assert standard_headers("tools/call", None) == {"Mcp-Method": "tools/call"}
     assert standard_headers("tools/call", {"name": 7}) == {"Mcp-Method": "tools/call"}

@@ -161,7 +161,6 @@ async def test_foreign_origin_rejected(open_url: str) -> None:
 async def test_wire_middleware_is_transparent(cfg: Config) -> None:
     wrapped = http_app(build_server(cfg))
     assert isinstance(wrapped, WireBugMiddleware)
-    assert wrapped.app is wrapped.inner  # no active hooks: requests go straight to the SDK app
 
     # Each app instance can be served once (its session manager runs once), so compare
     # a bare SDK app with a wrapped one built from the same config.

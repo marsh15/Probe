@@ -14,7 +14,20 @@ ENV_VAR = "PROBE_REF_BUGS"
 KNOWN: frozenset[str] = frozenset(f"b{n:02d}" for n in range(1, 59))
 # Grows as bugs are implemented (T11 and later).
 IMPLEMENTED: frozenset[str] = frozenset(
-    f"b{n:02d}" for n in (*range(1, 9), *range(10, 14), 15, 16, *range(50, 54), 55, 56)
+    f"b{n:02d}"
+    for n in (
+        *range(1, 9),
+        *range(10, 14),
+        15,
+        16,
+        *range(25, 27),
+        28,
+        29,
+        30,
+        *range(50, 54),
+        55,
+        56,
+    )
 )
 
 _ID = re.compile(r"^b\d{2}$")

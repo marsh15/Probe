@@ -25,7 +25,7 @@ EXTRA_LEGACY_TOOL = {
 # Bugs applied to server responses, in either transport.
 RESPONSE_BUGS = frozenset(
     {"b01", "b02", "b03", "b04", "b10", "b11", "b12", "b13", "b15", "b16", "b50", "b52", "b53"}
-    | {"b55", "b56"}
+    | {"b29", "b55", "b56"}
 )
 
 
@@ -97,6 +97,12 @@ def _mutate_result(
         }
     out = copy.deepcopy(message)
     result: dict[str, Any] = out["result"]
+    if "b29" in active and result.get("resultType") == "input_required":
+        requests = result.get("inputRequests")
+        if isinstance(requests, dict) and requests:
+            first = next(iter(requests.values()))
+            if isinstance(first, dict):
+                first.pop("method", None)  # the bug: an input request with no method
     if "b03" in active:
         result.pop("resultType", None)
     if method == "tools/list":

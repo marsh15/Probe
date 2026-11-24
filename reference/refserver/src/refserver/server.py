@@ -18,7 +18,7 @@ from mcp.server.caching import CacheHint
 from mcp.server.mcpserver import InvalidRequestState, MCPServer, RequestStateSecurity
 from mcp.server.transport_security import TransportSecuritySettings
 
-from refserver import auth, bugs, wire_bugs
+from refserver import auth, behavior_bugs, bugs, wire_bugs
 from refserver.tools import register_all
 
 if TYPE_CHECKING:
@@ -88,7 +88,7 @@ def build_server(cfg: Config) -> MCPServer:
             "tools/list": CacheHint(ttl_ms=LIST_TTL_MS, scope="private" if authed else "public"),
             "server/discover": CacheHint(ttl_ms=LIST_TTL_MS, scope="public"),
         },
-        middleware=[auth.identity_tool_filter] if authed else None,
+        middleware=[behavior_bugs.behavior_bugs, *([auth.identity_tool_filter] if authed else [])],
     )
     register_all(mcp, cfg)
     if authed:

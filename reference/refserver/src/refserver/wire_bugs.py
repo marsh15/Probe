@@ -26,6 +26,7 @@ import anyio.to_thread
 from mcp.server.stdio import stdio_server
 
 from refserver import bugs, mutations
+from refserver.tasks_layer import TasksLayer
 
 if TYPE_CHECKING:
     from mcp.server.mcpserver import MCPServer
@@ -61,6 +62,7 @@ class StdioMutationHook:
     def __init__(self, active: frozenset[str]) -> None:
         self.active = active
         self.state = mutations.MutationState()
+        self.tasks = TasksLayer(active)
 
     def answer(self, line: bytes) -> bytes | None:
         """A reply to send straight to the client instead of forwarding the request, or None.
@@ -68,15 +70,22 @@ class StdioMutationHook:
         b01: the server has no server/discover. The SDK pins a connection to the modern era the
         moment it sees one, so merely rewriting its reply would leave a client that falls back
         to the legacy handshake refused; the request must never reach it.
+
+        Tasks extension requests are answered here too: the SDK does not know them.
         """
+        message = _parse(line)
+        if "b25" in self.active and _is_cancellation(message):
+            return b""  # the bug: cancellation notifications are swallowed
+        if (task_reply := self.tasks.answer(message)) is not None:
+            return json.dumps(task_reply, separators=(",", ":")).encode() + b"\n"
         if "b01" not in self.active:
             return None
-        info = mutations.request_info(_parse(line))
+        info = mutations.request_info(message)
         if info is None or info.method != "server/discover":
             return None
         reply = {
             "jsonrpc": "2.0",
-            "id": _parse(line)["id"],
+            "id": message["id"],
             "error": {"code": -32601, "message": "Method not found"},
         }
         return json.dumps(reply, separators=(",", ":")).encode() + b"\n"
@@ -96,6 +105,7 @@ class StdioMutationHook:
             return [line]
         info = self.state.pending.pop(message.get("id"), None) if "id" in message else None
         changed = mutations.mutate_response(self.active, info, message, self.state)
+        changed = self.tasks.advertise(info.method if info else None, changed)
         out = line
         if changed is not message:
             out = json.dumps(changed, separators=(",", ":")).encode() + b"\n"
@@ -104,20 +114,19 @@ class StdioMutationHook:
         return [out]
 
 
+def _is_cancellation(message: Any) -> bool:
+    return isinstance(message, dict) and message.get("method") == "notifications/cancelled"
+
+
 def stdio_hooks() -> list[StdioHook]:
-    """Hooks for the active bugs, in application order."""
-    active = bugs.active()
-    if active & (mutations.RESPONSE_BUGS | {"b07", "b08"}):
-        return [StdioMutationHook(active)]
-    return []
+    """Hooks for the active bugs and the Tasks extension, in application order."""
+    return [StdioMutationHook(bugs.active())]
 
 
 def http_hooks() -> list[HttpHook]:
     """ASGI wrappers for the active bugs, innermost first."""
     active = bugs.active()
-    if active & (mutations.RESPONSE_BUGS | {"b05", "b06", "b08", "b51"}):
-        return [lambda app: HttpMutationMiddleware(app, active)]
-    return []
+    return [lambda app: HttpMutationMiddleware(app, active)]
 
 
 def apply_stdio_hooks(direction: Direction, line: bytes, hooks: list[StdioHook]) -> list[bytes]:
@@ -161,6 +170,7 @@ class HttpMutationMiddleware:
         self.app = app
         self.active = active
         self.state = mutations.MutationState()
+        self.tasks = TasksLayer(active)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http" or scope["method"] != "POST":
@@ -177,6 +187,9 @@ class HttpMutationMiddleware:
         message = _parse(body)
         if message is _UNPARSEABLE and "b08" in self.active:
             os._exit(CRASH_EXIT_CODE)
+        if (task_reply := self.tasks.answer(message)) is not None:
+            await self._send_json(send, task_reply)
+            return
         info = mutations.request_info(message)
         headers = list(scope["headers"])
         self._rewrite_request_headers(headers, message)
@@ -191,6 +204,16 @@ class HttpMutationMiddleware:
             return await receive()  # the real client's disconnect, whenever it comes
 
         await self.app({**scope, "headers": headers}, replay, self._mutating_send(send, info))
+
+    @staticmethod
+    async def _send_json(send: Send, reply: dict[str, Any]) -> None:
+        payload = json.dumps(reply, separators=(",", ":")).encode()
+        headers = [
+            (b"content-type", b"application/json"),
+            (b"content-length", str(len(payload)).encode()),
+        ]
+        await send({"type": "http.response.start", "status": 200, "headers": headers})
+        await send({"type": "http.response.body", "body": payload})
 
     def _rewrite_request_headers(self, headers: list[tuple[bytes, bytes]], message: Any) -> None:
         if "b06" in self.active:
@@ -212,8 +235,6 @@ class HttpMutationMiddleware:
             _set_header(headers, b"mcp-protocol-version", version.encode())
 
     def _mutating_send(self, send: Send, info: mutations.RequestInfo | None) -> Send:
-        if not self.active & mutations.RESPONSE_BUGS:
-            return send
         start: dict[str, Any] | None = None
         chunks: list[bytes] = []
 
@@ -251,11 +272,13 @@ class HttpMutationMiddleware:
         parsed = _parse(payload)
         if parsed is _UNPARSEABLE:
             return payload
-        mutated = (
-            [mutations.mutate_response(self.active, info, m, self.state) for m in parsed]
-            if isinstance(parsed, list)
-            else mutations.mutate_response(self.active, info, parsed, self.state)
-        )
+        method = info.method if info else None
+
+        def rewrite(message: Any) -> Any:
+            changed = mutations.mutate_response(self.active, info, message, self.state)
+            return self.tasks.advertise(method, changed) if isinstance(changed, dict) else changed
+
+        mutated = [rewrite(m) for m in parsed] if isinstance(parsed, list) else rewrite(parsed)
         return json.dumps(mutated, separators=(",", ":")).encode()
 
     def _rewrite_sse(

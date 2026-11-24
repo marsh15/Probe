@@ -19,7 +19,15 @@ _PRIMITIVE_TYPES = ("string", "integer", "boolean")
 # Keywords whose values are data, not subschemas: an "x-mcp-header" key inside them is not an
 # annotation.
 _DATA_KEYWORDS = frozenset({"enum", "const", "default", "examples"})
-_NAME_SOURCES = {"tools/call": "name", "prompts/get": "name", "resources/read": "uri"}
+_NAME_SOURCES = {
+    "tools/call": "name",
+    "prompts/get": "name",
+    "resources/read": "uri",
+    # The Tasks extension routes by task id.
+    "tasks/get": "taskId",
+    "tasks/update": "taskId",
+    "tasks/cancel": "taskId",
+}
 
 
 def encode_header_value(value: str) -> str:

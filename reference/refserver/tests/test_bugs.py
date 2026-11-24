@@ -30,8 +30,11 @@ def test_known_but_unimplemented_rejected() -> None:
         bugs.parse("b17")
 
 
-def test_the_first_twenty_bugs_are_implemented() -> None:
-    expected = {f"b{n:02d}" for n in (*range(1, 9), *range(10, 14), 15, 16, *range(50, 54), 55, 56)}
+def test_the_implemented_bugs_are_the_expected_set() -> None:
+    expected = {
+        f"b{n:02d}"
+        for n in (*range(1, 9), *range(10, 14), 15, 16, 25, 26, 28, 29, 30, *range(50, 54), 55, 56)
+    }
     assert expected == bugs.IMPLEMENTED
     assert bugs.parse("b01, b56") == {"b01", "b56"}
 
