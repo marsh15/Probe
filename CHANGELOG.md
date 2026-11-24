@@ -8,6 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `probe selfval` scans the reference server clean and with each injected bug (sandbox or `--local`), reports detection, false positives and unexpected failures, and exits non-zero on any miss; `make selfval-fast` runs a dozen bugs without Docker in pull-request CI, and a nightly workflow runs every bug in the sandbox (see docs/selfval.md)
+- `operability.meta_tolerated` and `operability.burst_resilient` no longer blame the metadata or the burst for a call that fails on its own because earlier scan calls changed the data
 - Reference-server bugs b09, b14, b17-b24, b27, b54, b57 and b58 with a detection test for each; `concurrency_consistent` now tries up to three tools; the reference profiles carry known-good ids for `notes_get` and `notes_update`
 - Behavior checks `cancellation_honored`, `no_head_of_line_blocking`, `stateless_consistent`, `mrtr_wellformed` and `tasks_lifecycle`, with a wire-level multi round-trip loop and Tasks client; the profile can name a slow call with `tools.<name>.slow_case`; the reference server now serves the Tasks extension and has bugs b25, b26, b28, b29 and b30
 - Behavior checks `output_bounded`, `empty_result_ok`, `pagination_sound`, `concurrency_consistent`, `idempotency_declared`, `replay_idempotent` and schema checks `output_conforms`, `structured_text_mirror`; verified against the clean server in the sandbox with fixtures

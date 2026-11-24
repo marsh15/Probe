@@ -17,7 +17,7 @@ cov:
 	uv run pytest -m "not docker" --cov=src/probe --cov-report=term-missing --cov-fail-under=85
 
 selfval-fast:
-	@echo "selfval-fast: placeholder (selfval infrastructure not yet built)"
+	uv run probe selfval --fast --workers 4 --out selfval-out
 
 docs-check:
 	uv run probe checks list --format md | diff - docs/checks.md

@@ -63,6 +63,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T23b | `schema.cache_scope_correct` | done (clean HTTP refserver passes; b14 test comes with T25) |
 | T24 | Cancellation, head-of-line, statelessness, MRTR and Tasks checks | done (bug tests for b25, b26, b28, b29, b30 included) |
 | T25 | Refserver behavior and schema bugs (b09, b14, b17-b30, b54, b57, b58) | done (detection tests for each) |
+| T26 | `probe selfval`, nightly workflow, `make selfval-fast` | done (sandbox run waits for Docker; local fast subset green) |
 | T27 | SSRF and file-scheme safety checks | done |
 | T30 | Operability checks | done |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |

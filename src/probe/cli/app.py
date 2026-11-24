@@ -7,12 +7,14 @@ from probe.cli.checks import app as checks_app
 from probe.cli.profile import app as profile_app
 from probe.cli.run import run
 from probe.cli.sandbox import app as sandbox_app
+from probe.cli.selfval import selfval
 
 app = typer.Typer(help="Probe: A behavioral, safety, and operability test suite for MCP servers")
 app.add_typer(sandbox_app, name="sandbox")
 app.add_typer(checks_app, name="checks")
 app.add_typer(profile_app, name="profile")
 # Everything after `--` is the target command, so unknown options and extra arguments are allowed.
+app.command(name="selfval")(selfval)
 app.command(context_settings={"allow_extra_args": True, "ignore_unknown_options": True})(run)
 
 

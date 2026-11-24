@@ -90,7 +90,9 @@ class MetaTolerated(Check):
             if args is None:
                 continue
             try:
-                if await baseline(ctx, tool, args) is None:
+                if (
+                    await baseline(ctx, tool, args, observe=True) is None
+                ):  # fresh: state may have moved
                     continue
                 params = {"name": tool.name, "arguments": args}
                 exchange = await ctx.exchange("tools/call", params, meta=trace_meta(ctx))

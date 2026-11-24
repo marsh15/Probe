@@ -19,8 +19,9 @@ b02:
 b03:
   transports: [stdio, http]
   primary: [protocol.result_type_present]
-  allowed_collateral: [schema.tools_list_valid, protocol.discover_implemented]
+  allowed_collateral: [schema.tools_list_valid, protocol.discover_implemented, operability.burst_resilient]
   justification:
+    operability.burst_resilient: "the burst check validates each tool result against CallToolResult, which requires resultType"
     schema.tools_list_valid: "the vendored schema requires resultType on a ListToolsResult"
     protocol.discover_implemented: "a DiscoverResult without resultType is incomplete by that check's own definition"
 b04:
@@ -38,7 +39,10 @@ b06:
 b07:
   transports: [stdio]
   primary: [protocol.stdout_clean]
-  allowed_collateral: []
+  allowed_collateral: [operability.burst_resilient]
+  justification:
+    operability.burst_resilient: "stdout noise during the burst is garbled wire output"
+
 b08:
   transports: [stdio, http]
   primary: [protocol.malformed_jsonrpc_handled]
@@ -62,7 +66,9 @@ b11:
 b12:
   transports: [stdio]
   primary: [schema.tool_order_deterministic]
-  allowed_collateral: []
+  allowed_collateral: [behavior.stateless_consistent]
+  justification:
+    behavior.stateless_consistent: "a tool list in a different order on every call differs between instances too"
 b13:
   transports: [stdio]
   primary: [schema.cache_fields_present]

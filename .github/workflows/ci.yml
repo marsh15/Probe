@@ -31,6 +31,25 @@ jobs:
         env:
           UV_PYTHON: ${{ matrix.python-version }}
 
+  selfval-fast:
+    name: Self-validation, fast subset (no Docker)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+      - name: Scan the reference server with a dozen injected bugs
+        run: make selfval-fast
+        env:
+          UV_PYTHON: 3.13
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selfval-fast
+          path: selfval-out/selfval
+
   smoke-test:
     name: Smoke Test (macOS, Python 3.13)
     runs-on: macos-latest

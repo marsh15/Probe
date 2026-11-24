@@ -18,6 +18,7 @@ from probe.wire.jsonrpc import ResultResponse
 from probe.wire.session import Exchange
 
 _RATE = re.compile(r"\b(?:rate|limit(?:ed|ing)?|retry|429)\b", re.IGNORECASE)
+_UNEXPLAINED_ERROR = "tool error did not explain rate limiting or retry"
 _SERVER_ERROR = re.compile(r"\b(?:HTTP[ /:]*|status(?: code)?[ :=]*)5\d\d\b", re.IGNORECASE)
 
 
@@ -43,7 +44,7 @@ def problem(reply: Exchange, version: str) -> str | None:
         if _SERVER_ERROR.search(text):
             return "burst call reported a backend 5xx error"
         if result.get("isError") is True and not _RATE.search(text):
-            return "tool error did not explain rate limiting or retry"
+            return _UNEXPLAINED_ERROR
     return None
 
 
@@ -105,6 +106,8 @@ class BurstResilient(Check):
                 for e in ctx.wire_events()[event_cursor:]
             ):
                 issues.append("garbled wire output during the burst")
+            if set(issues) == {_UNEXPLAINED_ERROR} and not (await ctx.call(tool.name, args)).ok:
+                issues = []  # it fails when called alone, too: state moved since the baseline
         if not issues:
             return []
         return [

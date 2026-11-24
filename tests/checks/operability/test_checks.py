@@ -45,6 +45,8 @@ class Fixtures:
 class Peer(EraServer):
     def __init__(self, fixtures=None, *, trace="forward", reject=False, baseline=True):
         super().__init__()
+        self.healthy_calls = None  # None: always; N: only the first N tools/call succeed
+        self.calls = 0
         self.fixtures = fixtures
         self.trace = trace
         self.reject = reject
@@ -57,6 +59,10 @@ class Peer(EraServer):
         meta = msg["params"].get("_meta", {})
         if not self.baseline or (self.reject and "com.example/x" in meta):
             return error(msg["id"], -32602, "metadata rejected")
+        self.calls += 1
+        if self.healthy_calls is not None and self.calls > self.healthy_calls:
+            gone = [{"type": "text", "text": "note 1 not found"}]
+            return result(msg["id"], {"resultType": "complete", "isError": True, "content": gone})
         if self.fixtures is not None and self.trace != "none":
             parent = meta.get("traceparent")
             if self.trace == "wrong":
@@ -123,6 +129,18 @@ async def test_meta_compares_against_successful_baseline(reject, baseline, statu
             "_meta"
         ]
         assert {"traceparent", "tracestate", "baggage", "com.example/x"} <= meta.keys()
+
+
+async def test_meta_does_not_blame_metadata_for_state_that_changed_since_the_baseline():
+    """The scan's earlier calls may have deleted what the baseline read; a plain call that now
+    fails too says nothing about metadata."""
+    peer = Peer()
+    peer.healthy_calls = 1
+    ctx, _ = await make_context(runner=FakeRunner(lambda: peer))
+    first = await ctx.establish_baseline(ctx.tools[0], {})
+    assert first is not None
+    [out] = await run_checks(ctx, [MetaTolerated])
+    assert out.status == Status.NA, out.reason
 
 
 @pytest.mark.parametrize("check", [TracePropagated, LogsNoSecrets])
@@ -416,3 +434,15 @@ async def test_large_successful_count_is_not_mistaken_for_http_500():
         )
     )
     assert problem(reply, "2026-07-28") is None
+
+
+async def test_burst_does_not_blame_the_burst_for_a_call_that_fails_alone():
+    """A tool whose input was deleted earlier in the scan errors on every call, burst or not."""
+    peer = Peer()
+    peer.healthy_calls = 1
+    ctx, _ = await make_context(runner=FakeRunner(lambda: peer))
+    first = await ctx.establish_baseline(ctx.tools[0], {})
+    assert first is not None
+    [out] = await run_checks(ctx, [BurstResilient])
+    assert out.status in (Status.PASS, Status.NA), (out.status, out.reason)
+    assert not out.findings
