@@ -74,6 +74,8 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T34 | Single-file HTML report | done (snapshots, axe 0 serious/critical in both themes at 375 and 1280, XSS, CSP, size cap) |
 | T35 | SARIF, badge, markdown summary, `probe report` and `probe diff` | done (SARIF validates against the vendored official 2.1.0 schema; diff golden tests) |
 | T37 | LLM judge and `behavior.agent_recovery` | done with the fake judge and a fake API client; the real-key run and its `docs/benchmarks.md` entry wait for your `ANTHROPIC_API_KEY` |
-| T39 | Docs: README quickstart, CLI reference, limitations, FAQ, `check_cli_docs.py` | done except `github-action.md`, which waits for the Action (T38) |
+| T39 | Docs: README quickstart, CLI reference, limitations, FAQ, `check_cli_docs.py` | done |
+| T38 | GitHub Action (drafted in `integrations/github-action/`) | done as files and structure tests; publishing it as its own repository and its self-test run are yours |
+| T40 | Release pipeline | done as `release.yml` and `docs/releasing.md`; PyPI trusted publisher, the `pypi` environment and the tag push are yours |
 
 Remaining later tasks are added here when their stage starts.

@@ -1,0 +1,41 @@
+name: Self-test
+
+# The action must pass a clean reference server and fail one with injected bugs, naming those
+# bugs' checks in the SARIF it produces.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  clean:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./
+        with:
+          image: ghcr.io/OWNER/refserver:0.9.0
+          mode: quick
+          sarif: "false"
+
+  buggy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - id: scan
+        uses: ./
+        continue-on-error: true
+        with:
+          image: ghcr.io/OWNER/refserver:0.9.0
+          mode: standard
+          sarif: "false"
+          target-env: |
+            PROBE_REF_BUGS=b31,b17
+      - name: It must fail, and name the injected bugs' checks
+        run: |
+          test "${{ steps.scan.outcome }}" = "failure"
+          grep -q '"ruleId": "safety.ssrf_blocked"' probe-out/report.sarif

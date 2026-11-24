@@ -1,0 +1,220 @@
+name: Probe
+description: Scan an MCP server for behavior, safety and operability problems, upload SARIF and a summary.
+author: Probe
+branding:
+  icon: shield
+  color: orange
+
+inputs:
+  command:
+    description: Command that starts the server over stdio (words split on spaces; use a script for anything quoted).
+    required: false
+  url:
+    description: URL of a running streamable-HTTP server you own.
+    required: false
+  image:
+    description: Container image to run in the Probe sandbox.
+    required: false
+  profile:
+    description: Path to a Probe profile (YAML).
+    required: false
+  mode:
+    description: quick, standard or deep.
+    default: quick
+  fail-on:
+    description: critical, high, medium, low or none.
+    default: high
+  min-score:
+    description: Fail below this overall score (0 disables).
+    default: "0"
+  sandbox:
+    description: "auto (on when Docker is available on a Linux runner), true or false."
+    default: auto
+  sarif:
+    description: Upload SARIF to code scanning (needs security-events write permission).
+    default: "true"
+  sarif-anchor:
+    description: File that SARIF results attach to.
+    default: README.md
+  badge:
+    description: Push badge.json to the badge branch (needs contents write permission).
+    default: "false"
+  badge-branch:
+    description: Branch that receives badge.json.
+    default: probe-badges
+  probe-version:
+    description: Version of probe-mcp to install (empty for the latest).
+    default: ""
+  compare-base:
+    description: On pull requests, add a diff against the base branch's last scan to the summary.
+    default: "true"
+  target-env:
+    description: Lines of KEY=VALUE for the server's environment (never put secrets here).
+    default: ""
+  llm:
+    description: Run the optional LLM experiment (needs the ANTHROPIC_API_KEY secret in env).
+    default: "false"
+
+outputs:
+  grade:
+    description: The letter grade, empty if the scan was not graded.
+    value: ${{ steps.run.outputs.grade }}
+  score:
+    description: The overall score, empty if the scan was not graded.
+    value: ${{ steps.run.outputs.score }}
+  exit-code:
+    description: Probe's exit code.
+    value: ${{ steps.run.outputs.exit_code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: astral-sh/setup-uv@v10.4.0
+
+    - name: Install Probe
+      shell: bash
+      env:
+        PROBE_VERSION: ${{ inputs.probe-version }}
+        WITH_LLM: ${{ inputs.llm }}
+      run: |
+        spec="probe-mcp"
+        if [ "$WITH_LLM" = "true" ]; then spec="probe-mcp[llm]"; fi
+        if [ -n "$PROBE_VERSION" ]; then spec="${spec}==${PROBE_VERSION}"; fi
+        uv tool install "$spec"
+
+    - name: Decide on the sandbox
+      id: sandbox
+      shell: bash
+      env:
+        SANDBOX: ${{ inputs.sandbox }}
+        IMAGE: ${{ inputs.image }}
+      run: |
+        use=false
+        case "$SANDBOX" in
+          true) use=true ;;
+          auto) if [ "$RUNNER_OS" = "Linux" ] && command -v docker >/dev/null 2>&1; then use=true; fi ;;
+        esac
+        if [ -z "$IMAGE" ]; then use=false; fi
+        echo "use=$use" >> "$GITHUB_OUTPUT"
+
+    - name: Check the sandbox
+      if: steps.sandbox.outputs.use == 'true'
+      shell: bash
+      run: probe sandbox doctor
+
+    - name: Scan
+      id: run
+      shell: bash
+      env:
+        IN_COMMAND: ${{ inputs.command }}
+        IN_URL: ${{ inputs.url }}
+        IN_IMAGE: ${{ inputs.image }}
+        IN_PROFILE: ${{ inputs.profile }}
+        IN_MODE: ${{ inputs.mode }}
+        IN_FAIL_ON: ${{ inputs.fail-on }}
+        IN_MIN_SCORE: ${{ inputs.min-score }}
+        IN_SARIF_ANCHOR: ${{ inputs.sarif-anchor }}
+        IN_LLM: ${{ inputs.llm }}
+        IN_TARGET_ENV: ${{ inputs.target-env }}
+        USE_SANDBOX: ${{ steps.sandbox.outputs.use }}
+      run: |
+        args=(run --out probe-out --format json,html,sarif,md,badge
+              --mode "$IN_MODE" --fail-on "$IN_FAIL_ON" --sarif-anchor "$IN_SARIF_ANCHOR")
+        if [ -n "$IN_PROFILE" ]; then args+=(--profile "$IN_PROFILE"); fi
+        if [ "$IN_MIN_SCORE" != "0" ] && [ -n "$IN_MIN_SCORE" ]; then args+=(--min-score "$IN_MIN_SCORE"); fi
+        if [ "$IN_LLM" = "true" ]; then args+=(--llm); fi
+        if [ "$USE_SANDBOX" = "true" ]; then args+=(--image "$IN_IMAGE" --sandbox)
+        elif [ -n "$IN_IMAGE" ]; then args+=(--image "$IN_IMAGE" --no-sandbox); fi
+        if [ -n "$IN_URL" ]; then args+=(--url "$IN_URL"); fi
+        while IFS= read -r line; do
+          if [ -n "$line" ]; then args+=(--target-env "$line"); fi
+        done <<< "$IN_TARGET_ENV"
+        if [ -n "$IN_COMMAND" ] && [ -z "$IN_URL" ] && [ -z "$IN_IMAGE" ]; then
+          read -r -a words <<< "$IN_COMMAND"
+          args+=(-- "${words[@]}")
+        fi
+        set +e
+        probe "${args[@]}"
+        code=$?
+        set -e
+        echo "exit_code=$code" >> "$GITHUB_OUTPUT"
+        if [ -f probe-out/report.json ]; then
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
+        import json
+        score = json.load(open("probe-out/report.json"))["score"]
+        print(f"grade={score['grade'] or ''}")
+        print(f"score={'' if score['overall'] is None else score['overall']}")
+        PY
+        fi
+
+    - uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: probe-report
+        path: probe-out/
+        if-no-files-found: ignore
+
+    - uses: github/codeql-action/upload-sarif@v3
+      if: always() && inputs.sarif == 'true' && hashFiles('probe-out/report.sarif') != ''
+      with:
+        sarif_file: probe-out/report.sarif
+        category: probe
+
+    - name: Summary
+      if: always()
+      shell: bash
+      run: |
+        if [ -f probe-out/summary.md ]; then cat probe-out/summary.md >> "$GITHUB_STEP_SUMMARY"; fi
+
+    - name: Restore the base branch's report
+      if: always() && github.event_name == 'pull_request' && inputs.compare-base == 'true'
+      uses: actions/cache/restore@v4
+      with:
+        path: probe-base
+        key: probe-report-${{ github.event.pull_request.base.sha }}
+
+    - name: Compare with the base branch
+      if: always() && github.event_name == 'pull_request' && inputs.compare-base == 'true'
+      shell: bash
+      run: |
+        if [ -f probe-base/report.json ] && [ -f probe-out/report.json ]; then
+          probe diff probe-base/report.json probe-out/report.json >> "$GITHUB_STEP_SUMMARY" || true
+        fi
+
+    - name: Keep this report for the next pull request
+      if: always() && github.event_name == 'push' && github.ref_name == github.event.repository.default_branch
+      shell: bash
+      run: |
+        mkdir -p probe-save && cp probe-out/report.json probe-save/ 2>/dev/null || true
+
+    - uses: actions/cache/save@v4
+      if: always() && github.event_name == 'push' && github.ref_name == github.event.repository.default_branch && hashFiles('probe-save/report.json') != ''
+      with:
+        path: probe-save
+        key: probe-report-${{ github.sha }}
+
+    - name: Publish the badge
+      if: always() && inputs.badge == 'true' && github.event_name == 'push' && hashFiles('probe-out/badge.json') != ''
+      shell: bash
+      env:
+        BADGE_BRANCH: ${{ inputs.badge-branch }}
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -e
+        cp probe-out/badge.json "$RUNNER_TEMP/badge.json"
+        git config user.name "probe-badge"
+        git config user.email "probe-badge@users.noreply.github.com"
+        git fetch origin "$BADGE_BRANCH" 2>/dev/null && git checkout -B "$BADGE_BRANCH" FETCH_HEAD \
+          || git checkout --orphan "$BADGE_BRANCH"
+        git rm -rf . >/dev/null 2>&1 || true
+        cp "$RUNNER_TEMP/badge.json" badge.json
+        git add badge.json
+        git commit -m "Update the Probe badge" || exit 0
+        git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BADGE_BRANCH"
+
+    - name: Fail the job if Probe did
+      if: always()
+      shell: bash
+      env:
+        CODE: ${{ steps.run.outputs.exit_code }}
+      run: exit "${CODE:-4}"

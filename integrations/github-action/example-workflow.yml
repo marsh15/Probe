@@ -1,0 +1,22 @@
+name: Probe
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  security-events: write   # upload SARIF to code scanning
+  # contents: write        # also needed if you turn on `badge: true`
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: OWNER/probe-action@v1
+        with:
+          image: ghcr.io/OWNER/my-mcp-server:latest   # or `command:` / `url:`
+          profile: probe.yaml
+          fail-on: high
