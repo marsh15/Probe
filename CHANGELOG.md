@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Optional `--llm` experiment `behavior.agent_recovery`: a cached, budgeted model call measures whether the server's error messages help an agent fix malformed calls (recovery rate and lift, no score weight); `--llm-budget-usd`, `--llm-cache` (see docs/llm.md)
 - SARIF 2.1.0, a shields badge and a markdown summary (`--format sarif,md,badge`, `--sarif-anchor`, `--badge-style`), `probe report REPORT --format F` to write one from a finished report, and `probe diff BASE HEAD` for score change, new and fixed findings
 - `probe run` writes a self-contained `report.html` (grade, families, findings with evidence and repro command, tools, checks, limits) by default; server text is escaped, a strict CSP allows no network, and axe finds no serious problems in light or dark at phone and desktop widths (see docs/report.md)
 - `probe repro REPORT --finding ID` runs one finding's check again on a fresh target and prints REPRODUCED or NOT REPRODUCED, `--export-script` writes a standalone shell script of the recorded requests, and `probe run` writes a repro bundle per finding next to the report (see docs/repro.md)

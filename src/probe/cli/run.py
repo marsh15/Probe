@@ -59,6 +59,13 @@ def run(
     output_format: Annotated[
         str, typer.Option("--format", help="Comma-separated report formats.")
     ] = "json,html",
+    llm: Annotated[
+        bool, typer.Option("--llm", help="Run the agent-recovery experiment (needs a judge key).")
+    ] = False,
+    llm_budget_usd: Annotated[float, typer.Option(help="Stop the experiment at this spend.")] = 2.0,
+    llm_cache: Annotated[
+        Path | None, typer.Option(help="Directory for cached judge answers.")
+    ] = None,
     sarif_anchor: Annotated[
         str, typer.Option(help="File that SARIF results are attached to.")
     ] = "README.md",
@@ -134,6 +141,9 @@ def run(
         i_have_permission=i_have_permission,
         secret_env=secret_env or [],
         target_env=_parse_env(target_env or []),
+        llm=llm,
+        llm_budget_usd=llm_budget_usd,
+        llm_cache=llm_cache,
     )
     console = Console()
     try:

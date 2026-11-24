@@ -4,6 +4,7 @@ Importing this package registers every check in it.
 """
 
 from probe.checks.behavior import (  # noqa: F401 - registers the checks
+    agent_recovery,
     concurrency,
     idempotency,
     input_handling,

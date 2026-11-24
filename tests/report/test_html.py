@@ -108,3 +108,16 @@ def test_ungraded_report_says_so(tmp_path: Path) -> None:
 def test_snapshots(snapshot: SnapshotAssertion) -> None:
     assert render_html(load("clean")) == snapshot(name="clean")
     assert render_html(load("buggy")) == snapshot(name="buggy")
+
+
+def test_llm_panel_appears_only_when_the_experiment_ran() -> None:
+    assert 'id="llm"' not in render_html(load("clean"))
+
+    def edit_llm(data: dict[str, Any]) -> None:
+        data["llm"] = {
+            "model": "m", "recovery_rate": 66.7, "lift": 33.3, "cases": 3,
+            "cache_hits": 1, "cost_usd": 0.0123,
+        }  # fmt: skip
+
+    page = render_html(mutate("clean", edit_llm))
+    assert 'id="llm"' in page and "66.7%" in page and "+33.3" in page and "$0.0123" in page

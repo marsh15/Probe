@@ -22,7 +22,7 @@
   </div>
   <nav class="toc" aria-label="Sections">
     <a href="#summary">Summary</a><a href="#families">Families</a><a href="#findings">Findings</a>
-    <a href="#tools">Tools</a><a href="#checks">Checks</a><a href="#limits">Limits</a><a href="#metadata">Metadata</a>
+    <a href="#tools">Tools</a><a href="#checks">Checks</a>{% if report.llm %}<a href="#llm">Agent recovery</a>{% endif %}<a href="#limits">Limits</a><a href="#metadata">Metadata</a>
   </nav>
 </header>
 <main>
@@ -131,6 +131,20 @@
     {% endfor %}
     </tbody></table></div>
 </section>
+
+{% if report.llm %}
+<section id="llm" aria-labelledby="h-llm">
+  <h2 id="h-llm">Agent recovery (LLM experiment)</h2>
+  <p>A model ({{ report.llm.model }}) was asked to fix {{ report.llm.cases }} malformed calls, once with the
+  server's error message and once without. It is not part of the score.</p>
+  <dl>
+    <dt>Recovered with the error message</dt><dd>{{ "%.1f"|format(report.llm.recovery_rate) }}%</dd>
+    <dt>Lift from the message (points)</dt><dd>{{ "%+.1f"|format(report.llm.lift) }}</dd>
+    <dt>Answers from cache</dt><dd>{{ report.llm.cache_hits }}</dd>
+    <dt>Cost</dt><dd>${{ "%.4f"|format(report.llm.cost_usd) }}</dd>
+  </dl>
+</section>
+{% endif %}
 
 <section id="limits" aria-labelledby="h-limits">
   <h2 id="h-limits">Limitations</h2>

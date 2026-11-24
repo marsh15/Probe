@@ -17,6 +17,7 @@ from probe.engine.crash import CrashTracker, TargetCrashed, TargetUnstable
 from probe.engine.discovery import ToolListing
 from probe.engine.outcomes import CrashEvent, Mode, ToolInfo
 from probe.engine.outcomes import Era as EraEnum
+from probe.llm.judge import Judge
 from probe.wire.errors import RequestTimeout, TransportClosed, WireEvent
 from probe.wire.jsonrpc import ErrorResponse, Response, ResultResponse
 from probe.wire.limits import request_timeout
@@ -51,10 +52,6 @@ class Fixtures(Protocol):
     async def snapshot(self) -> "FixtureState": ...
 
     def diff(self, a: "FixtureState", b: "FixtureState") -> "StateDiff": ...
-
-
-class Judge(Protocol):
-    """The optional LLM judge (``--llm``); its interface is defined with the judge itself."""
 
 
 @dataclass(frozen=True, slots=True)

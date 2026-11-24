@@ -256,3 +256,11 @@ def test_every_format_can_be_written_in_one_run(tmp_path: Path) -> None:
         assert (out / name).read_text(), name
     assert json.loads((out / "report.sarif").read_text())["version"] == "2.1.0"
     assert json.loads((out / "badge.json").read_text())["label"] == "probe"
+
+
+def test_llm_flag_without_a_key_is_a_usage_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    result = run(tmp_path, "--llm")
+    assert result.exit_code == 2 and "ANTHROPIC_API_KEY" in result.output

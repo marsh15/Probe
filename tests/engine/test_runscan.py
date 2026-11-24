@@ -342,3 +342,38 @@ async def test_invalid_scoring_profile_is_usage_error_before_start(tmp_path: Pat
     with pytest.raises(UsageError, match="scoring_profile"):
         await run_scan(config(tmp_path, scoring_profile="bogus"))
     assert not (tmp_path / "out").exists()
+
+
+# --- the LLM judge (--llm) ---------------------------------------------------------------
+
+
+async def test_without_llm_the_experiment_is_skipped_and_the_report_has_no_llm_block(
+    tmp_path: Path,
+) -> None:
+    report = await run_scan(config(tmp_path, mode="deep"))
+    assert report.llm is None
+    assert statuses(report)["behavior.agent_recovery"] is not Status.PASS  # nothing to judge
+
+
+async def test_an_injected_judge_fills_the_llm_block_and_leaves_the_score_alone(
+    tmp_path: Path, stdio_command: Any
+) -> None:
+    from probe.llm import FakeJudge
+
+    argv, env = stdio_command
+    wanted = {k: v for k, v in env.items() if k in ("PYTHONPATH", "REFSERVER_DATA")}
+
+    def refserver(out: Path, **kwargs: Any) -> RunConfig:
+        return RunConfig(out_dir=out, command=argv, target_env=wanted, mode="standard", **kwargs)
+
+    plain = await run_scan(refserver(tmp_path / "a"))
+    judged = await run_scan(refserver(tmp_path / "b", judge=FakeJudge()))
+    assert judged.llm is not None and judged.llm.model == "fake-judge" and judged.llm.cases > 0
+    assert judged.score == plain.score  # the experiment has no weight
+    jsonschema.validate(json.loads(judged.model_dump_json()), REPORT_SCHEMA)
+
+
+async def test_llm_without_a_key_is_a_usage_error_before_anything_starts(tmp_path: Path) -> None:
+    with pytest.raises(UsageError, match="ANTHROPIC_API_KEY"):
+        await run_scan(config(tmp_path, llm=True, environ={}))
+    assert not (tmp_path / "out" / "trace.jsonl").exists()

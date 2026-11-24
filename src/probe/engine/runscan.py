@@ -41,6 +41,8 @@ from probe.engine.fixtures import ScanFixtures as FixtureSet
 from probe.engine.outcomes import CheckResult, Mode, Status, Transport
 from probe.engine.scan import run_checks
 from probe.engine.versions import CATALOG_VERSION, SCORING_VERSION
+from probe.llm.factory import LlmUnavailable, make_judge
+from probe.llm.judge import Judge
 from probe.report.json_out import (
     all_findings,
     result_summaries,
@@ -48,6 +50,7 @@ from probe.report.json_out import (
 )
 from probe.report.models import (
     EraInfo,
+    LlmStats,
     ScanInfo,
     ScanReport,
     ScoringProfile,
@@ -110,6 +113,10 @@ class RunConfig:
     secret_env: Sequence[str] = ()
     target_env: dict[str, str] = field(default_factory=dict)
     environ: dict[str, str] | None = None  # where --secret-env values are looked up
+    llm: bool = False  # --llm: run the agent-recovery experiment with a judge
+    llm_budget_usd: float = 2.0
+    llm_cache: Path | None = None
+    judge: Judge | None = None  # a ready judge (tests); overrides what --llm would build
 
 
 def select_checks(
@@ -279,6 +286,16 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
     if cfg.scoring_profile not in ("full", "public-interim"):
         raise UsageError(f"unknown scoring_profile {cfg.scoring_profile!r}")
     settings = settings_for(cfg.mode, cfg.timeout_scale)
+    judge = cfg.judge
+    if judge is None and cfg.llm:
+        try:
+            judge = make_judge(
+                budget_usd=cfg.llm_budget_usd,
+                cache_dir=cfg.llm_cache,
+                environ=cfg.environ,
+            )
+        except LlmUnavailable as exc:
+            raise UsageError(str(exc)) from exc
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
     resolved, environ = _resolve(cfg)
     secrets = _secrets(cfg, resolved, environ)
@@ -290,7 +307,7 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
     try:
         try:
             ctx = await _connect(
-                cfg, resolved, runner, recorder, settings.scan_calls, settings.wall_clock_s
+                cfg, resolved, runner, recorder, settings.scan_calls, settings.wall_clock_s, judge
             )
         except PermissionRequired as exc:
             raise UsageError(str(exc)) from exc
@@ -331,6 +348,7 @@ async def _connect(
     recorder: Recorder,
     calls: int,
     seconds: float,
+    judge: Judge | None = None,
 ) -> ScanContext:
     fixtures = None
     if isinstance(runner, ContainerRunner) and _fixtures_requested(cfg):
@@ -384,6 +402,7 @@ async def _connect(
         listing=listing,
         profile=resolved.profile,
         trace=recorder,
+        llm=judge,
         fixtures=fixtures,
         auth_identities=[i.name for i in resolved.profile.auth.identities],
         second_instance_supported=_has_second_instance(runner),
@@ -448,6 +467,7 @@ async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime, scan_id: st
             scoring_profile=cfg.scoring_profile,
         ),
         stats=_stats(ctx, results),
+        llm=_llm_stats(ctx),
         limitations=_limitations(cfg, ctx, results),
     )
 
@@ -474,6 +494,11 @@ def _scan_info(
         platform=_platform(runner.sandboxed),
         runtime="runc" if runner.sandboxed else "none",
     )
+
+
+def _llm_stats(ctx: ScanContext) -> LlmStats | None:
+    data = ctx.scratch.get("llm_stats")
+    return LlmStats(**data) if isinstance(data, dict) else None
 
 
 def _stats(ctx: ScanContext, results: list[CheckResult]) -> Stats:
