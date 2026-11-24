@@ -61,6 +61,7 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T22 | Boundary and malformed mutators | done |
 | T23 | Behavior checks, output conformance and text mirror | done (bug detection tests follow with T25) |
 | T23b | `schema.cache_scope_correct` | done (clean HTTP refserver passes; b14 test comes with T25) |
+| T24 | Cancellation, head-of-line, statelessness, MRTR and Tasks checks | done (bug tests for b25, b26, b28, b29, b30 included) |
 | T27 | SSRF and file-scheme safety checks | done |
 | T30 | Operability checks | done |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |

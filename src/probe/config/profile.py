@@ -108,6 +108,9 @@ class ToolOverride(_Strict):
     idempotent: bool | None = None
     intended_exec: bool | None = None
     allow_private_network: bool | None = None
+    # Arguments that make this tool run for about four seconds, so cancellation and
+    # head-of-line blocking can be tested. Probe guesses for tools named slow/sleep/delay/wait.
+    slow_case: dict[str, Any] | None = None
 
 
 class ElicitationMatch(_Strict):

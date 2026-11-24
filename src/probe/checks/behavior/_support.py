@@ -9,6 +9,7 @@ from probe.checks.context import ScanContext
 from probe.checks.support import ALL_MODES, make_finding
 from probe.engine.outcomes import Finding, Severity
 from probe.schema.cases import CaseKind
+from probe.wire.mrtr import ElicitationRule, InputPolicy
 
 MAX_FINDINGS = 25
 _EXCERPT = 300
@@ -20,6 +21,7 @@ __all__ = [
     "clip",
     "conclude",
     "drop_paging",
+    "input_policy",
     "tool_findings",
 ]
 
@@ -115,3 +117,23 @@ def conclude(
         cases = ", ".join(o.case.id for o in unreproduced[:3])
         return CheckOutcome.error(f"the target stopped on {cases} but it did not happen again")
     return CheckOutcome()
+
+
+def input_policy(ctx: ScanContext) -> InputPolicy:
+    """How to answer a server's requests for input: the profile's elicitation answers, else
+    decline (which never changes anything)."""
+    profile = ctx.profile
+    answers = profile.elicitation_answers if profile is not None else []
+    rules = [
+        ElicitationRule(
+            a.match.key,
+            a.match.message_regex,
+            a.response.action,
+            a.response.content,
+        )
+        for a in answers
+    ]
+    roots: tuple[str, ...] = ()
+    if profile is not None and profile.fixtures.fs is not None:
+        roots = tuple(f"file://{r}" for r in profile.fixtures.fs.allowed_roots)
+    return InputPolicy(rules, roots) if roots else InputPolicy(rules)

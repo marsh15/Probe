@@ -73,6 +73,26 @@ b16:
   transports: [stdio]
   primary: [schema.descriptions_present]
   allowed_collateral: []
+b25:
+  transports: [stdio]
+  primary: [behavior.cancellation_honored]
+  allowed_collateral: []
+b26:
+  transports: [stdio]
+  primary: [behavior.no_head_of_line_blocking]
+  allowed_collateral: []
+b28:
+  transports: [stdio]
+  primary: [behavior.stateless_consistent]
+  allowed_collateral: []
+b29:
+  transports: [stdio]
+  primary: [behavior.mrtr_wellformed]
+  allowed_collateral: []
+b30:
+  transports: [stdio]
+  primary: [behavior.tasks_lifecycle]
+  allowed_collateral: []
 b50:
   transports: [stdio]
   primary: [protocol.era_parity]

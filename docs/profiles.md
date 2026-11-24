@@ -67,6 +67,10 @@ classifier's guess (`read`, `write`, `destructive`, `exec`, `unknown`); Probe wi
 tool that may write when side effects are allowed. A profile classification is reported as
 `classification_source: profile`.
 
+`slow_case` gives arguments that make a tool run for about four seconds. The cancellation and
+head-of-line checks need one such call; without it Probe only tries tools named like
+`slow`, `sleep`, `delay` or `wait` that take a single numeric duration.
+
 ## Skipping checks
 
 `checks.skip` maps a check id (or glob) to the reason. The check appears in the report as

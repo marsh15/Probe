@@ -346,6 +346,8 @@ async def _connect(
     session = await Session.open(
         transport,
         era=cfg.era,
+        # A profile that answers elicitations tells the server this client can be asked.
+        client_capabilities={"elicitation": {}} if cfg.profile.elicitation_answers else None,
         seed=cfg.seed,
         # On stdio the first answer also waits for the server to boot.
         probe_timeout=STARTUP_TIMEOUT_S if stdio else ERA_PROBE_TIMEOUT_S,

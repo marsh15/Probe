@@ -9,7 +9,10 @@ import yaml
 
 EXPECTED = yaml.safe_load((Path(__file__).parent / "expected.yaml").read_text())
 CHECK_ID = re.compile(r"[a-z]+\.[a-z0-9_.]+")
-IMPLEMENTED = {f"b{n:02d}" for n in (*range(1, 9), *range(10, 14), 15, 16, *range(50, 54), 55, 56)}
+IMPLEMENTED = {
+    f"b{n:02d}"
+    for n in (*range(1, 9), *range(10, 14), 15, 16, 25, 26, 28, 29, 30, *range(50, 54), 55, 56)
+}
 
 
 def test_covers_the_clean_baseline_and_exactly_the_implemented_bugs() -> None:

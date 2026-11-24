@@ -469,6 +469,19 @@
           ],
           "default": null,
           "title": "Kind"
+        },
+        "slow_case": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Slow Case"
         }
       },
       "title": "ToolOverride",

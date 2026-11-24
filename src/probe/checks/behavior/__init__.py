@@ -7,7 +7,11 @@ from probe.checks.behavior import (  # noqa: F401 - registers the checks
     concurrency,
     idempotency,
     input_handling,
+    mrtr,
     pagination,
     results,
+    slow,
+    stateless,
     survival,
+    tasks,
 )
