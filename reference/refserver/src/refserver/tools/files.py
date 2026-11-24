@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, Annotated
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from refserver import bugs
 from refserver.tools import READ, hints
 
 if TYPE_CHECKING:
@@ -44,8 +45,18 @@ def resolve_contained(root: Path, path: str) -> str:
     if "\x00" in path:
         raise ToolError("path must not contain NUL bytes")
     real_root = os.path.realpath(root)
-    candidate = os.path.realpath(os.path.join(real_root, path))
-    if os.path.commonpath([real_root, candidate]) != real_root:
+    if bugs.is_on("b35"):
+        # the bug: `..` is resolved on the text but symlinks are never followed
+        candidate = os.path.normpath(os.path.join(real_root, path))
+    else:
+        candidate = os.path.realpath(os.path.join(real_root, path))
+    if bugs.is_on("b34"):
+        outside = not candidate.startswith(
+            real_root
+        )  # the bug: a string prefix, so allowed_evil passes
+    else:
+        outside = os.path.commonpath([real_root, candidate]) != real_root
+    if outside:
         raise ToolError(f"path {path!r} is outside the allowed root; use a path relative to it")
     return candidate
 

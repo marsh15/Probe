@@ -174,3 +174,43 @@ async def test_invalid_trace_metadata_is_not_forwarded() -> None:
     fetcher = Fetcher(resolver({"public.probe.test": [PUBLIC_IP]}), httpx.MockTransport(rec))
     await fetcher.fetch("http://public.probe.test/", meta={"traceparent": "invalid"})
     assert "traceparent" not in rec.requests[0].headers
+
+
+@pytest.fixture
+def bug(monkeypatch: pytest.MonkeyPatch):
+    from refserver import bugs
+
+    def switch_on(name: str) -> None:
+        monkeypatch.setattr(bugs, "_active", frozenset({name}))
+
+    yield switch_on
+    monkeypatch.setattr(bugs, "_active", None)
+
+
+async def test_b31_private_addresses_are_not_blocked(bug) -> None:
+    bug("b31")
+    rec = Recorder({"127.0.0.1/": httpx.Response(200, text="inside")})
+    fetcher = Fetcher(resolver({}), httpx.MockTransport(rec))
+    assert (await fetcher.fetch("http://127.0.0.1/"))["body"] == "inside"
+
+
+async def test_b32_the_first_url_is_vetted_but_redirects_are_not(bug) -> None:
+    bug("b32")
+    rec = Recorder(
+        {
+            f"{PUBLIC_IP}/go": httpx.Response(302, headers={"location": "http://10.1.2.3/admin"}),
+            "10.1.2.3/admin": httpx.Response(200, text="private"),
+        }
+    )
+    fetcher = Fetcher(resolver({"public.probe.test": [PUBLIC_IP]}), httpx.MockTransport(rec))
+    assert (await fetcher.fetch("http://public.probe.test/go"))["body"] == "private"
+    with pytest.raises(ToolError, match="blocked"):
+        await fetcher.fetch("http://10.1.2.3/admin")  # a direct private URL is still refused
+
+
+async def test_b33_file_urls_are_served(bug, tmp_path) -> None:
+    bug("b33")
+    secret = tmp_path / "SENTINEL"
+    secret.write_text("PROBE-SENTINEL-abc")
+    out = await Fetcher(resolver({})).fetch(f"file://{secret}")
+    assert out["body"] == "PROBE-SENTINEL-abc" and out["status"] == 200

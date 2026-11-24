@@ -129,6 +129,11 @@ class HttpTransport(Transport):
             timeout=httpx.Timeout(connect=HTTP_CONNECT_TIMEOUT_S, read=None, write=30, pool=10),
         )
 
+    @property
+    def url(self) -> str:
+        """The endpoint this transport posts to."""
+        return self._url
+
     async def send(self, obj: Mapping[str, Any]) -> None:
         """POST one message. A request must get its response back on that same POST."""
         message = dict(obj)
@@ -201,14 +206,18 @@ class HttpTransport(Transport):
         *,
         method: str = "POST",
         timeout: float | None = HTTP_SEND_TIMEOUT_S,  # noqa: ASYNC109 - the exchange deadline
+        url: str | None = None,
     ) -> RawHttpResult:
         """Send exactly ``headers`` and ``body``: no defaults, session or checks; still recorded.
+        ``url`` (default: the endpoint) lets a check read a well-known document beside it.
 
         ``httpx`` still adds Host and Content-Length, and Accept, Accept-Encoding, Connection
         and User-Agent when absent, so a request with no ``Accept`` header cannot be sent.
         """
         text = body.decode("utf-8", errors="replace")
-        return await self._exchange(method, dict(headers), body, text, timeout, track_session=False)
+        return await self._exchange(
+            method, dict(headers), body, text, timeout, track_session=False, url=url
+        )
 
     def alive(self) -> bool:
         return self._closed is None
@@ -234,6 +243,7 @@ class HttpTransport(Transport):
         timeout: float | None,  # noqa: ASYNC109 - the exchange deadline
         *,
         track_session: bool,
+        url: str | None = None,
     ) -> RawHttpResult:
         if self._closed is not None:
             raise TransportClosed(self._closed.exit_code, self._closed.reason)
@@ -243,7 +253,7 @@ class HttpTransport(Transport):
         try:
             async with asyncio.timeout(timeout):
                 request = self._client.build_request(
-                    method, self._url, headers=headers, content=body
+                    method, url or self._url, headers=headers, content=body
                 )
                 response = await self._client.send(request, stream=True)
                 try:

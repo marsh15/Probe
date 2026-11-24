@@ -68,7 +68,8 @@ class HMACRequestStateCodec:
             payload, tag = _unb64(payload_part), _unb64(tag_part)
         except (ValueError, binascii.Error):
             raise InvalidRequestState("format") from None
-        if not hmac.compare_digest(tag, self._tag(payload)):
+        # b41: the signature is read but never checked
+        if not bugs.is_on("b41") and not hmac.compare_digest(tag, self._tag(payload)):
             raise InvalidRequestState("signature")
         return payload
 

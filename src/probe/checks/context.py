@@ -244,13 +244,15 @@ class ScanContext:
         *,
         method: str = "POST",
         timeout: float = 10.0,  # noqa: ASYNC109 - the exchange deadline
+        url: str | None = None,
     ) -> RawHttpResult:
-        """Send exactly these headers and bytes (HTTP targets only); budgeted, still recorded."""
+        """Send exactly these headers and bytes (HTTP targets only); budgeted, still recorded.
+        ``url`` reads another document (checks only pass the target's own origin or a local one)."""
         transport = self.client.transport
         if not isinstance(transport, HttpTransport):
             raise TypeError("raw_http needs an HTTP target")
         self.spend()
-        return await transport.raw_http(headers, body, method=method, timeout=timeout)
+        return await transport.raw_http(headers, body, method=method, timeout=timeout, url=url)
 
     async def raw_stdio(self, data: bytes, *, case_id: str | None = None) -> None:
         """Write exactly these bytes to the server's stdin (stdio targets only)."""

@@ -11,6 +11,7 @@ from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from refserver import bugs
 from refserver.tools import hints
 
 if TYPE_CHECKING:
@@ -45,7 +46,9 @@ async def fetch_item(
     token = cfg.backend_token
     if not token:
         raise ToolError("call_backend is not configured: the server has no backend token")
-    headers = {"Authorization": f"Bearer {token}", **trace_headers(meta)}
+    # b44: the trace context is not forwarded.
+    forwarded = {} if bugs.is_on("b44") else trace_headers(meta)
+    headers = {"Authorization": f"Bearer {token}", **forwarded}
     url = f"{cfg.backend_url}/c/items/{item_id}"
     try:
         async with httpx.AsyncClient(
@@ -56,6 +59,9 @@ async def fetch_item(
         # Messages are built from fixed text only: exception strings can carry request details.
         raise ToolError(f"backend unreachable ({type(exc).__name__}); try again later") from None
     status = response.status_code
+    if bugs.is_on("b36") and status >= 400:
+        # the bug: the failed request, credentials and all, goes into the error text
+        raise ToolError(f"backend error (HTTP {status}) for GET {url} with headers {headers}")
     if status == 429:
         retry_after = response.headers.get("retry-after", "").strip()
         wait = f"{retry_after} seconds" if retry_after.isdigit() else "a few seconds"

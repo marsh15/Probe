@@ -17,6 +17,8 @@ from mcp.types import CallToolResult, ListToolsResult, TextContent
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
+from refserver import bugs
+
 SCOPES = ["notes:read", "notes:write"]
 HIDDEN_TOOLS: dict[str, frozenset[str]] = {"bob": frozenset({"purge_notes"})}
 PRM_PATH = "/.well-known/oauth-protected-resource"
@@ -78,7 +80,7 @@ def prm_document(resource: str, issuer: str) -> dict[str, Any]:
     return {
         "resource": resource,
         "authorization_servers": [issuer],
-        "scopes_supported": list(SCOPES),
+        "scopes_supported": ["*", "admin"] if bugs.is_on("b43") else list(SCOPES),
         "bearer_methods_supported": ["header"],
     }
 

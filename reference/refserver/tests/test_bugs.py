@@ -24,14 +24,14 @@ def test_unknown_ids_rejected(spec: str) -> None:
         bugs.parse(spec)
 
 
-def test_known_but_unimplemented_rejected() -> None:
-    assert "b31" not in bugs.IMPLEMENTED
+def test_known_but_unimplemented_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bugs, "IMPLEMENTED", bugs.IMPLEMENTED - {"b31"})
     with pytest.raises(bugs.BugConfigError, match="not implemented"):
         bugs.parse("b31")
 
 
 def test_the_implemented_bugs_are_the_expected_set() -> None:
-    expected = {f"b{n:02d}" for n in (*range(1, 31), *range(50, 59))}
+    expected = {f"b{n:02d}" for n in range(1, 59)}
     assert expected == bugs.IMPLEMENTED
     assert bugs.parse("b01, b56") == {"b01", "b56"}
 

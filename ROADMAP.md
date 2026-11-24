@@ -65,6 +65,9 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T25 | Refserver behavior and schema bugs (b09, b14, b17-b30, b54, b57, b58) | done (detection tests for each) |
 | T26 | `probe selfval`, nightly workflow, `make selfval-fast` | done (sandbox run waits for Docker; local fast subset green) |
 | T27 | SSRF and file-scheme safety checks | done |
+| T28 | Path containment, command injection and read-only enforcement checks | done (b34, b35, b40, b42 tested locally) |
+| T29 | Secret leak, stack trace, hidden instruction, annotation, request-state and OAuth scope checks | done (b36-b39, b41, b43, b49 tested) |
+| T31 | Reference-server bugs b31-b49 | done in code; b31-b33 and b44 are exercised only by unit tests and wait for a Docker selfval run |
 | T30 | Operability checks | done |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |
 

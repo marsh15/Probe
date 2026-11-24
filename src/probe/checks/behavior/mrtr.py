@@ -3,8 +3,8 @@
 from typing import Any
 
 from probe.checks.base import Applicability, Check, CheckOutcome
-from probe.checks.behavior._campaign import Outcome, outcomes
-from probe.checks.behavior._support import clip, input_policy
+from probe.checks.behavior._campaign import outcomes
+from probe.checks.behavior._support import clip, input_askers, input_policy
 from probe.checks.context import ScanContext
 from probe.checks.registry import register
 from probe.checks.support import make_finding, request_step
@@ -12,21 +12,9 @@ from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severi
 from probe.engine.outcomes import Transport as TransportKind
 from probe.wire.errors import RequestTimeout
 from probe.wire.jsonrpc import ErrorResponse, Response
-from probe.wire.mrtr import MAX_ROUNDS, call_with_mrtr, is_input_required
+from probe.wire.mrtr import MAX_ROUNDS, call_with_mrtr
 
 _TOOLS_TRIED = 3
-_MISSING_CAPABILITY = -32021
-_CAPABILITIES = "io.modelcontextprotocol/clientCapabilities"
-
-
-def _required_capabilities(outcome: Outcome) -> dict[str, Any] | None:
-    """What a server says it needs from the client before it will answer (error -32021)."""
-    error = outcome.rpc_error
-    if error is None or error.error.code != _MISSING_CAPABILITY:
-        return None
-    data = error.error.data
-    required = data.get("requiredCapabilities") if isinstance(data, dict) else None
-    return required if isinstance(required, dict) else None
 
 
 @register
@@ -61,16 +49,7 @@ class MrtrWellformed(Check):
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         valid = await outcomes(ctx, "valid")
-        # Tools that asked for input, and tools that would if the client said it can answer.
-        asking: dict[str, tuple[dict[str, Any], dict[str, Any] | None]] = {}
-        for outcome in valid:
-            if outcome.case.tool in asking:
-                continue
-            if is_input_required(outcome.response):
-                asking[outcome.case.tool] = (outcome.params, None)
-            elif (needs := _required_capabilities(outcome)) is not None:
-                capabilities = {**ctx.client.client_capabilities, **needs}
-                asking[outcome.case.tool] = (outcome.params, {_CAPABILITIES: capabilities})
+        asking = input_askers(ctx, valid)
         if not asking:
             return CheckOutcome.na("no tool asked for input during the valid-input campaign")
         policy = input_policy(ctx)

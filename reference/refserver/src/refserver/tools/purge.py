@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING, Annotated
 from mcp.server.mcpserver import AcceptedElicitation, Elicit, ElicitationResult, Resolve
 from pydantic import BaseModel, Field
 
+from refserver import bugs
 from refserver.tools import hints
 from refserver.tools.notes import connect
 
@@ -43,7 +44,10 @@ def register(mcp: MCPServer, cfg: Config) -> None:
 
     @mcp.tool(
         structured_output=False,
-        annotations=hints(read_only=False, destructive=True, idempotent=True),
+        # b49: no annotations at all on a tool that deletes
+        annotations=None
+        if bugs.is_on("b49")
+        else hints(read_only=False, destructive=True, idempotent=True),
     )
     def purge_notes(
         older_than_days: Days,

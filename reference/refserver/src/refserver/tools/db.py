@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Annotated
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from refserver import bugs
 from refserver.tools import READ
 
 if TYPE_CHECKING:
@@ -33,7 +34,22 @@ def _authorizer(action: int, *_: object) -> int:
     return sqlite3.SQLITE_OK if action in _ALLOWED_ACTIONS else sqlite3.SQLITE_DENY
 
 
+def run_unrestricted(db_path: Path, sql: str) -> dict[str, object]:
+    """b40: a writable connection that runs every statement it is given."""
+    conn = sqlite3.connect(db_path, timeout=5)
+    try:
+        conn.executescript(sql)
+        conn.commit()
+    except sqlite3.DatabaseError as exc:
+        raise ToolError(f"SQL error: {exc}") from None
+    finally:
+        conn.close()
+    return {"columns": [], "rows": [], "truncated": False}
+
+
 def run_readonly(db_path: Path, sql: str) -> dict[str, object]:
+    if bugs.is_on("b40"):
+        return run_unrestricted(db_path, sql)
     statement = sql.strip()
     conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True, timeout=5)
     try:

@@ -5,6 +5,8 @@ b20: a call with an unsafe-integer limit (2**53 + 1 and anything beyond) takes t
 b26: one lock is held for the whole of every request, so a slow call holds up all others.
 b28: the first tool's description carries the process id, so two instances describe themselves
      differently (a stateless server must not).
+b45: a tools/call whose _meta has a key the server does not know is refused.
+b46: the process exits when more than 16 tools/call requests are in flight at once.
 b57: search_notes refuses a valid query (one with a non-ASCII character) with -32602, a rule its
      schema does not state.
 b58: the process exits on exactly its 100th tools/call (a rerun after restart does not repeat it).
@@ -33,9 +35,15 @@ CRASH_EXIT_CODE = 3
 UNSAFE = 2**53 + 1
 CRASH_ON_CALL = 100
 INVALID_PARAMS = -32602
+MCP_PREFIX = "io.modelcontextprotocol/"
+
+MAX_IN_FLIGHT = 16
+WORK_SECONDS = 0.05
+KNOWN_META = frozenset({"traceparent", "tracestate", "baggage", "progressToken"})
 
 _lock: asyncio.Lock | None = None
 _tools_calls = 0
+_in_flight = 0
 
 
 def _global_lock() -> asyncio.Lock:
@@ -87,6 +95,11 @@ def _before_the_call(cfg: Config, ctx: ServerRequestContext[Any, Any]) -> CallTo
         os._exit(CRASH_EXIT_CODE)
     if bugs.is_on("b19") and name == "notes_create" and "title" not in arguments:
         return _create_without_validation(cfg, arguments)
+    meta = params.get("_meta")
+    if bugs.is_on("b45") and isinstance(meta, dict):
+        unknown = [k for k in meta if k not in KNOWN_META and not k.startswith(MCP_PREFIX)]
+        if unknown:
+            raise MCPError(INVALID_PARAMS, f"Invalid params: unknown _meta key {unknown[0]!r}")
     query = arguments.get("query")
     ascii_only = not isinstance(query, str) or query.isascii()
     if bugs.is_on("b57") and name == "search_notes" and not ascii_only:
@@ -98,8 +111,25 @@ def make(cfg: Config) -> Callable[[ServerRequestContext[Any, Any], CallNext], Aw
     async def behavior_bugs(
         ctx: ServerRequestContext[Any, Any], call_next: CallNext
     ) -> HandlerResult:
-        if ctx.method == "tools/call" and (early := _before_the_call(cfg, ctx)) is not None:
-            return early
+        if ctx.method == "tools/call":
+            if (early := _before_the_call(cfg, ctx)) is not None:
+                return early
+            return await _counted(ctx, call_next)
+        return await _serve(ctx, call_next)
+
+    async def _counted(ctx: ServerRequestContext[Any, Any], call_next: CallNext) -> HandlerResult:
+        global _in_flight
+        _in_flight += 1
+        try:
+            if bugs.is_on("b46"):
+                await asyncio.sleep(WORK_SECONDS)  # work that lets requests pile up
+                if _in_flight > MAX_IN_FLIGHT:
+                    os._exit(CRASH_EXIT_CODE)
+            return await _serve(ctx, call_next)
+        finally:
+            _in_flight -= 1
+
+    async def _serve(ctx: ServerRequestContext[Any, Any], call_next: CallNext) -> HandlerResult:
         if bugs.is_on("b26"):
             async with _global_lock():
                 result = await call_next(ctx)

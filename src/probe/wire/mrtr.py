@@ -200,11 +200,11 @@ async def call_with_mrtr(
         if index == max_rounds:
             run.exceeded = True
             return run
-        current = _retry_params(params, result, policy)
+        current = retry_params(params, result, policy)
     return run
 
 
-def _retry_params(
+def retry_params(
     original: Mapping[str, Any], result: Mapping[str, Any], policy: InputPolicy
 ) -> dict[str, Any]:
     retry = dict(original)

@@ -7,8 +7,10 @@ import atexit
 import logging
 import os
 import shutil
+import signal
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 import anyio
@@ -66,11 +68,16 @@ def main(argv: list[str] | None = None) -> int:
     from refserver.wire_bugs import run_stdio_proxy
 
     mcp = build_server(cfg)
+    if args.command == "stdio" and bugs.is_on("b48"):
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)  # the bug: SIGTERM is ignored
     if args.command == "stdio":
         if args.no_proxy:  # direct SDK transport; used by tests to prove the proxy is transparent
             anyio.run(mcp.run_stdio_async)
         else:
             anyio.run(run_stdio_proxy, mcp)
+        if bugs.is_on("b48"):  # the bug: the server keeps running after stdin closes
+            while True:
+                time.sleep(3600)
         return 0
 
     import uvicorn

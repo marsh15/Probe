@@ -39,7 +39,7 @@ def selfval(
         bool, typer.Option("--local", help="Run the server as a plain process, without Docker.")
     ] = False,
     refserver_src: Annotated[
-        Path, typer.Option(help="refserver source directory (local runs).")
+        Path, typer.Option(help="refserver source directory (seeds the data).")
     ] = Path("reference/refserver/src"),
     transports: Annotated[str, typer.Option(help="stdio, http or both (comma-separated).")] = (
         "stdio,http"
@@ -78,7 +78,7 @@ def selfval(
         if transport in allowed_transports
         for seed in seed_list
     ]
-    setup = Setup(profiles, out, mode, local, refserver_src if local else None)
+    setup = Setup(profiles, out, mode, local, refserver_src)
     typer.echo(f"selfval: {len(jobs)} scans, {workers} at a time ({setup.backend}, {mode})")
     results = asyncio.run(run_jobs(setup, jobs, workers))
     if results and all("SandboxUnavailable" in r.note for r in results):

@@ -21,6 +21,7 @@ from mcp.server.mcpserver import Context
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from refserver import bugs
 from refserver.tools import hints
 from refserver.tools.backend import trace_headers
 
@@ -68,6 +69,22 @@ def _require_global(ip: IPAddress, shown: str) -> IPAddress:
     return effective
 
 
+def _read_local_file(url: str) -> dict[str, object]:
+    path = urlsplit(url).path
+    try:
+        with open(path, "rb") as handle:
+            body = handle.read(MAX_BODY)
+    except OSError as exc:
+        raise ToolError(f"cannot read {path!r}: {exc.strerror}") from None
+    return {
+        "url": url,
+        "status": 200,
+        "content_type": "text/plain",
+        "body": body.decode("utf-8", errors="replace"),
+        "truncated": False,
+    }
+
+
 class Fetcher:
     def __init__(
         self, resolve: Resolver = system_resolve, transport: httpx.AsyncBaseTransport | None = None
@@ -75,8 +92,12 @@ class Fetcher:
         self._resolve = resolve
         self._transport = transport
 
-    async def _vet(self, url: str) -> tuple[httpx.URL, dict[str, str], dict[str, str]]:
-        """Return (url to connect to, headers, extensions) for one hop, or raise ToolError."""
+    async def _vet(
+        self, url: str, *, check_address: bool = True
+    ) -> tuple[httpx.URL, dict[str, str], dict[str, str]]:
+        """Return (url to connect to, headers, extensions) for one hop, or raise ToolError.
+
+        ``check_address`` False is bug b32 (redirect hops are not vetted) and b31 (nothing is)."""
         parts = urlsplit(url)
         scheme = parts.scheme.lower()
         if scheme not in ("http", "https"):
@@ -92,12 +113,14 @@ class Fetcher:
             port = parts.port or (443 if scheme == "https" else 80)
         except ValueError:
             raise ToolError("URL has an invalid port") from None
-        if host in BLOCKED_HOSTNAMES or host.endswith((".internal", ".localhost")):
+        if check_address and (
+            host in BLOCKED_HOSTNAMES or host.endswith((".internal", ".localhost"))
+        ):
             raise ToolError(f"blocked: host {host!r} is a local or cloud-metadata name")
 
         literal = _literal_ip(host)
         if literal is not None:
-            ip = _require_global(literal, host)
+            ip = _require_global(literal, host) if check_address else literal
         else:
             try:
                 addresses = await self._resolve(host, port)
@@ -105,7 +128,9 @@ class Fetcher:
                 raise ToolError(f"could not resolve host {host!r}") from None
             if not addresses:
                 raise ToolError(f"could not resolve host {host!r}")
-            vetted = [_require_global(ipaddress.ip_address(a), host) for a in addresses]
+            parsed = [ipaddress.ip_address(a) for a in addresses]
+            # every answer must be public, not just the first
+            vetted = [_require_global(a, host) for a in parsed] if check_address else parsed
             ip = vetted[0]
 
         target = httpx.URL(url).copy_with(host=str(ip))
@@ -119,8 +144,11 @@ class Fetcher:
             transport=self._transport, timeout=TIMEOUT, follow_redirects=False
         ) as client:
             current = url
+            if bugs.is_on("b33") and urlsplit(url).scheme.lower() == "file":
+                return _read_local_file(url)  # the bug: file URLs are served
             for hop in range(MAX_REDIRECTS + 1):
-                target, headers, extensions = await self._vet(current)
+                vet = not bugs.is_on("b31") and not (bugs.is_on("b32") and hop > 0)
+                target, headers, extensions = await self._vet(current, check_address=vet)
                 request = client.build_request(
                     "GET", target, headers={**headers, **trace_headers(meta)}, extensions=extensions
                 )

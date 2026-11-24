@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, Annotated
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from refserver import bugs
 from refserver.tools import READ
 
 if TYPE_CHECKING:
@@ -33,13 +34,20 @@ def validate_ref(ref: str) -> str:
 
 
 async def git_log_entries(repo: Path, ref: str, max_count: int) -> list[dict[str, str]]:
-    validate_ref(ref)
     # --end-of-options makes git treat the ref as a revision even if validation were bypassed;
     # the trailing "--" stops it from being read as a path.
     argv = [
         "git", "-C", str(repo), "log", f"--max-count={max_count}",
         "--format=%H%x1f%an%x1f%aI%x1f%s", "--end-of-options", ref, "--",
     ]  # fmt: skip
+    if bugs.is_on("b42"):
+        # the bug: the ref goes to git unchecked and can be an option such as --output=FILE
+        argv = [
+            "git", "-C", str(repo), "log", f"--max-count={max_count}",
+            "--format=%H%x1f%an%x1f%aI%x1f%s", ref,
+        ]  # fmt: skip
+    else:
+        validate_ref(ref)
     env = {
         "PATH": os.environ.get("PATH", "/usr/bin:/bin"),
         "GIT_CONFIG_NOSYSTEM": "1",

@@ -141,3 +141,23 @@ def test_a_real_local_run_detects_a_bug_and_keeps_the_clean_server_clean(tmp_pat
     assert "Detected 1 of 1" in result.output
     assert (tmp_path / "selfval" / "report.json").is_file()
     assert (tmp_path / "selfval" / "report.md").is_file()
+
+
+def test_the_sandbox_profile_gets_fixtures_that_the_builder_accepts(tmp_path: Path) -> None:
+    """Without Docker: the profile Probe builds for the sandbox yields a valid fixture seed."""
+    import io
+    import tarfile
+
+    from probe.config.profile import load_profile
+    from probe.sandbox.fixtures import build_seed
+    from probe.selfval.assets import prepare, with_fixtures
+
+    seed, routes = prepare(tmp_path, REPO / "reference" / "refserver" / "src")
+    profile = with_fixtures(load_profile(REPO / "profiles" / "refserver.yaml"), seed, routes)
+    assert profile.fixtures.fs is not None and profile.fixtures.fs.sentinel
+    assert profile.target.secrets["REFSERVER_BACKEND_TOKEN"].real is False
+    archive = build_seed(profile.fixtures, token="0123456789ab", prefix="data")
+    with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
+        names = set(tar.getnames())
+    assert {"data/db/notes.db", "data/secret/SENTINEL", "data/allowed/link_out"} <= names
+    assert any(name.startswith("data/repo/") for name in names)

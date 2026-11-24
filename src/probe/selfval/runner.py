@@ -22,6 +22,7 @@ from probe.engine.outcomes import Mode, Status
 from probe.engine.runscan import RunConfig, run_scan
 from probe.report.json_out import write_report
 from probe.report.models import ScanReport
+from probe.selfval.assets import prepare, with_fixtures
 
 PROFILES = {
     ("sandbox", "stdio"): "refserver.yaml",
@@ -64,7 +65,7 @@ class Setup:
     out_dir: Path
     mode: Mode
     local: bool
-    refserver_src: Path | None = None  # local runs: where the refserver package lives
+    refserver_src: Path | None = None  # where the refserver package lives (seeding, local runs)
 
     @property
     def backend(self) -> str:
@@ -72,7 +73,17 @@ class Setup:
 
 
 def _profile(setup: Setup, job: Job) -> Profile:
-    return load_profile(setup.profiles_dir / PROFILES[(setup.backend, job.transport)])
+    profile = load_profile(setup.profiles_dir / PROFILES[(setup.backend, job.transport)])
+    if setup.local or job.transport != "stdio":
+        return profile
+    seed, routes = prepare(setup.out_dir / "assets" / job.label, _require_src(setup))
+    return with_fixtures(profile, seed, routes)
+
+
+def _require_src(setup: Setup) -> Path:
+    if setup.refserver_src is None:
+        raise ValueError("seeding the sandbox's data needs the refserver source directory")
+    return setup.refserver_src
 
 
 def _bug_env(job: Job) -> dict[str, str]:
@@ -82,13 +93,14 @@ def _bug_env(job: Job) -> dict[str, str]:
 async def run_job(setup: Setup, job: Job) -> JobResult:
     out = setup.out_dir / "jobs" / job.label
     try:
+        profile = await asyncio.to_thread(_profile, setup, job)
         if setup.local:
-            report = await _run_local(setup, job, out)
+            report = await _run_local(setup, job, out, profile)
         else:
             report = await run_scan(
                 RunConfig(
                     out_dir=out,
-                    profile=_profile(setup, job),
+                    profile=profile,
                     mode=setup.mode,
                     seed=job.seed,
                     target_env=_bug_env(job),
@@ -102,9 +114,7 @@ async def run_job(setup: Setup, job: Job) -> JobResult:
 
 def _refserver_env(setup: Setup, job: Job, data: Path) -> dict[str, str]:
     """What the refserver process needs beyond the inherited environment."""
-    src = setup.refserver_src
-    if src is None:
-        raise ValueError("a local run needs the refserver source directory")
+    src = _require_src(setup)
     return {"PYTHONPATH": str(src), "REFSERVER_DATA": str(data), **_bug_env(job)}
 
 
@@ -123,11 +133,10 @@ def _seed_data(setup: Setup, root: Path, job: Job) -> Path:
     return data
 
 
-async def _run_local(setup: Setup, job: Job, out: Path) -> ScanReport:
+async def _run_local(setup: Setup, job: Job, out: Path, profile: Profile) -> ScanReport:
     with tempfile.TemporaryDirectory(prefix=f"selfval-{job.label}-") as scratch:
         data = await asyncio.to_thread(_seed_data, setup, Path(scratch), job)
         env = _refserver_env(setup, job, data)
-        profile = _profile(setup, job)
         if job.transport == "stdio":
             argv = [sys.executable, "-m", "refserver", "stdio"]
             return await run_scan(

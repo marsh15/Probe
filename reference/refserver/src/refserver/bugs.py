@@ -15,7 +15,7 @@ KNOWN: frozenset[str] = frozenset(f"b{n:02d}" for n in range(1, 59))
 # Grows as bugs are implemented (T11 and later).
 IMPLEMENTED: frozenset[str] = frozenset(
     f"b{n:02d}"
-    for n in (*range(1, 31), *range(50, 59))  # b01-b30 and b50-b58
+    for n in (*range(1, 59),)  # every bug of the catalog
 )
 
 _ID = re.compile(r"^b\d{2}$")

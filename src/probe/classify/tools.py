@@ -59,6 +59,11 @@ def _profile_kind(name: str, profile: Mapping[str, Any] | None) -> ToolKind | No
     return cast(ToolKind, kind)
 
 
+def heuristic_kind(name: str, description: str | None) -> tuple[ToolKind, str]:
+    """What the name and first description sentence alone suggest, whatever the annotations say."""
+    return _heuristic_kind(name, description)
+
+
 def _heuristic_kind(name: str, description: str | None) -> tuple[ToolKind, str]:
     first_sentence = re.split(r"[.!?](?:\s|$)", description or "", maxsplit=1)[0]
     for source, text in (

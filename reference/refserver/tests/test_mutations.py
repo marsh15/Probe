@@ -58,7 +58,9 @@ def test_every_implemented_bug_is_either_a_response_rewrite_or_has_its_own_hook(
     # request side, stdout, crashes, middleware, or the tool's own code
     own_hook = {
         "b05", "b06", "b07", "b08", "b14", "b17", "b18", "b19", "b20", "b22", "b24",
-        "b25", "b26", "b27", "b28", "b30", "b51", "b57", "b58",
+        "b25", "b26", "b27", "b28", "b30", "b31", "b32", "b33", "b34", "b35", "b36", "b38",
+        "b39", "b40", "b41", "b42", "b43", "b44", "b45", "b46", "b47", "b48", "b49", "b51",
+        "b57", "b58",
     }  # fmt: skip
     assert mutations.RESPONSE_BUGS | own_hook == bugs.IMPLEMENTED
 

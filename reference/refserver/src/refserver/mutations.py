@@ -17,6 +17,12 @@ from typing import Any
 
 PROTOCOL_VERSION_META = "io.modelcontextprotocol/protocolVersion"
 THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000
+TRACEBACK = (
+    "Traceback (most recent call last):\n"
+    '  File "/app/refserver/tools/notes.py", line 214, in notes_get\n'
+    "    row = conn.execute(query, (id,)).fetchone()\n"
+    "sqlite3.OperationalError: database is locked"
+)
 EXTRA_LEGACY_TOOL = {
     "name": "legacy_only_debug",
     "description": "A tool only legacy clients see.",
@@ -26,7 +32,7 @@ EXTRA_LEGACY_TOOL = {
 # Bugs applied to server responses, in either transport.
 RESPONSE_BUGS = frozenset(
     {"b01", "b02", "b03", "b04", "b10", "b11", "b12", "b13", "b15", "b16", "b50", "b52", "b53"}
-    | {"b09", "b21", "b23", "b29", "b54", "b55", "b56"}
+    | {"b09", "b21", "b23", "b29", "b37", "b54", "b55", "b56"}
 )
 
 
@@ -140,6 +146,11 @@ def _mutate_tool_result(
         result["content"] = []  # the bug: no JSON text block next to structuredContent
     if "b21" in active and result.get("isError") is True:
         result["content"] = [{"type": "text", "text": "Error"}]
+    if "b37" in active and result.get("isError") is True:
+        content = result.get("content")
+        if isinstance(content, list) and content and isinstance(content[0], dict):
+            # the bug: the exception's traceback goes out with the message
+            content[0]["text"] = f"{content[0].get('text', '')}\n{TRACEBACK}"
     if "b23" in active and tool == "search_notes" and _is_empty_search(result):
         return {
             "jsonrpc": "2.0",

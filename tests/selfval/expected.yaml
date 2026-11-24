@@ -42,7 +42,6 @@ b07:
   allowed_collateral: [operability.burst_resilient]
   justification:
     operability.burst_resilient: "stdout noise during the burst is garbled wire output"
-
 b08:
   transports: [stdio, http]
   primary: [protocol.malformed_jsonrpc_handled]
@@ -145,6 +144,92 @@ b30:
   transports: [stdio]
   primary: [behavior.tasks_lifecycle]
   allowed_collateral: []
+b31:
+  transports: [stdio]
+  primary: [safety.ssrf_blocked]
+  allowed_collateral: []
+b32:
+  transports: [stdio]
+  primary: [safety.ssrf_blocked]
+  allowed_collateral: []
+b33:
+  transports: [stdio]
+  primary: [safety.file_scheme_blocked]
+  allowed_collateral: []
+b34:
+  transports: [stdio]
+  primary: [safety.path_contained]
+  allowed_collateral: []
+b35:
+  transports: [stdio]
+  primary: [safety.path_contained]
+  allowed_collateral: []
+b36:
+  transports: [stdio]
+  primary: [safety.no_secret_leak]
+  allowed_collateral: []
+b37:
+  transports: [stdio]
+  primary: [safety.no_stack_traces]
+  allowed_collateral: []
+b38:
+  transports: [stdio]
+  primary: [safety.no_hidden_instructions]
+  allowed_collateral: []
+b39:
+  transports: [stdio]
+  primary: [safety.annotations_truthful]
+  allowed_collateral: [safety.destructive_annotated]
+  justification:
+    safety.destructive_annotated: "a deleting tool called read-only also sounds destructive without saying so"
+b40:
+  transports: [stdio]
+  primary: [safety.readonly_enforced]
+  allowed_collateral: [safety.annotations_truthful]
+  justification:
+    safety.annotations_truthful: "the tool is marked read-only and changes data"
+b41:
+  transports: [stdio]
+  primary: [safety.request_state_integrity]
+  allowed_collateral: []
+b42:
+  transports: [stdio]
+  primary: [safety.no_command_injection]
+  allowed_collateral: [safety.readonly_enforced]
+  justification:
+    safety.readonly_enforced: "an option that writes a file also breaks a read tool's promise"
+b43:
+  transports: [http]
+  primary: [safety.oauth_scopes_minimal]
+  allowed_collateral: []
+b44:
+  transports: [stdio]
+  primary: [operability.trace_propagated]
+  allowed_collateral: []
+b45:
+  transports: [stdio]
+  primary: [operability.meta_tolerated]
+  allowed_collateral: []
+b46:
+  transports: [stdio]
+  primary: [operability.burst_resilient]
+  allowed_collateral: [behavior.survives_campaign]
+  justification:
+    behavior.survives_campaign: "the crash is recorded for the whole scan"
+b47:
+  transports: [stdio]
+  primary: [operability.logs_no_secrets]
+  allowed_collateral: []
+b48:
+  transports: [stdio]
+  primary: [operability.clean_shutdown]
+  allowed_collateral: []
+b49:
+  transports: [stdio]
+  primary: [safety.destructive_annotated]
+  allowed_collateral: [behavior.idempotency_declared]
+  justification:
+    behavior.idempotency_declared: "a tool without annotations also lacks idempotentHint"
 b50:
   transports: [stdio]
   primary: [protocol.era_parity]

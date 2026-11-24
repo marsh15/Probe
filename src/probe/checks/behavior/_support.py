@@ -9,7 +9,7 @@ from probe.checks.context import ScanContext
 from probe.checks.support import ALL_MODES, make_finding
 from probe.engine.outcomes import Finding, Severity
 from probe.schema.cases import CaseKind
-from probe.wire.mrtr import ElicitationRule, InputPolicy
+from probe.wire.mrtr import ElicitationRule, InputPolicy, is_input_required
 
 MAX_FINDINGS = 25
 _EXCERPT = 300
@@ -137,3 +137,34 @@ def input_policy(ctx: ScanContext) -> InputPolicy:
     if profile is not None and profile.fixtures.fs is not None:
         roots = tuple(f"file://{r}" for r in profile.fixtures.fs.allowed_roots)
     return InputPolicy(rules, roots) if roots else InputPolicy(rules)
+
+
+MISSING_CAPABILITY = -32021
+CAPABILITIES_META = "io.modelcontextprotocol/clientCapabilities"
+
+
+def required_capabilities(outcome: Outcome) -> dict[str, Any] | None:
+    """What a server says it needs from the client before it will answer (error -32021)."""
+    error = outcome.rpc_error
+    if error is None or error.error.code != MISSING_CAPABILITY:
+        return None
+    data = error.error.data
+    required = data.get("requiredCapabilities") if isinstance(data, dict) else None
+    return required if isinstance(required, dict) else None
+
+
+def input_askers(
+    ctx: ScanContext, valid: Sequence[Outcome]
+) -> dict[str, tuple[dict[str, Any], dict[str, Any] | None]]:
+    """Tools that asked for input during the campaign, or would if the client said it can answer:
+    tool -> (the call's params, per-request ``_meta`` that declares what it needs or None)."""
+    asking: dict[str, tuple[dict[str, Any], dict[str, Any] | None]] = {}
+    for outcome in valid:
+        if outcome.case.tool in asking:
+            continue
+        if is_input_required(outcome.response):
+            asking[outcome.case.tool] = (outcome.params, None)
+        elif (needs := required_capabilities(outcome)) is not None:
+            capabilities = {**ctx.client.client_capabilities, **needs}
+            asking[outcome.case.tool] = (outcome.params, {CAPABILITIES_META: capabilities})
+    return asking
