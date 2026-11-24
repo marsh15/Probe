@@ -56,3 +56,8 @@ Usage, target, internal and sandbox errors retain their exit codes below.
 
 A check that cannot reach a verdict ends in `error` and is listed in the report; it never counts
 as a finding against the server and does not itself change the exit code.
+
+## Reproducing a finding
+
+Each finding in the report names a one-line command, `probe repro report.json --finding <id>`,
+and `probe run` writes the bundle it needs to `<out>/repro/`. See [repro.md](repro.md).

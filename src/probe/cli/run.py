@@ -20,6 +20,7 @@ from probe.config.modes import MODES
 from probe.config.profile import Profile, ProfileError, load_profile
 from probe.engine.runscan import RunConfig, SandboxUnavailable, UsageError, run_scan
 from probe.report.json_out import write_report
+from probe.repro.bundle import write_bundles
 
 AVAILABLE_FORMATS = ("json",)  # html, sarif, md and badge arrive with the report tasks
 
@@ -139,6 +140,7 @@ def run(
             raise
         raise _fail(f"internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
     path = write_report(report, out)
+    write_bundles(report, config, out)
     render_summary(report, console, verbose=verbose, quiet=quiet)
     console.print(f"report: {path}", highlight=False)
     raise typer.Exit(exit_code_for(report, fail_on, min_score))

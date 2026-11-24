@@ -70,5 +70,6 @@ Task IDs match section 20 of the plan. Update this table in the same commit that
 | T31 | Reference-server bugs b31-b49 | done in code; b31-b33 and b44 are exercised only by unit tests and wait for a Docker selfval run |
 | T30 | Operability checks | done |
 | T32 | Weighted scoring, grade display and score thresholds | done (59 scoring tests; clean reference scan prints grade A) |
+| T33 | `probe repro`, repro bundles and `--export-script` | done locally (stdio bug b03 and real HTTP servers); the sandbox b31/b34 run waits for Docker |
 
 Remaining later tasks are added here when their stage starts.

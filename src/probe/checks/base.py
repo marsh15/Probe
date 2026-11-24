@@ -81,8 +81,10 @@ class Check(ABC):
     ) -> Finding:
         """A finding for this check with a stable id (same target, tool and case: same id)."""
         meta = self.meta
+        fid = finding_id(meta.id, tool, repro.case_id, ctx.config.target_identity)
+        repro = repro.model_copy(update={"command": f"probe repro report.json --finding {fid}"})
         return Finding(
-            finding_id=finding_id(meta.id, tool, repro.case_id, ctx.config.target_identity),
+            finding_id=fid,
             check_id=meta.id,
             family=meta.family,
             severity=severity,

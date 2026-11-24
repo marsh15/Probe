@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `probe repro REPORT --finding ID` runs one finding's check again on a fresh target and prints REPRODUCED or NOT REPRODUCED, `--export-script` writes a standalone shell script of the recorded requests, and `probe run` writes a repro bundle per finding next to the report (see docs/repro.md)
 - Ten more safety checks (`path_contained`, `no_command_injection`, `readonly_enforced`, `no_secret_leak`, `no_stack_traces`, `no_hidden_instructions`, `annotations_truthful`, `destructive_annotated`, `request_state_integrity`, `oauth_scopes_minimal`) and the remaining reference-server bugs b31-b49, so all 58 catalog bugs now exist; `probe selfval` builds the sandbox fixtures (seeded data, fake backend, fake credential) for the reference profile
 - `probe selfval` scans the reference server clean and with each injected bug (sandbox or `--local`), reports detection, false positives and unexpected failures, and exits non-zero on any miss; `make selfval-fast` runs a dozen bugs without Docker in pull-request CI, and a nightly workflow runs every bug in the sandbox (see docs/selfval.md)
 - `operability.meta_tolerated` and `operability.burst_resilient` no longer blame the metadata or the burst for a call that fails on its own because earlier scan calls changed the data
