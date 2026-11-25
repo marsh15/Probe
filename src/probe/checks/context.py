@@ -23,6 +23,7 @@ from probe.wire.jsonrpc import ErrorResponse, Response, ResultResponse
 from probe.wire.limits import request_timeout
 from probe.wire.recorder import Recorder
 from probe.wire.session import Exchange, Session
+from probe.wire.transport_base import Transport
 from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpResult
 from probe.wire.transport_stdio import StdioTransport
 
@@ -355,8 +356,9 @@ class ScanContext:
         if not state.running and not self._dead_for_good:
             await self._handle_death(None, reason=reason)
 
-    async def reconnect(self) -> None:
-        transport = await self.runner.restart()
+    async def reconnect(self, *, transport: Transport | None = None) -> None:
+        if transport is None:
+            transport = await self.runner.restart()
         old = self.client
         era = old.era
         self.client = await Session.open(

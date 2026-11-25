@@ -12,6 +12,7 @@ from probe.checks.context import ScanContext
 from probe.checks.registry import register
 from probe.checks.schema._support import ALL_MODES
 from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severity, Transport
+from probe.wire.limits import MAX_MESSAGE_BYTES
 
 _MAX_PROBLEMS = 3
 
@@ -106,12 +107,12 @@ def _mirrors(result: dict[str, Any]) -> bool:
         return False
     for block in blocks:
         text = block.get("text") if isinstance(block, dict) else None
-        if not isinstance(text, str):
+        if not isinstance(text, str) or len(text) > MAX_MESSAGE_BYTES:
             continue
         try:
             if json.loads(text) == structured:
                 return True
-        except ValueError:
+        except (ValueError, RecursionError):
             continue
     return False
 

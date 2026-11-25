@@ -237,3 +237,38 @@ def test_tmpfs_mount_survives_between_helpers(tmp_path):
         env.create_inspector(["hash"])
         assert env._data_holder is holder and not holder.removed
     assert holder.removed
+
+
+def test_close_racing_inspector_creation_reclaims_volume_and_lease(tmp_path, monkeypatch):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+
+    client = Client()
+    env = DockerEnv("inspect-race", client=client, cache_dir=tmp_path).create()
+    entered, release, closing = Event(), Event(), Event()
+    create = client.containers.create
+
+    def delayed_create(**kwargs):
+        entered.set()
+        assert release.wait(5)
+        return create(**kwargs)
+
+    monkeypatch.setattr(client.containers, "create", delayed_create)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        inspector = pool.submit(env.create_inspector, ["hash"])
+        assert entered.wait(2)
+
+        def close():
+            closing.set()
+            return env.close()
+
+        cleanup = pool.submit(close)
+        assert closing.wait(2)
+        release.set()
+        inspector.result(timeout=5)
+        assert cleanup.result(timeout=5) == []
+    assert not client.containers.list()
+    assert not client.volumes.list()
+    assert not list(tmp_path.glob("*.json"))
+    with pytest.raises(RuntimeError, match=r"clos|creat"):
+        env.create_inspector(["hash"])

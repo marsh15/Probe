@@ -15,7 +15,7 @@ import subprocess
 import tarfile
 import tempfile
 import time
-from collections.abc import Sequence
+from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -300,6 +300,7 @@ class FixtureSet:
         self._started = False
         self._log_cursor = 0
         self._canary: Any = None
+        self.reset_target: Callable[[Callable[[], Awaitable[None]]], Awaitable[None]] | None = None
 
     @property
     def canary_ip(self) -> str:
@@ -401,9 +402,15 @@ class FixtureSet:
         )
 
     async def reset(self) -> None:
-        await self._inspect(["reset", "--seed", "/seed/data"], writable=True)
-        for service in self._services:
-            await self._admin(service, "POST", "/_probe/reset")
+        async def restore() -> None:
+            await self._inspect(["reset", "--seed", "/seed/data"], writable=True)
+            for service in self._services:
+                await self._admin(service, "POST", "/_probe/reset")
+
+        if self.reset_target is None:  # Initial seed, before the target starts.
+            await restore()
+        else:
+            await self.reset_target(restore)
 
     async def canary_hits(self, since: int = 0) -> list[Hit]:
         if "canary" not in self._services:

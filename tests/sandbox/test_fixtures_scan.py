@@ -1,6 +1,34 @@
 """FixtureSet wiring preserves scans without profile fixtures."""
 
 
+async def test_fixture_reset_restores_only_while_target_is_stopped(monkeypatch):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+
+    from probe.config.profile import FixturesSection
+    from probe.sandbox.fixtures import FixtureSet
+
+    fixtures = FixtureSet(SimpleNamespace(), FixturesSection(), token="test")
+    running = True
+    events = []
+
+    async def inspect(*args, **kwargs):
+        assert not running, "restoring files while a target holds deleted inodes"
+        events.append("restore")
+
+    async def reset_target(restore):
+        nonlocal running
+        running = False
+        await restore()
+        running = True
+
+    fixtures.reset_target = reset_target
+    monkeypatch.setattr(fixtures, "_inspect", inspect)
+    monkeypatch.setattr(fixtures, "_admin", AsyncMock())
+    await fixtures.reset()
+    assert events == ["restore"] and running
+
+
 async def test_scan_connect_prepares_fixtures_and_shares_the_profile_token(monkeypatch, tmp_path):
     from types import SimpleNamespace
     from unittest.mock import AsyncMock
@@ -28,10 +56,25 @@ async def test_scan_connect_prepares_fixtures_and_shares_the_profile_token(monke
     monkeypatch.setattr(runscan, "list_tools", AsyncMock(return_value=SimpleNamespace(tools=[])))
     monkeypatch.setattr(runscan, "ScanContext", lambda **kw: SimpleNamespace(**kw))
     ctx = await runscan._connect(cfg, resolved, runner, None, 10, 10)
+    assert callable(prepared.reset_target)
     assert ctx.fixtures is prepared
     prepared.start.assert_awaited_once()
     assert seen["token"] == scan_token(7, profile.hash)
     assert seen["config"] == profile.fixtures
+    restored = AsyncMock()
+    ctx.reconnect = AsyncMock()
+
+    async def reset_data(restore):
+        await restore()
+        return "fresh transport"
+
+    runner.reset_data = AsyncMock(side_effect=reset_data)
+    # The callback captured the bound method before the patch, so rebuild it through connect.
+    ctx = await runscan._connect(cfg, resolved, runner, None, 10, 10)
+    ctx.reconnect = AsyncMock()
+    await prepared.reset_target(restored)
+    restored.assert_awaited_once()
+    ctx.reconnect.assert_awaited_once_with(transport="fresh transport")
 
 
 def test_fixture_runner_initialization_and_environment_defaults(monkeypatch, tmp_path):

@@ -48,7 +48,7 @@ def _walk(value: Any, now_ms: float) -> Any:
             value = pattern.sub(placeholder, value)
         return value
     if isinstance(value, int | float) and not isinstance(value, bool):
-        return "<epoch-ms>" if abs(value - now_ms) <= _ONE_DAY_MS else value
+        return "<epoch-ms>" if now_ms - _ONE_DAY_MS <= value <= now_ms + _ONE_DAY_MS else value
     return value
 
 

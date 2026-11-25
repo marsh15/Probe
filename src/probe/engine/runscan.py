@@ -11,11 +11,14 @@ import os
 import platform
 import time
 import uuid
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import Enum
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal, get_args, get_origin
+
+from pydantic import BaseModel
 
 import probe.checks.behavior
 import probe.checks.operability
@@ -303,10 +306,11 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
     recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=secrets)
     scan_id = uuid.uuid4().hex[:12]
-    runner = _make_runner(cfg, resolved, recorder, scan_id, settings.wall_clock_s)
+    runner: Runner | None = None
     started = datetime.now(UTC)
     ctx: ScanContext | None = None
     try:
+        runner = _make_runner(cfg, resolved, recorder, scan_id, settings.wall_clock_s)
         try:
             ctx = await _connect(
                 cfg, resolved, runner, recorder, settings.scan_calls, settings.wall_clock_s, judge
@@ -325,22 +329,38 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
             return _redacted(report, secrets)
         return _redacted(await _scan(cfg, ctx, started, scan_id), secrets)
     finally:
-        with contextlib.suppress(Exception):
-            await runner.stop()
+        if runner is not None:
+            with contextlib.suppress(Exception):
+                await runner.stop()
         with contextlib.suppress(Exception):
             recorder.close()
 
 
 def _redacted(report: ScanReport, secrets: Sequence[str]) -> ScanReport:
-    """The report with every secret removed from every string and key.
-
-    The trace is redacted as it is written, but the report is built from what the server said
-    (tool names, errors, capabilities), so it needs the same treatment before it leaves here.
-    """
+    """Redact free text while preserving typed report fields and model field names."""
     if not secrets:
         return report
-    clean = Redactor(secrets).redact_json(report.model_dump(mode="json"))
-    return ScanReport.model_validate(clean)
+    redactor = Redactor(secrets)
+
+    def clean(value: Any) -> Any:
+        if isinstance(value, BaseModel):
+            return value.model_copy(
+                update={
+                    name: clean(getattr(value, name))
+                    for name, field in type(value).model_fields.items()
+                    if get_origin(field.annotation) is not Literal
+                    and not any(get_origin(arg) is Literal for arg in get_args(field.annotation))
+                }
+            )
+        if isinstance(value, Enum):
+            return value
+        if isinstance(value, dict):
+            return {clean(key): clean(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [clean(item) for item in value]
+        return redactor.redact_text(value) if isinstance(value, str) else value
+
+    return ScanReport.model_validate(clean(report).model_dump())
 
 
 async def _connect(
@@ -385,7 +405,7 @@ async def _connect(
         ),
         None,
     )
-    return ScanContext(
+    ctx = ScanContext(
         startup_ms=startup_ms,
         session=session,
         runner=runner,
@@ -409,6 +429,15 @@ async def _connect(
         auth_identities=[i.name for i in resolved.profile.auth.identities],
         second_instance_supported=_has_second_instance(runner),
     )
+
+    if fixtures is not None and isinstance(runner, ContainerRunner):
+        reset_data = runner.reset_data
+
+        async def reset_target(restore: Callable[[], Awaitable[None]]) -> None:
+            await ctx.reconnect(transport=await reset_data(restore))
+
+        fixtures.reset_target = reset_target
+    return ctx
 
 
 def _has_second_instance(runner: Runner) -> bool:

@@ -86,7 +86,7 @@ def response_methods(ctx: ScanContext) -> dict[int, str]:
     records = [r for r in ctx.trace_records() if "instance" not in r]
     for record in sorted(records, key=lambda r: r["seq"]):
         view = message_view(record)
-        if view is None or "id" not in view:
+        if view is None or "id" not in view or type(view["id"]) not in (str, int, type(None)):
             continue
         if record.get("dir") == "c2s" and isinstance(view.get("method"), str):
             sent[view["id"]] = view["method"]

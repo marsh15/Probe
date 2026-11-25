@@ -205,3 +205,51 @@ def test_system_tree_subdirectories_are_not_data_roots():
     for path in ("/usr/local", "/etc/ssh", "/System/Library"):
         with pytest.raises(ValueError, match="unsafe"):
             Inspector(path)
+
+
+def test_reset_repeats_readonly_seed_directories(tmp_path, monkeypatch):
+    root, seed = tmp_path / "data", tmp_path / "seed"
+    root.mkdir()
+    (seed / "sub").mkdir(parents=True)
+    (seed / "sub" / "file").write_text("seed")
+    (seed / "sub").chmod(0o555)
+    inspector = Inspector(root)
+    inspector.reset(seed)
+    # Enforce ordinary UID directory write permissions even if tests run as root.
+    original = os.unlink
+
+    def unlink(path, *, dir_fd=None):
+        if dir_fd is not None and not os.fstat(dir_fd).st_mode & 0o200:
+            raise PermissionError("readonly parent")
+        return original(path, dir_fd=dir_fd)
+
+    monkeypatch.setattr(os, "unlink", unlink)
+    inspector.reset(seed)
+    assert inspector.snapshot() == Inspector(seed).snapshot()
+
+
+def test_hostile_tree_snapshot_and_reset_are_bounded(tmp_path, monkeypatch):
+    import socket
+    import tempfile
+
+    import fixtures_runtime.inspector as module
+
+    root, seed = tmp_path / "data", tmp_path / "seed"
+    root.mkdir()
+    seed.mkdir()
+    (seed / "good").write_text("seed")
+    os.mkfifo(root / "fifo")
+    with tempfile.TemporaryDirectory(dir="/tmp") as short, socket.socket(socket.AF_UNIX) as sock:
+        sock.bind(short + "/sock")
+        os.rename(short + "/sock", root / "sock")
+        with (root / "huge").open("wb") as stream:
+            stream.truncate(module.MAX_FILE + 1)
+        inspector = Inspector(root)
+        assert inspector.snapshot()["huge"]["size"] == module.MAX_FILE + 1
+        assert "fifo" not in inspector.snapshot() and "sock" not in inspector.snapshot()
+        monkeypatch.setattr(module, "MAX_ENTRIES", 8)
+        for i in range(10):
+            (root / str(i)).write_text("x")
+        assert len(inspector.snapshot()) <= 9
+        inspector.reset(seed)
+        assert inspector.snapshot() == Inspector(seed).snapshot()

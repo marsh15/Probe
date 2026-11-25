@@ -7,6 +7,7 @@ import os
 import sqlite3
 import stat
 from collections import deque
+from itertools import islice
 from pathlib import Path
 
 from fixtures_runtime.paths import (
@@ -93,15 +94,23 @@ def safe_root(value):
     return path
 
 
-def inventory(fd, prefix="", result=None):
+def inventory(fd, prefix="", result=None, *, strict=False):
     if result is None:
         result = {}
+    marker = f"{prefix}/." if prefix else "."
     if len(prefix.split("/")) > 64:
-        raise ValueError("directory depth limit exceeded")
-    names = os.listdir(fd)
-    if len(names) + len(result) > MAX_ENTRIES:
-        raise ValueError("filesystem entry limit exceeded")
-    for name in sorted(names):
+        if strict:
+            raise ValueError("directory depth limit exceeded")
+        result[marker] = {"type": "limit", "reason": "depth"}
+        return result
+    with os.scandir(fd) as scan:
+        names = sorted(entry.name for entry in islice(scan, MAX_ENTRIES + 1))
+    for name in names:
+        if len(result) >= MAX_ENTRIES:
+            if strict:
+                raise ValueError("filesystem entry limit exceeded")
+            result["."] = {"type": "limit", "reason": "entries"}
+            break
         path = f"{prefix}/{name}" if prefix else name
         info = os.stat(name, dir_fd=fd, follow_symlinks=False)
         record = {"mode": stat.S_IMODE(info.st_mode)}
@@ -112,33 +121,64 @@ def inventory(fd, prefix="", result=None):
             result[path] = record
             child = os.open(name, DIRECTORY, dir_fd=fd)
             try:
-                inventory(child, path, result)
+                inventory(child, path, result, strict=strict)
             finally:
                 os.close(child)
             continue
         elif stat.S_ISREG(info.st_mode):
-            content = read_file(fd, name)
-            record.update(type="file", sha256=hashlib.sha256(content).hexdigest())
-        else:
+            if info.st_size > MAX_FILE and not strict:
+                record.update(
+                    type="file",
+                    size=info.st_size,
+                    mtime_ns=info.st_mtime_ns,
+                    inspection="size limit exceeded",
+                )
+            else:
+                content = read_file(fd, name)
+                record.update(type="file", sha256=hashlib.sha256(content).hexdigest())
+        elif strict:
             raise ValueError("unsupported filesystem entry")
+        else:
+            continue
         result[path] = record
-        if len(result) > MAX_ENTRIES:
-            raise ValueError("filesystem entry limit exceeded")
     return dict(sorted(result.items()))
 
 
 def remove_children(fd):
-    for name in os.listdir(fd):
-        info = os.stat(name, dir_fd=fd, follow_symlinks=False)
-        if stat.S_ISDIR(info.st_mode):
-            child = os.open(name, DIRECTORY, dir_fd=fd)
-            try:
-                remove_children(child)
-            finally:
-                os.close(child)
-            os.rmdir(name, dir_fd=fd)
-        else:
-            os.unlink(name, dir_fd=fd)
+    """Delete without hashing, following links, or using the Python recursion stack."""
+    stack = []
+
+    def descend(owner, name=None):
+        os.fchmod(owner, stat.S_IMODE(os.fstat(owner).st_mode) | 0o700)
+        stack.append((owner, name, os.scandir(owner)))
+
+    descend(os.dup(fd))
+    try:
+        while stack:
+            owner, directory_name, scan = stack[-1]
+            entry = next(scan, None)
+            if entry is None:
+                scan.close()
+                os.close(owner)
+                stack.pop()
+                if stack:
+                    os.rmdir(directory_name, dir_fd=stack[-1][0])
+                continue
+            info = os.stat(entry.name, dir_fd=owner, follow_symlinks=False)
+            if stat.S_ISDIR(info.st_mode):
+                os.chmod(
+                    entry.name,
+                    stat.S_IMODE(info.st_mode) | 0o700,
+                    dir_fd=owner,
+                    follow_symlinks=False,
+                )
+                descend(os.open(entry.name, DIRECTORY, dir_fd=owner), entry.name)
+            else:
+                os.unlink(entry.name, dir_fd=owner)
+    finally:
+        for owner, _, scan in reversed(stack):
+            scan.close()
+            os.close(owner)
 
 
 def validate_seed_link(path, target, entries):
@@ -282,7 +322,7 @@ class Inspector:
             raise ValueError("seed and data roots must be disjoint")
         with directory(seed) as source, directory(self.root) as destination:
             self.verify(destination)
-            entries = inventory(source)
+            entries = inventory(source, strict=True)
             payloads, size = {}, 0
             # Preflight every seed entry before deleting anything. Bounded data is held
             # in memory so a concurrent seed replacement cannot introduce new links.
@@ -298,8 +338,7 @@ class Inspector:
                         raise ValueError("seed exceeds reset size limit")
                     if hashlib.sha256(payloads[path]).hexdigest() != record["sha256"]:
                         raise ValueError("seed changed during validation")
-            # Validate data before recursive teardown, including entry and depth limits.
-            inventory(destination)
+            # The scanner stops target instances before restoration; no hashing is needed.
             remove_children(destination)
             for path, record in entries.items():
                 with parent(destination, path) as (owner, name):

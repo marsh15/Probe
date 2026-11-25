@@ -244,3 +244,11 @@ def test_the_http_reference_profile_shares_one_token_between_server_and_identiti
 def test_a_missing_profile_file_is_a_profile_error(tmp_path: Path) -> None:
     with pytest.raises(ProfileError, match="cannot read"):
         load_profile(tmp_path / "nope.yaml")
+
+
+def test_empty_resolved_secret_is_a_profile_error():
+    profile = parse_profile(
+        "auth: {type: bearer, identities: [{name: user, token: '{secret:EMPTY}'}]}"
+    )
+    with pytest.raises(ProfileError, match=r"auth.identities.0.token"):
+        resolve_profile(profile, token="test", environ={"EMPTY": ""})
