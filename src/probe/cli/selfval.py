@@ -78,6 +78,13 @@ def selfval(
         if transport in allowed_transports
         for seed in seed_list
     ]
+    if not any(job.bug != CLEAN for job in jobs):
+        typer.echo(
+            "probe: nothing to test: no bug is left to run with these --bugs, --seeds and "
+            "--transports",
+            err=True,
+        )
+        raise typer.Exit(2)
     setup = Setup(profiles, out, mode, local, refserver_src)
     typer.echo(f"selfval: {len(jobs)} scans, {workers} at a time ({setup.backend}, {mode})")
     results = asyncio.run(run_jobs(setup, jobs, workers))
