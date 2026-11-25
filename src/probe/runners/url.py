@@ -28,13 +28,21 @@ class PermissionRequired(Exception):
 
 
 def _non_global(address: str) -> bool:
-    return not ipaddress.ip_address(address.split("%", 1)[0]).is_global
+    ip = ipaddress.ip_address(address.split("%", 1)[0])
+    private = (
+        ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16") if ip.version == 4 else ("fc00::/7",)
+    )
+    return (
+        ip.is_loopback
+        or ip.is_link_local
+        or any(ip in ipaddress.ip_network(network) for network in private)
+    )
 
 
 async def is_local_or_private(host: str) -> bool:
     """True if ``host`` is, or resolves only to, loopback, private or link-local addresses."""
     host = host.strip("[]").rstrip(".").lower()
-    if host == "localhost" or host.endswith(".localhost"):
+    if host == "localhost":
         return True
     try:
         return _non_global(host)

@@ -192,6 +192,7 @@ def _container_runner(
             path=http.path,
             headers=headers,
             startup_timeout_s=profile.target.startup_timeout_s,
+            request_timeout_s=request_timeout(cfg.mode, cfg.timeout_scale),
             mode_deadline_s=deadline_s,
             recorder=recorder,
             initialize_data=not _fixtures_requested(cfg),
@@ -287,18 +288,19 @@ async def run_scan(cfg: RunConfig) -> ScanReport:
         raise UsageError(f"unknown scoring_profile {cfg.scoring_profile!r}")
     settings = settings_for(cfg.mode, cfg.timeout_scale)
     judge = cfg.judge
+    resolved, environ = _resolve(cfg)
+    secrets = _secrets(cfg, resolved, environ)
     if judge is None and cfg.llm:
         try:
             judge = make_judge(
                 budget_usd=cfg.llm_budget_usd,
                 cache_dir=cfg.llm_cache,
                 environ=cfg.environ,
+                redactor=Redactor(secrets),
             )
         except LlmUnavailable as exc:
             raise UsageError(str(exc)) from exc
     cfg.out_dir.mkdir(parents=True, exist_ok=True)
-    resolved, environ = _resolve(cfg)
-    secrets = _secrets(cfg, resolved, environ)
     recorder = Recorder(cfg.out_dir / TRACE_FILE, secrets=secrets)
     scan_id = uuid.uuid4().hex[:12]
     runner = _make_runner(cfg, resolved, recorder, scan_id, settings.wall_clock_s)

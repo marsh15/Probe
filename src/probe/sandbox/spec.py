@@ -112,6 +112,7 @@ def target_spec(
         "environment": environment,
         "cap_drop": ["ALL"],
         "security_opt": ["no-new-privileges"],
+        "log_config": {"Type": "json-file", "Config": {"max-size": "10m", "max-file": "3"}},
         "pids_limit": 256,
         "mem_limit": "1g",
         "memswap_limit": "1g",

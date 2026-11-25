@@ -44,7 +44,7 @@ def test_topology_and_exclusive_control_aliases(tmp_path):
             "internal.probe.test",
         ]
         assert canary.connections[env.names["ctl"]] == ["probe-canary-admin-topology"]
-        relay = env.start_fixture("relay", target_port=3000)
+        relay = env.start_fixture("relay", target_port=3000, target_host="172.16.0.2")
         assert relay.connections[env.names["ctl"]] == ["probe-relay-control-topology"]
         assert relay.kwargs["ports"] == {"8080/tcp": ("127.0.0.1", None)}
         assert relay.kwargs["command"] == [
@@ -54,7 +54,7 @@ def test_topology_and_exclusive_control_aliases(tmp_path):
             "--listen-port",
             "8080",
             "--target-host",
-            "target",
+            "172.16.0.2",
             "--target-port",
             "3000",
         ]
@@ -194,3 +194,46 @@ def test_target_image_cannot_create_unlabeled_anonymous_volumes(tmp_path, monkey
         with pytest.raises(ValueError, match="volume"):
             env.create_target("untrusted")
         assert not client.containers.list()
+
+
+def test_relay_uses_only_private_numeric_target_and_scaled_idle_timeout(tmp_path):
+    with DockerEnv("relayguard", client=Client(), cache_dir=tmp_path) as env:
+        relay = env.start_fixture(
+            "relay", target_port=3000, target_host="172.16.0.2", idle_timeout=190
+        )
+        command = relay.kwargs["command"]
+        assert command[command.index("--target-host") + 1] == "172.16.0.2"
+        assert relay.kwargs["environment"]["PROBE_RELAY_TARGET_SUBNET"] == env.lease.private
+        assert relay.kwargs["environment"]["PROBE_RELAY_IDLE_TIMEOUT"] == "190"
+        with pytest.raises(ValueError, match="private"):
+            env.start_fixture("relay", target_port=3000, target_host="8.8.8.8")
+
+
+def test_old_docker_engine_is_refused_before_resources_are_created(tmp_path, monkeypatch):
+    client = Client()
+    monkeypatch.setattr(client, "version", lambda: {"Version": "25.0.5"}, raising=False)
+    with pytest.raises(RuntimeError, match="26"):
+        DockerEnv("olddocker", client=client, cache_dir=tmp_path).create()
+    assert not client.networks.items and not client.volumes.items
+
+
+def test_data_volume_has_a_size_limit(tmp_path):
+    with DockerEnv("disklimit", client=Client(), cache_dir=tmp_path) as env:
+        assert env.volume.kwargs["driver"] == "local"
+        options = env.volume.kwargs["driver_opts"]
+        assert options["type"] == "tmpfs"
+        assert "size=256m" in options["o"]
+
+
+def test_tmpfs_mount_survives_between_helpers(tmp_path):
+    with DockerEnv("mountlife", client=Client(), cache_dir=tmp_path) as env:
+        env.initialize_data("image")
+        holder = env._data_holder
+        assert holder.started and not holder.removed
+        assert holder.kwargs["network_mode"] == "none"
+        assert holder.kwargs["volumes"] == {env.names["data"]: {"bind": "/data", "mode": "rw"}}
+        first = env.create_inspector(["hash"])
+        env.remove_container(first)
+        env.create_inspector(["hash"])
+        assert env._data_holder is holder and not holder.removed
+    assert holder.removed

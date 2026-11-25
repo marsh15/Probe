@@ -197,6 +197,14 @@ class SubnetAllocator:
             if current is not None and current.token == lease.token:
                 path.unlink()
 
+    def live_scans(self) -> set[str]:
+        with self._locked():
+            return {
+                lease.scan_id
+                for path in self.root.glob("*.json")
+                if (lease := self._read(path)) is not None and _alive(lease.pid)
+            }
+
     def collect_stale(
         self, *, active_scans: set[str], age_s: float = 3600, scan_id: str | None = None
     ) -> list[str]:
@@ -220,6 +228,17 @@ class SubnetAllocator:
 def docker_client() -> Any:
     """Finite SDK request timeout also bounds failure during cleanup."""
     return docker.from_env(timeout=10)
+
+
+def require_safe_engine(client: Any) -> str:
+    version = str(client.version().get("Version", ""))
+    match = re.match(r"^(\d+)\.", version)
+    if match is None or int(match[1]) < 26:
+        raise RuntimeError(
+            "Docker Engine 26 or newer is required for internal-network DNS isolation "
+            f"(found {version!r})"
+        )
+    return version
 
 
 def docker_subnets(client: Any) -> list[str]:
@@ -269,6 +288,7 @@ class DockerEnv:
         self.networks: dict[str, Any] = {}
         self.volume: Any = None
         self.seed_volume: Any = None
+        self._data_holder: Any = None
         self.seed_name = f"probe-seed-{self.scan_id}"
         self.containers: list[Any] = []
         self.ready = False
@@ -278,6 +298,7 @@ class DockerEnv:
             return self
         if self.lease is not None:
             raise RuntimeError("sandbox has incomplete cleanup")
+        require_safe_engine(self.client)
         try:
             # Volume create is an upsert in Docker: reject existing names BEFORE creating.
             try:
@@ -308,7 +329,16 @@ class DockerEnv:
                     **args,
                 )
                 self.networks[kind] = network
-            self.volume = self.client.volumes.create(name=self.names["data"], labels=self.labels)
+            self.volume = self.client.volumes.create(
+                name=self.names["data"],
+                labels=self.labels,
+                driver="local",
+                driver_opts={
+                    "type": "tmpfs",
+                    "device": "tmpfs",
+                    "o": "size=256m,uid=10001,gid=10001,mode=0755",
+                },
+            )
             self.volume.reload()
             if not owned(self.volume, self.scan_id):
                 # A concurrent foreign upsert must never be adopted or removed.
@@ -360,6 +390,8 @@ class DockerEnv:
         *,
         api_aliases: Sequence[str] = (),
         target_port: int | None = None,
+        target_host: str | None = None,
+        idle_timeout: float = 60,
         seeded_routes: bool = False,
     ) -> Any:
         """Start a fixture with a listener bound to an alias present ONLY on ctl."""
@@ -380,6 +412,7 @@ class DockerEnv:
                 raise ValueError("invalid or reserved API alias")
         if len(set(aliases)) != len(aliases):
             raise ValueError("duplicate API aliases")
+        fixture_env: dict[str, str] = {}
         control = f"probe-{mode}-{'control' if mode == 'relay' else 'admin'}-{self.scan_id}"
         if mode == "fakehttp":
             net, data_aliases, port = "pub", ["fakehttp", "public.probe.test", *aliases], 9090
@@ -416,7 +449,19 @@ class DockerEnv:
                 or not 1 <= target_port <= 65535
             ):
                 raise ValueError("relay target port must be 1-65535")
+            if self.lease is None or target_host is None:
+                raise ValueError("relay requires a private target address")
+            try:
+                address = ipaddress.IPv4Address(target_host)
+                if address not in ipaddress.IPv4Network(self.lease.private):
+                    raise ValueError("address is outside the private subnet")
+            except ValueError as exc:
+                raise ValueError("relay requires a private target address") from exc
             net, data_aliases, port = "priv", [], 8080
+            fixture_env = {
+                "PROBE_RELAY_TARGET_SUBNET": self.lease.private,
+                "PROBE_RELAY_IDLE_TIMEOUT": str(idle_timeout),
+            }
             argv = [
                 "fixtures",
                 "relay",
@@ -425,13 +470,15 @@ class DockerEnv:
                 "--listen-port",
                 "8080",
                 "--target-host",
-                "target",
+                str(address),
                 "--target-port",
                 str(target_port),
             ]
         else:
             raise ValueError("fixture mode must be fakehttp, canary, or relay")
-        spec = target_spec(self.scan_id, self.fixtures_image, command=argv, created=self.created)
+        spec = target_spec(
+            self.scan_id, self.fixtures_image, command=argv, env=fixture_env, created=self.created
+        )
         spec.pop("volumes")
         if seeded_routes:
             if mode != "fakehttp" or self.seed_volume is None:
@@ -455,9 +502,26 @@ class DockerEnv:
             raise
         return container
 
+    def _keep_data_mounted(self, image: str) -> None:
+        # The local tmpfs driver discards data on its last unmount. Keep one mount alive
+        # between seed/reset helpers and target restarts, until normal sandbox cleanup.
+        if self._data_holder is not None and self._data_holder in self.containers:
+            return
+        spec = target_spec(
+            self.scan_id,
+            image,
+            command=["python", "-c", "import time; time.sleep(2147483647)"],
+            created=self.created,
+        )
+        spec.pop("network")
+        spec.update(network_mode="none", stdin_open=False)
+        self._data_holder = self._container("init", spec)
+        self._data_holder.start()
+
     def create_inspector(
         self, args: Sequence[str], *, writable: bool = False, seed: bool = False
     ) -> Any:
+        self._keep_data_mounted(self.fixtures_image)
         spec = target_spec(
             self.scan_id,
             self.fixtures_image,
@@ -516,6 +580,7 @@ class DockerEnv:
         Only the volume root is chowned. This short-lived helper has no network, no host
         mounts, no DAC override, and only CAP_CHOWN; it is never the target container.
         """
+        self._keep_data_mounted(image)
         spec = target_spec(
             self.scan_id,
             image,

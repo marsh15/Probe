@@ -99,3 +99,43 @@ async def test_connection_limit_and_idle_timeout_close_clients():
     assert not relay.tasks
     with pytest.raises(ValueError):
         Relay("127.0.0.1", 0)
+
+
+def test_relay_never_accepts_dns_targets_or_external_addresses():
+    for host in ("target", "8.8.8.8"):
+        with pytest.raises(ValueError, match="relay"):
+            Relay(host, 3000, target_subnet="172.16.0.0/24")
+    Relay("172.16.0.2", 3000, target_subnet="172.16.0.0/24", idle_timeout=7200)
+
+
+def test_relay_rejects_target_name_before_any_dns_lookup():
+    with pytest.raises(ValueError, match="relay"):
+        Relay("target", 3000)
+
+
+async def test_relay_cli_gets_lease_and_timeout_without_changing_flags(monkeypatch):
+    from fixtures_runtime import cli
+
+    captured = {}
+
+    class FakeRelay:
+        def __init__(self, *args, **kwargs):
+            captured.update(kwargs)
+
+        async def __aenter__(self):
+            pass
+
+        async def __aexit__(self, *_):
+            pass
+
+    monkeypatch.setenv("PROBE_RELAY_TARGET_SUBNET", "172.16.0.0/24")
+    monkeypatch.setenv("PROBE_RELAY_IDLE_TIMEOUT", "190")
+    monkeypatch.setattr(cli, "Relay", FakeRelay)
+    loop = asyncio.get_running_loop()
+    monkeypatch.setattr(loop, "add_signal_handler", lambda signum, callback: callback())
+    monkeypatch.setattr(loop, "remove_signal_handler", lambda signum: None)
+    args = cli.parser().parse_args(
+        ["relay", "--target-host", "172.16.0.2", "--target-port", "3000"]
+    )
+    await cli.serve_relay(args)
+    assert captured == {"target_subnet": "172.16.0.0/24", "idle_timeout": 190.0}

@@ -7,7 +7,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from probe.sandbox.docker_env import DEFAULT_CACHE, SubnetAllocator, docker_client, remove_owned
+from probe.sandbox.docker_env import (
+    DEFAULT_CACHE,
+    SubnetAllocator,
+    docker_client,
+    remove_owned,
+    require_safe_engine,
+)
 from probe.sandbox.spec import owned, validate_scan_id
 
 
@@ -39,6 +45,8 @@ def collect(
     if scan_id is not None:
         validate_scan_id(scan_id)
     resource_filter = "probe.scan" if scan_id is None else f"probe.scan={scan_id}"
+    allocator = SubnetAllocator(cache_dir, clock=lambda: timestamp)
+    live = allocator.live_scans()
     collections = (client.containers, client.networks, client.volumes)
     for index, collection in enumerate(collections):
         kwargs = {"all": True} if index == 0 else {}
@@ -48,7 +56,7 @@ def collect(
                 if not owned(resource, scan_id):
                     continue
                 meta = resource.attrs.get("Config", {}).get("Labels", resource.attrs.get("Labels"))
-                if timestamp - int(meta["probe.created"]) <= age_s:
+                if meta["probe.scan"] in live or timestamp - int(meta["probe.created"]) <= age_s:
                     continue
                 remove_owned(resource, container=index == 0)
                 result.removed.append(resource.name)
@@ -64,9 +72,7 @@ def collect(
             )
             if isinstance(meta.get("probe.scan"), str):
                 active.add(meta["probe.scan"])
-    result.leases = SubnetAllocator(cache_dir, clock=lambda: timestamp).collect_stale(
-        active_scans=active, age_s=age_s, scan_id=scan_id
-    )
+    result.leases = allocator.collect_stale(active_scans=active, age_s=age_s, scan_id=scan_id)
     return result
 
 
@@ -76,6 +82,7 @@ def doctor(*, client: Any = None) -> dict[str, Any]:
     try:
         client = docker_client() if client is None else client
         result["daemon"] = bool(client.ping())
+        require_safe_engine(client)
         info = client.info()
         result.update(
             linux=info.get("OSType") == "linux",

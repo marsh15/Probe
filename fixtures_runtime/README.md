@@ -44,6 +44,11 @@ fixtures inspect --root /data reset --seed /seed
 
 HTTP defaults are those shown, except admin host defaults to `127.0.0.1`.
 Relay defaults to listen on `127.0.0.1:8080`; target host/port are required.
+The relay target must be a numeric IP, never a DNS name. DockerEnv supplies
+`PROBE_RELAY_TARGET_SUBNET` with the lease's private /24 and
+`PROBE_RELAY_IDLE_TIMEOUT` with the effective request/startup timeout plus 10 s.
+Without a subnet, standalone relay targets must be loopback; the default idle
+timeout is 60 s. Relay CLI flags are unchanged.
 Inspector defaults to `/data`. JSON output is sorted and compact; invalid
 operations exit 2 with a generic JSON error on stderr. SIGTERM/SIGINT shut down
 listeners and connections. All HTTP listeners use one process and shared state.

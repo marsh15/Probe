@@ -8,6 +8,7 @@ from probe.llm.anthropic_judge import AnthropicJudge
 from probe.llm.budget import LlmBudget
 from probe.llm.cache import JudgeCache
 from probe.llm.judge import Judge
+from probe.util.redact import Redactor
 
 KEY_VARIABLE = "ANTHROPIC_API_KEY"
 
@@ -21,6 +22,7 @@ def make_judge(
     budget_usd: float,
     cache_dir: Path | None,
     environ: Mapping[str, str] | None = None,
+    redactor: Redactor | None = None,
 ) -> Judge:
     env = os.environ if environ is None else environ
     key = env.get(KEY_VARIABLE)
@@ -35,4 +37,6 @@ def make_judge(
             "--llm needs the anthropic package: pip install 'probe-mcp[llm]'"
         ) from exc
     client = anthropic.AsyncAnthropic(api_key=key)
-    return AnthropicJudge(client, cache=JudgeCache(cache_dir), budget=LlmBudget(budget_usd))
+    return AnthropicJudge(
+        client, cache=JudgeCache(cache_dir), budget=LlmBudget(budget_usd), redactor=redactor
+    )

@@ -1,6 +1,7 @@
 """Local Docker acceptance smoke. Creates disposable internal networks, never pushes."""
 
 import hashlib
+import ipaddress
 import json
 import shutil
 import socket
@@ -251,18 +252,24 @@ while True:
         while "ready" not in docker("logs", target):
             check(time.monotonic() < deadline, "raw target not ready")
             time.sleep(0.05)
+        target_ip = json.loads(docker("inspect", target))[0]["NetworkSettings"]["Networks"][
+            control
+        ]["IPAddress"]
+        target_subnet = ipaddress.ip_network(f"{target_ip}/24", strict=False)
         relay = start(
             PREFIX + "-relay",
             "--network",
             control,
             "-p",
             "127.0.0.1::8080",
+            "-e",
+            f"PROBE_RELAY_TARGET_SUBNET={target_subnet}",
             IMAGE,
             "relay",
             "--listen-host",
             "0.0.0.0",  # noqa: S104 - disposable private TCP smoke listener
             "--target-host",
-            "raw-target",
+            target_ip,
             "--target-port",
             "8888",
         )

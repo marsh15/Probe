@@ -11,4 +11,11 @@ def md_text(value: object, limit: int = 200) -> str:
     flat = _SPACE.sub(" ", str(value)).strip()
     if len(flat) > limit:
         flat = flat[: limit - 1] + "…"
-    return _SPECIAL.sub(r"\\\1", flat)
+    escaped = _SPECIAL.sub(r"\\\1", flat)
+    # Entities prevent mentions; a zero-width separator defeats GFM's bare URL autolinks.
+    return re.sub(
+        r"www\.",
+        "www.\u200b",
+        escaped.replace("@", "&#64;").replace("://", ":\u200b//"),
+        flags=re.IGNORECASE,
+    )

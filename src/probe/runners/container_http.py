@@ -1,9 +1,8 @@
 """A hardened Docker target speaking streamable HTTP, reached through the loopback relay.
 
 The target sits on the internal networks only. The relay fixture is the one door: it listens
-on a loopback-only published port and forwards raw TCP to ``target:<port>``. Probe's HTTP
-client talks to that port. The relay finds the target by name, so a restarted target container
-is reached through the same port.
+on a loopback-only published port and forwards raw TCP to the target's private IP. Probe's HTTP
+client talks to that port. Each target instance gets a relay pinned to its inspected private IP.
 """
 
 import asyncio
@@ -42,6 +41,7 @@ class ContainerHttpRunner(ContainerRunner):
         path: str = "/mcp",
         headers: Mapping[str, str] | None = None,
         startup_timeout_s: float = STARTUP_TIMEOUT_S,
+        request_timeout_s: float = 30,
         runtime: str | None = None,
         mode_deadline_s: float = 300,
         recorder: Recorder | None = None,
@@ -63,6 +63,7 @@ class ContainerHttpRunner(ContainerRunner):
         self.path = path
         self.headers = dict(headers or {})
         self.startup_timeout_s = startup_timeout_s
+        self.relay_idle_timeout_s = max(startup_timeout_s, request_timeout_s) + 10
         self._relay: Any = None
 
     async def second_instance(self) -> Transport | None:
@@ -79,10 +80,21 @@ class ContainerHttpRunner(ContainerRunner):
         try:
             self._launching = container
             await _docker(container.start)
-            if self._relay is None:
-                self._relay = await _docker(
-                    lambda: self.sandbox.start_fixture("relay", target_port=self.port)
+            await _docker(container.reload)
+            target_ip = container.attrs["NetworkSettings"]["Networks"][self.sandbox.names["priv"]][
+                "IPAddress"
+            ]
+            if self._relay is not None:
+                await _docker(lambda: self.sandbox.remove_container(self._relay))
+                self._relay = None
+            self._relay = await _docker(
+                lambda: self.sandbox.start_fixture(
+                    "relay",
+                    target_port=self.port,
+                    target_host=target_ip,
+                    idle_timeout=self.relay_idle_timeout_s,
                 )
+            )
             url = (
                 await _docker(lambda: self.sandbox.control_url(self._relay, RELAY_PORT)) + self.path
             )
