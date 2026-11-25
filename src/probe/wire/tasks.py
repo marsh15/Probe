@@ -144,7 +144,7 @@ async def wait_for_terminal(
     loop = asyncio.get_running_loop()
     stop = loop.time() + deadline_s
     polled = Polled(None, task, 0)
-    answered: set[str] = set()
+    answered_round: tuple[Any, dict[str, Any]] | None = None
     while True:
         response = await get_task(send, task.task_id)
         polled.last, polled.polls = response, polled.polls + 1
@@ -154,16 +154,18 @@ async def wait_for_terminal(
         polled.task = task = current
         if current.terminal:
             return polled
-        if current.status == "input_required" and policy is not None:
-            requests = current.raw.get("inputRequests")
-            fresh = {
-                k: policy.answer(k, v)
-                for k, v in (requests.items() if isinstance(requests, dict) else ())
-                if k not in answered and isinstance(v, dict)
-            }
-            if fresh:
-                answered.update(fresh)
-                await update_task(send, task.task_id, fresh)
+        requests = current.raw.get("inputRequests")
+        if current.status == "input_required" and policy is not None and isinstance(requests, dict):
+            current_round = (current.raw.get("lastUpdatedAt"), requests)
+            if current_round != answered_round:
+                answers = {
+                    k: policy.answer(k, v) for k, v in requests.items() if isinstance(v, dict)
+                }
+                if answers:
+                    await update_task(send, task.task_id, answers)
+                answered_round = current_round
+        else:
+            answered_round = None
         if loop.time() + current.poll_seconds > stop:
             polled.timed_out = True
             return polled

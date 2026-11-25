@@ -55,7 +55,7 @@ def decode_header_value(value: str) -> str:
 
 def standard_headers(method: str, params: Mapping[str, Any] | None) -> dict[str, str]:
     """``Mcp-Method`` for every request, plus ``Mcp-Name`` where the spec requires it."""
-    headers = {"Mcp-Method": method}
+    headers = {"Mcp-Method": encode_header_value(method)}
     source = _NAME_SOURCES.get(method)
     name = params.get(source) if source is not None and params is not None else None
     if isinstance(name, str):

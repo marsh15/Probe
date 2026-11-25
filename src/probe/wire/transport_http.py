@@ -17,6 +17,7 @@ import httpx
 from probe.wire.errors import (
     MalformedMessage,
     OversizeMessage,
+    RequestId,
     StdoutNoise,
     TransportClosed,
     WireError,
@@ -52,8 +53,8 @@ class RawHttpResult:
     status: int | None  # None when no HTTP response arrived (see ``error``)
     headers: Mapping[str, str]  # lower-cased names
     content_type: str  # media type only, lower-cased; "" when absent
-    body: bytes  # the first 64 KiB of the raw body
-    body_length: int  # raw bytes read, which stops early if the exchange was aborted
+    body: bytes  # up to 64 KiB of the body, with configured secrets redacted in plain bodies
+    body_length: int  # raw bytes read before the exchange ended
     responses: tuple[Response, ...]  # JSON-RPC responses that arrived, in order
     elapsed_ms: float
     aborted: str | None = None  # why Probe cut the response short (size or event limit)
@@ -116,10 +117,9 @@ class HttpTransport(Transport):
         self._max_message_bytes = max_message_bytes
         self._max_stream_bytes = max_stream_bytes
         self._max_stream_events = max_stream_events
+        self._redact_prefix = recorder.redact_prefix if recorder is not None else None
         # ``Mcp-Session-Id`` from the server, replayed on later POSTs (legacy era only).
         self.session_id: str | None = None
-        # The exchange of the most recent send(); meaningful when requests are not concurrent.
-        self.last_result: RawHttpResult | None = None
         # Per-message headers (Mcp-Method and friends) supplied by whoever knows the protocol era.
         self.message_headers: Callable[[Mapping[str, Any]], Mapping[str, str]] | None = None
         self._close_result: CloseResult | None = None
@@ -134,21 +134,23 @@ class HttpTransport(Transport):
         """The endpoint this transport posts to."""
         return self._url
 
-    async def send(self, obj: Mapping[str, Any]) -> None:
+    async def send(self, obj: Mapping[str, Any]) -> RawHttpResult:
         """POST one message. A request must get its response back on that same POST."""
         message = dict(obj)
         is_request = "method" in message and "id" in message
         extra = self.message_headers(message) if self.message_headers is not None else None
-        result = await self.post(
-            message, headers=extra, timeout=None if is_request else HTTP_SEND_TIMEOUT_S
+        result = await self._post(
+            message,
+            extra,
+            None if is_request else HTTP_SEND_TIMEOUT_S,
+            stop_after_id=message["id"] if is_request else None,
         )
-        self.last_result = result
         if not is_request:
             if result.status is None:
                 raise HttpRequestFailed(None, result.error or "no HTTP response", result)
-            return
+            return result
         if any(response.id == message["id"] for response in result.responses):
-            return
+            return result
         reason = result.aborted or result.error or "no response with the request id"
         raise HttpRequestFailed(result.status, reason, result)
 
@@ -194,9 +196,25 @@ class HttpTransport(Transport):
         Responses (including ones carried by a non-2xx status) are routed exactly as for
         ``request()``; nothing raises for an HTTP failure, the result describes it.
         """
+        return await self._post(message, headers, timeout)
+
+    async def _post(
+        self,
+        message: Mapping[str, Any],
+        headers: Mapping[str, str] | None,
+        timeout: float | None,  # noqa: ASYNC109 - the exchange deadline
+        *,
+        stop_after_id: RequestId | None = None,
+    ) -> RawHttpResult:
         merged = _merge(self.base_headers(), headers or {})
         return await self._exchange(
-            "POST", merged, encode(message)[:-1], dict(message), timeout, track_session=True
+            "POST",
+            merged,
+            encode(message)[:-1],
+            dict(message),
+            timeout,
+            track_session=True,
+            stop_after_id=stop_after_id,
         )
 
     async def raw_http(
@@ -244,22 +262,27 @@ class HttpTransport(Transport):
         *,
         track_session: bool,
         url: str | None = None,
+        stop_after_id: RequestId | None = None,
     ) -> RawHttpResult:
         if self._closed is not None:
             raise TransportClosed(self._closed.exit_code, self._closed.reason)
         started = time.monotonic()
-        self._record("c2s", recorded, HttpMeta(None, headers))
         state = _Exchange()
         try:
             async with asyncio.timeout(timeout):
-                request = self._client.build_request(
-                    method, url or self._url, headers=headers, content=body
-                )
-                response = await self._client.send(request, stream=True)
                 try:
-                    await self._read(response, state, track_session)
-                finally:
-                    await response.aclose()
+                    request = self._client.build_request(
+                        method, url or self._url, headers=headers, content=body
+                    )
+                except ValueError as exc:
+                    state.error = type(exc).__name__
+                else:
+                    self._record("c2s", recorded, HttpMeta(None, headers))
+                    response = await self._client.send(request, stream=True)
+                    try:
+                        await self._read(response, state, track_session, stop_after_id)
+                    finally:
+                        await response.aclose()
         except TimeoutError:
             state.error = "timeout"
         except (httpx.HTTPError, httpx.StreamError, OSError) as exc:
@@ -282,7 +305,13 @@ class HttpTransport(Transport):
             error=state.error,
         )
 
-    async def _read(self, response: httpx.Response, state: _Exchange, track_session: bool) -> None:
+    async def _read(
+        self,
+        response: httpx.Response,
+        state: _Exchange,
+        track_session: bool,
+        stop_after_id: RequestId | None,
+    ) -> None:
         state.status = response.status_code
         state.headers = {name.lower(): value for name, value in response.headers.items()}
         state.content_type = state.headers.get("content-type", "").split(";")[0].strip().lower()
@@ -290,7 +319,7 @@ class HttpTransport(Transport):
         if track_session and 200 <= state.status < 300:
             self._capture_session(state.headers.get("mcp-session-id"))
         if state.content_type == "text/event-stream":
-            await self._read_sse(response, state, meta)
+            await self._read_sse(response, state, meta, stop_after_id)
         else:
             await self._read_body(response, state, meta)
 
@@ -308,22 +337,28 @@ class HttpTransport(Transport):
             state.body_length += len(chunk)
             if state.body_length > self._max_message_bytes:
                 self._abort_oversize(state, self._max_message_bytes, "body")
-                self._keep(state, buffer)
+                self._keep(state, bytes(buffer), complete=False)
                 return
             buffer += chunk
-        self._keep(state, buffer)
         data = bytes(buffer)
-        if state.content_type == "application/json":
-            self._deliver(self._parse(data), meta, state)
-        elif not data:
+        self._keep(state, data)
+        if not data:
             self._record("s2c", None, meta)  # e.g. 202 Accepted: keep the status in the trace
+        elif state.content_type == "application/json":
+            self._deliver(self._parse(data), meta, state)
         else:
             if state.status is not None and 200 <= state.status < 300:
                 detail = f"unexpected content type {state.content_type or '(none)'}"
                 self.report_violation("http_unexpected_content_type", detail)
-            self._record("s2c", data[:TRACE_BODY_MAX_BYTES].decode("utf-8", "replace"), meta)
+            self._record("s2c", data.decode("utf-8", "replace"), meta)
 
-    async def _read_sse(self, response: httpx.Response, state: _Exchange, meta: HttpMeta) -> None:
+    async def _read_sse(
+        self,
+        response: httpx.Response,
+        state: _Exchange,
+        meta: HttpMeta,
+        stop_after_id: RequestId | None,
+    ) -> None:
         parser = SseParser()
         events = 0
         async for chunk in response.aiter_raw():
@@ -341,6 +376,12 @@ class HttpTransport(Transport):
                     self.report_violation("sse_event_limit", state.aborted)
                     return
                 self._deliver_event(event, meta, state)
+                if (
+                    stop_after_id is not None
+                    and state.responses
+                    and state.responses[-1].id == stop_after_id
+                ):
+                    return
         if parser.finish():
             self.report_violation("sse_truncated_event", "stream ended in the middle of an event")
 
@@ -369,6 +410,9 @@ class HttpTransport(Transport):
         state.aborted = f"{what} exceeded {limit} bytes"
         self._emit(OversizeMessage(length=state.body_length, limit=limit, complete=False))
 
-    @staticmethod
-    def _keep(state: _Exchange, buffer: bytearray) -> None:
-        state.body += buffer[:TRACE_BODY_MAX_BYTES]
+    def _keep(self, state: _Exchange, data: bytes, *, complete: bool = True) -> None:
+        if state.content_type != "application/json" and self._redact_prefix is not None:
+            text = data.decode("utf-8", "surrogateescape")
+            text, _ = self._redact_prefix(text, final=complete)
+            data = text.encode("utf-8", "surrogateescape")
+        state.body += data[:TRACE_BODY_MAX_BYTES]

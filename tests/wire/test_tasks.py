@@ -111,6 +111,26 @@ async def test_input_required_is_answered_once() -> None:
     assert polled.task is not None and polled.task.terminal
 
 
+async def test_input_request_key_can_be_reused_in_a_later_round() -> None:
+    first = parse_task(task())
+    assert first is not None
+    requests = {"k": {"method": "roots/list"}}
+    ask = task("input_required", inputRequests=requests)
+    ask_again = {**ask, "lastUpdatedAt": "2026-07-28T00:00:01Z"}
+    send = Script(
+        ResultResponse(1, ask),
+        ResultResponse(2, {"resultType": "complete"}),
+        ResultResponse(3, ask),
+        ResultResponse(4, ask_again),
+        ResultResponse(5, task("completed", result={})),
+        ResultResponse(6, task("completed", result={})),
+    )
+    polled = await wait_for_terminal(send, first, deadline_s=5, policy=InputPolicy(roots=()))
+    updates = [params["inputResponses"] for method, params in send.sent if method == "tasks/update"]
+    assert updates == [{"k": {"roots": []}}, {"k": {"roots": []}}]
+    assert polled.task is not None and polled.task.terminal
+
+
 async def test_an_error_while_polling_stops_it() -> None:
     first = parse_task(task())
     assert first is not None

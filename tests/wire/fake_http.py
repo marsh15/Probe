@@ -31,6 +31,7 @@ class ServerState:
     replies: list[Any] = field(default_factory=list)
     reply_arrived: asyncio.Event = field(default_factory=asyncio.Event)
     stream_closed: asyncio.Event = field(default_factory=asyncio.Event)
+    text_body: bytes = b"hello"
 
 
 def rpc(id_: Any, **fields: Any) -> bytes:
@@ -59,7 +60,7 @@ def build_app(state: ServerState) -> Starlette:
     async def json_ok(request: Request) -> Response:
         message = await body_json(request)
         if "method" not in message or "id" not in message:  # a notification or a client reply
-            return Response(status_code=202)
+            return Response(status_code=202, media_type="application/json")
         return Response(
             rpc(message["id"], result={"echo": message["method"]}), media_type="application/json"
         )
@@ -90,6 +91,18 @@ def build_app(state: ServerState) -> Starlette:
             yield b'data: {"jsonrpc":"2.0","id":"srv-1","method":"ping"}\n\n'
             await asyncio.wait_for(state.reply_arrived.wait(), 5)
             yield b"data: " + rpc(message["id"], result={"asked": True}) + b"\n\n"
+
+        return sse(chunks())
+
+    async def sse_keepalive(request: Request) -> Response:
+        message = await body_json(request)
+
+        async def chunks() -> AsyncIterator[bytes]:
+            yield b"data: " + rpc("other-id", result={}) + b"\n\n"
+            yield b"data: " + rpc(message["id"], result={"ok": True}) + b"\n\n"
+            while True:
+                yield b": ping\n\n"
+                await asyncio.sleep(0.01)
 
         return sse(chunks())
 
@@ -183,7 +196,7 @@ def build_app(state: ServerState) -> Starlette:
 
     async def plain_text(request: Request) -> Response:
         await body_json(request)
-        return Response("hello", media_type="text/plain")
+        return Response(state.text_body, media_type="text/plain")
 
     async def session(request: Request) -> Response:
         message = await body_json(request)
@@ -225,6 +238,7 @@ def build_app(state: ServerState) -> Starlette:
         Route("/json", json_ok, methods=["POST"]),
         Route("/sse", sse_ok, methods=["POST"]),
         Route("/sse-ask", sse_ask, methods=["POST"]),
+        Route("/sse-keepalive", sse_keepalive, methods=["POST"]),
         Route("/sse-truncated", sse_truncated, methods=["POST"]),
         Route("/sse-odd", sse_odd_events, methods=["POST"]),
         Route("/sse-big", sse_forever_big, methods=["POST"]),

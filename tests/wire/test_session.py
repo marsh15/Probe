@@ -9,7 +9,8 @@ import pytest
 
 from probe import __version__
 from probe.wire.errors import ProtocolViolation, TransportClosed
-from probe.wire.jsonrpc import ErrorResponse, Request
+from probe.wire.headers import decode_header_value
+from probe.wire.jsonrpc import ErrorResponse, Notification, Request
 from probe.wire.session import (
     NegotiationFailed,
     NoCommonVersion,
@@ -310,6 +311,16 @@ async def test_tool_header_annotations_are_recorded_and_unusable_tools_excluded(
     )
 
 
+async def test_relisted_tool_clears_stale_header_errors(connect: Connect) -> None:
+    session = await Session.open(await connect(EraServer()), **FAST)
+    bad = {"name": "relists", "inputSchema": {"x-mcp-header": "Unreachable"}}
+    good = {"name": "relists", "inputSchema": {"type": "object"}}
+    session.register_tools([bad])
+    assert "relists" in session.x_mcp_header_errors
+    assert session.register_tools([good]) == [good]
+    assert "relists" not in session.x_mcp_header_errors
+
+
 # --- modern-era server behavior ---------------------------------------------------------
 
 
@@ -379,6 +390,39 @@ async def test_http_status_without_a_modern_error_means_legacy(
     assert outcome.outcome.startswith(("http", "error"))
 
 
+@pytest.mark.parametrize("code", [-32020, -32021, -32022])
+async def test_http_discover_uses_modern_error_with_null_id(
+    connect_http: Connect, code: int
+) -> None:
+    class Strict(EraServer):
+        def _modern(self, id_: Any, *args: Any) -> Reply:
+            if code == -32022 and len(self.received) > 1:
+                return super()._modern(id_, *args)
+            return error(None, code, data={"supported": ["2026-07-28"]}, status=400)
+
+    server = Strict(legacy=True)
+    session = await Session.open(await connect_http(server), modern_version="2099-01-01", **FAST)
+    assert session.era == "modern"
+    assert server.methods() == ["server/discover"] * (2 if code == -32022 else 1)
+    if code == -32022:
+        assert session.protocol_version == "2026-07-28"
+
+
+async def test_unicode_method_is_encoded_in_modern_http_header(connect_http: Connect) -> None:
+    class HeaderEcho(EraServer):
+        def _modern(self, id_: Any, method: str, *rest: Any) -> Reply:
+            if method == "server/discover":
+                return super()._modern(id_, method, *rest)
+            headers = rest[-1]
+            assert decode_header_value(headers["mcp-method"]) == method
+            return Reply({"jsonrpc": "2.0", "id": id_, "result": method})
+
+    session = await Session.open(await connect_http(HeaderEcho()), **FAST)
+    outcome = await session.exchange("tools/çall")
+    assert outcome.response is not None
+    assert outcome.response.unwrap() == "tools/çall"
+
+
 async def test_unreachable_server_is_not_mistaken_for_a_legacy_one() -> None:
     transport = HttpTransport("http://127.0.0.1:1/mcp")
     try:
@@ -423,6 +467,66 @@ async def test_expired_legacy_session_is_reinitialized_once(connect_http: Connec
     ]
 
 
+async def test_concurrent_legacy_404s_share_a_reinitialization(
+    connect_http: Connect, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    server = EraServer(modern=False, legacy=True)
+    transport = await connect_http(server)
+    assert isinstance(transport, HttpTransport)
+    session = await Session.open(transport, era="legacy", **FAST)
+    server.forget_session()
+    original_send = transport.send
+    slow_failed = asyncio.Event()
+    recovered = asyncio.Event()
+
+    async def send(message: Any) -> Any:
+        method = message["method"]
+        try:
+            answer = await original_send(message)
+        except HttpRequestFailed:
+            if method == "slow":
+                slow_failed.set()
+                await recovered.wait()
+            elif method == "fast":
+                await slow_failed.wait()
+            raise
+        if method == "fast":
+            recovered.set()
+        return answer
+
+    monkeypatch.setattr(transport, "send", send)
+    responses = await asyncio.gather(session.request("slow"), session.request("fast"))
+    assert [response.unwrap()["method"] for response in responses] == ["slow", "fast"]
+    assert server.methods().count("initialize") == 2
+    assert transport.session_id == "s-2"
+
+
+@pytest.mark.parametrize("when", ["during", "after_failure"])
+async def test_legacy_version_survives_failed_reinitialization(
+    connect_http: Connect, monkeypatch: pytest.MonkeyPatch, when: str
+) -> None:
+    server = EraServer(modern=False, legacy=True)
+    transport = await connect_http(server)
+    assert isinstance(transport, HttpTransport)
+    session = await Session.open(transport, era="legacy", **FAST)
+    server.forget_session()
+    server.initialize_error = True
+    original_send = transport.send
+    headers_during = {}
+
+    async def send(message: Any) -> Any:
+        if message["method"] == "initialize":
+            headers_during.update(session.headers_for({"method": "tools/list"}))
+        return await original_send(message)
+
+    monkeypatch.setattr(transport, "send", send)
+    with pytest.raises(NegotiationFailed, match="initialize rejected"):
+        await session.request("tools/list")
+    headers = headers_during if when == "during" else session.headers_for({"method": "tools/list"})
+    assert headers["MCP-Protocol-Version"] == "2025-11-25"
+    assert transport.session_id == "s-1"
+
+
 async def test_a_second_404_is_surfaced_not_retried_forever(connect_http: Connect) -> None:
     class Gone(EraServer):
         def _legacy(self, id_: Any, method: str, headers: Any) -> Reply:
@@ -465,6 +569,28 @@ async def test_exchange_reports_the_http_status_next_to_the_response(connect_htt
     sent = server.received[-1][1]
     assert sent is not None
     assert sent["mcp-protocol-version"] == "1999-01-01"
+
+
+async def test_exchange_keeps_its_http_result_during_concurrent_send(
+    connect_http: Connect, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    transport = await connect_http(EraServer())
+    assert isinstance(transport, HttpTransport)
+    session = await Session.open(transport, **FAST)
+    original_send = transport.send
+
+    async def send(message: Any) -> Any:
+        outcome = await original_send(message)
+        if message["method"] == "tools/list":
+            await asyncio.create_task(original_send(Notification("notifications/test").to_obj()))
+        return outcome
+
+    monkeypatch.setattr(transport, "send", send)
+    outcome = await session.exchange("tools/list")
+    assert outcome.response is not None
+    assert outcome.http is not None
+    assert outcome.http.status == 200
+    assert outcome.http.responses == (outcome.response,)
 
 
 async def test_exchange_has_no_http_part_over_stdio_and_survives_silence(connect: Connect) -> None:

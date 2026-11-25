@@ -17,6 +17,7 @@ from probe.wire.errors import (
     UnmatchedResponse,
 )
 from probe.wire.jsonrpc import ErrorResponse, Notification, Request, ResultResponse
+from probe.wire.limits import TRACE_BODY_MAX_BYTES
 from probe.wire.recorder import Recorder, read_trace
 from probe.wire.transport_http import HttpRequestFailed, HttpTransport
 from tests.wire.fake_http import ServerState, serve
@@ -72,6 +73,35 @@ async def test_notification_gets_202_and_no_response(
     assert json.loads(server[1].seen[0]["body"])["method"] == "notifications/initialized"
 
 
+async def test_empty_json_202_is_not_malformed(connect: Connect, tmp_path: Path) -> None:
+    recorder = Recorder(tmp_path / "trace.jsonl")
+    try:
+        t = await connect("/json", recorder=recorder)
+        result = await t.post(Notification("notifications/initialized").to_obj())
+        assert result.status == 202 and result.content_type == "application/json"
+        assert result.body == b"" and result.responses == ()
+        assert t.events() == []
+        assert recorder.records()[-1]["body"] is None
+        assert recorder.records()[-1]["http"]["status"] == 202
+    finally:
+        recorder.close()
+
+
+async def test_invalid_configured_header_fails_without_request_trace(
+    connect: Connect, server: tuple[str, ServerState], tmp_path: Path
+) -> None:
+    recorder = Recorder(tmp_path / "trace.jsonl")
+    try:
+        t = await connect("/json", headers={"X-Label": "café"}, recorder=recorder)
+        with pytest.raises(HttpRequestFailed) as info:
+            await t.request(req(1), timeout=1)
+        assert info.value.result.error == "UnicodeEncodeError"
+        assert server[1].seen == []
+        assert recorder.records() == []
+    finally:
+        recorder.close()
+
+
 async def test_extra_headers_are_sent_with_every_post(
     connect: Connect, server: tuple[str, ServerState]
 ) -> None:
@@ -91,6 +121,16 @@ async def test_sse_stream_with_comments_crlf_and_multiline_data(connect: Connect
     async with asyncio.timeout(2):
         first = await anext(t.notifications())
     assert first == Notification("notifications/message", {"n": 1})
+
+
+async def test_sse_keepalives_after_matching_response_do_not_time_out(
+    connect: Connect, server: tuple[str, ServerState]
+) -> None:
+    t = await connect("/sse-keepalive")
+    response = await t.request(req(1), timeout=0.5)
+    assert response.unwrap() == {"ok": True}
+    assert UnmatchedResponse(id="other-id", late=False) in t.events()
+    await asyncio.wait_for(server[1].stream_closed.wait(), 1)
 
 
 async def test_server_request_inside_sse_is_answered_with_a_separate_post(
@@ -292,6 +332,24 @@ async def test_trace_has_http_metadata_and_redacts_credentials(
     assert c2s["http"]["headers"]["Content-Type"] == "application/json"
     assert s2c["http"]["status"] == 200
     assert isinstance(s2c["body"]["result"], dict)
+
+
+@pytest.mark.parametrize("retained", ["result", "trace"])
+async def test_plain_body_redacts_a_secret_crossing_the_retention_limit(
+    connect: Connect, server: tuple[str, ServerState], tmp_path: Path, retained: str
+) -> None:
+    secret = b"PRIVATE-PREFIX-private-suffix"
+    server[1].text_body = b"x" * (TRACE_BODY_MAX_BYTES - 16) + secret
+    recorder = Recorder(tmp_path / "trace.jsonl", secrets=[secret.decode()])
+    try:
+        t = await connect("/text", recorder=recorder)
+        result = await t.post(req(1))
+        assert result.body_length == len(server[1].text_body)
+        body = result.body if retained == "result" else recorder.path.read_bytes()
+        assert b"PRIVATE-PREFIX" not in body
+        assert b"[REDACTED]" in body
+    finally:
+        recorder.close()
 
 
 async def test_json_rpc_replies_are_sent_as_posts_expecting_202(

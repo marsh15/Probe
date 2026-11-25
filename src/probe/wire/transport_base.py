@@ -5,6 +5,8 @@ A concrete transport only moves bytes: it implements ``send``, ``close``, ``aliv
 notifications, server-to-client requests, events and recording live here.
 """
 
+from __future__ import annotations
+
 import asyncio
 import contextlib
 import sys
@@ -13,7 +15,7 @@ from collections import OrderedDict
 from collections.abc import AsyncIterator, Awaitable, Callable, Iterator, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from probe.wire.errors import (
     JsonRpcError,
@@ -49,6 +51,9 @@ from probe.wire.limits import (
     MAX_TIMEOUT_HISTORY,
 )
 from probe.wire.recorder import Direction, HttpMeta, Recorder
+
+if TYPE_CHECKING:
+    from probe.wire.transport_http import RawHttpResult
 
 # Returns the JSON-RPC result; raise JsonRpcError to answer with an error instead.
 ServerRequestHandler = Callable[[Request], Awaitable[Any]]
@@ -104,8 +109,8 @@ class Transport(ABC):
         self.instance: str | None = None
 
     @abstractmethod
-    async def send(self, obj: Mapping[str, Any]) -> None:
-        """Send one message as-is (no validation) and record it."""
+    async def send(self, obj: Mapping[str, Any]) -> RawHttpResult | None:
+        """Send one message as-is (no validation), returning its HTTP exchange if applicable."""
 
     @abstractmethod
     async def close(self) -> CloseResult:
@@ -124,6 +129,15 @@ class Transport(ABC):
 
         On timeout nothing else is sent; a response that arrives later is recorded and dropped.
         """
+        response, _ = await self.request_with_result(obj, timeout)
+        return response
+
+    async def request_with_result(
+        self,
+        obj: Mapping[str, Any],
+        timeout: float,  # noqa: ASYNC109 - the per-request deadline
+    ) -> tuple[Response, RawHttpResult | None]:
+        """Send a request and pair its response with the result of that send."""
         request = classify(dict(obj))
         if not isinstance(request, Request):
             raise ValueError("request() needs a JSON-RPC request with an id")
@@ -141,8 +155,8 @@ class Transport(ABC):
         self._pending[request.id] = future
         try:
             async with asyncio.timeout(timeout):
-                await self.send(obj)
-                return await future
+                result = await self.send(obj)
+                return await future, result
         except TimeoutError:
             self._timed_out[fingerprint] = None
             if len(self._timed_out) > MAX_TIMEOUT_HISTORY:
@@ -216,6 +230,8 @@ class Transport(ABC):
         if isinstance(message, ResultResponse | ErrorResponse):
             self._resolve(message)
         elif isinstance(message, Notification):
+            if self._closed is not None:
+                return  # The end-of-stream marker must stay at the end of the queue.
             size = _retained_size(message.to_obj())
             if size > MAX_NOTIFICATION_BYTES:
                 self.notifications_dropped += 1
