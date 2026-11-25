@@ -111,6 +111,30 @@ def test_unknown_bug_ids_are_a_usage_error() -> None:
     assert result.exit_code == 2
 
 
+@pytest.mark.parametrize(
+    "flags",
+    [
+        ["--transports", "bogus"],  # no transport left: no scans at all
+        ["--seeds", ","],  # no seeds: no scans at all
+        ["--bugs", ","],  # no bugs: only the clean server would run
+        ["--bugs", "b05", "--transports", "stdio"],  # b05 is http-only: no bug would be tried
+    ],
+)
+def test_selfval_is_a_usage_error_when_no_bug_would_be_tested(
+    flags: list[str], monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    def never(*args: object, **kwargs: object) -> None:
+        raise AssertionError("nothing may run when there is nothing to test")
+
+    monkeypatch.setattr("probe.cli.selfval.run_jobs", never)
+    result = CliRunner().invoke(
+        app,
+        ["selfval", "--local", "--out", str(tmp_path), "--expected", str(EXPECTED), *flags],
+    )
+    assert result.exit_code == 2, result.output
+    assert "nothing to test" in result.output
+
+
 def test_a_real_local_run_detects_a_bug_and_keeps_the_clean_server_clean(tmp_path: Path) -> None:
     result = CliRunner().invoke(
         app,

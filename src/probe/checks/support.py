@@ -69,13 +69,19 @@ def request_step(method: str, params: Mapping[str, Any] | None = None) -> dict[s
     return {"kind": "request", "method": method, "params": dict(params or {})}
 
 
-def raw_http_step(headers: Mapping[str, str], body: bytes, method: str = "POST") -> dict[str, Any]:
-    return {
+def raw_http_step(
+    headers: Mapping[str, str], body: bytes, method: str = "POST", url: str | None = None
+) -> dict[str, Any]:
+    """``url`` is recorded only when the request went somewhere other than the MCP endpoint."""
+    step: dict[str, Any] = {
         "kind": "raw_http",
         "method": method,
         "headers": redact_headers(headers),
         "body": body.decode("utf-8", "replace"),
     }
+    if url is not None:
+        step["url"] = url
+    return step
 
 
 def raw_stdio_step(line: bytes) -> dict[str, Any]:

@@ -121,6 +121,15 @@ async def test_b43_wildcard_and_admin_scopes_are_caught(seeded_data: Path, tmp_p
     assert "broad scopes" in out.findings[0].title
 
 
+async def test_b43_finding_records_the_metadata_url_it_read(
+    seeded_data: Path, tmp_path: Path
+) -> None:
+    out = await run_oauth(seeded_data, tmp_path, "b43")
+    [step] = out.findings[0].repro.steps
+    assert step["method"] == "GET"
+    assert step["url"].split("/.well-known/")[1].startswith("oauth-protected-resource")
+
+
 @pytest.mark.parametrize("kind", ["stdio"])
 async def test_a_stdio_server_has_no_oauth_to_judge(kind: str, tmp_path: Path) -> None:
     async with scripted_scan(EraServer, tmp_path) as scan:

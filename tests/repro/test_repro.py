@@ -311,3 +311,103 @@ def test_export_disk_failure_is_internal_error(tmp_path, monkeypatch):
     )
     assert result.exit_code == 4
     assert "disk full" in result.output
+
+
+def run_script(script: str, tmp_path: Path, **env: str) -> list[str]:
+    """Run the script with fake `docker` and `curl`; return one line per call."""
+    log = tmp_path / "calls.log"
+    for name in ("docker", "curl"):
+        fake = tmp_path / "bin" / name
+        fake.parent.mkdir(exist_ok=True)
+        fake.write_text(f'#!/bin/sh\necho "{name} $*" >> "{log}"\ncat > /dev/null || true\n')
+        fake.chmod(0o755)
+    subprocess.run(  # noqa: S603
+        ["/bin/sh", "-c", script],
+        env={"PATH": f"{tmp_path / 'bin'}:/usr/bin:/bin", **env},
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    return log.read_text().splitlines()
+
+
+SANDBOXED = {"name": "t", "transport": "stdio", "image": "img:1", "command": None}
+
+
+def test_sandboxed_script_takes_secrets_from_the_users_environment(tmp_path: Path) -> None:
+    bundle = bundle_with(
+        target=SANDBOXED,
+        run={
+            "mode": "standard",
+            "seed": 0,
+            "era": "modern",
+            "negotiated_version": "2026-07-28",
+            "secret_env": ["API_TOKEN"],
+        },
+        profile={"version": 1, "target": {"env": {"KEY": "{secret:OTHER_SECRET}", "A": "b"}}},
+    )
+    script = export_script(bundle)
+    assert "{secret:" not in script  # no literal placeholder is ever sent
+    assert "fake-token-value" not in script and "fake-other-value" not in script
+    [call] = run_script(
+        script, tmp_path, API_TOKEN="fake-token-value", OTHER_SECRET="fake-other-value"
+    )
+    words = call.split()
+    assert "-e API_TOKEN" in call  # the name only: docker reads the value from the environment
+    assert "KEY=fake-other-value" in words and "A=b" in words
+
+
+def test_sandboxed_script_stops_when_a_placeholder_secret_is_not_set(tmp_path: Path) -> None:
+    bundle = bundle_with(
+        target=SANDBOXED,
+        profile={"version": 1, "target": {"env": {"KEY": "{secret:OTHER_SECRET}"}}},
+    )
+    with pytest.raises(subprocess.CalledProcessError) as raised:
+        run_script(export_script(bundle), tmp_path)
+    assert "OTHER_SECRET" in raised.value.stderr
+
+
+HTTP_TARGET = {"name": "t", "transport": "http", "url": "http://127.0.0.1:9/mcp"}
+
+
+def test_raw_http_step_records_its_own_url() -> None:
+    from probe.checks.support import raw_http_step
+
+    assert "url" not in raw_http_step({"A": "b"}, b"")
+    step = raw_http_step({"A": "b"}, b"", method="GET", url="http://127.0.0.1:9/.well-known/x")
+    assert step["url"] == "http://127.0.0.1:9/.well-known/x"
+
+
+def test_raw_http_steps_replay_against_their_own_url_not_the_mcp_url() -> None:
+    step = {
+        "kind": "raw_http", "method": "GET", "headers": {"Accept": "application/json"},
+        "body": "", "url": "http://127.0.0.1:9/.well-known/oauth-protected-resource",
+    }  # fmt: skip
+    script = export_script(bundle_with(target=HTTP_TARGET, steps=[step]))
+    assert "-X GET http://127.0.0.1:9/.well-known/oauth-protected-resource" in script
+    assert "http://127.0.0.1:9/mcp" not in script
+    legacy_step = {k: v for k, v in step.items() if k != "url"}
+    script = export_script(bundle_with(target=HTTP_TARGET, steps=[legacy_step]))
+    assert "-X GET http://127.0.0.1:9/mcp" in script  # old bundles fall back to the MCP URL
+
+
+def test_legacy_raw_http_steps_carry_the_live_session_and_version() -> None:
+    legacy = {"mode": "standard", "seed": 0, "era": "legacy", "negotiated_version": "2025-06-18"}
+    bare = {"kind": "raw_http", "method": "POST", "headers": {"Accept": "a/b"}, "body": "{}"}
+    stale = {"Content-Type": "application/json", "Mcp-Session-Id": "stale-session-id"}
+    recorded = {"kind": "raw_http", "method": "POST", "headers": stale, "body": "{}"}
+    script = export_script(bundle_with(target=HTTP_TARGET, run=legacy, steps=[bare, recorded]))
+    first, second = script.splitlines()[-2:]  # the two raw requests follow the handshake
+    for request in (first, second):
+        assert "Mcp-Session-Id: $SID" in request
+    assert "MCP-Protocol-Version: 2025-06-18" in first  # added: nothing was recorded
+    assert "stale-session-id" not in script  # the recorded id belonged to a dead session
+
+
+def test_a_tampered_raw_step_keeps_a_header_it_deliberately_left_out() -> None:
+    legacy = {"mode": "standard", "seed": 0, "era": "legacy", "negotiated_version": "2025-06-18"}
+    headers = {"Mcp-Method": "tools/list", "Content-Type": "application/json"}
+    step = {"kind": "raw_http", "method": "POST", "headers": headers, "body": "{}"}
+    script = export_script(bundle_with(target=HTTP_TARGET, run=legacy, steps=[step]))
+    assert "MCP-Protocol-Version: 2025-06-18" not in script.splitlines()[-1]

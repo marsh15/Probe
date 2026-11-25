@@ -1,6 +1,9 @@
 """The release helper and the release workflow's shape."""
 
 import importlib.util
+import os
+import stat
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -76,8 +79,16 @@ def test_release_builds_multi_arch_images_to_ghcr() -> None:
     text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "linux/amd64,linux/arm64" in text and "ghcr.io" in text
     # nothing is published unless the package built and its version matched the tag
-    assert wf["jobs"]["publish-pypi"]["needs"] == "build"
     assert "build" in wf["jobs"]["images"]["needs"]
+
+
+def test_release_runs_the_checks_and_publishes_to_pypi_only_after_build_and_images() -> None:
+    wf = load_workflow()
+    runs = [step.get("run", "") for step in wf["jobs"]["build"]["steps"]]
+    assert "make check" in runs, "the build job must run the repository's checks"
+    assert runs.index("make check") < runs.index("uv build")
+    # a failed image (say arm64) must not leave the version burnt on PyPI
+    assert set(wf["jobs"]["publish-pypi"]["needs"]) == {"build", "images"}
 
 
 # --- the GitHub Action (integrations/github-action) --------------------------------------
@@ -122,3 +133,55 @@ def test_selftest_expects_clean_to_pass_and_buggy_to_fail() -> None:
     assert set(wf["jobs"]) == {"clean", "buggy"}
     assert "PROBE_REF_BUGS=b31,b17" in str(wf["jobs"]["buggy"])
     assert wf["jobs"]["buggy"]["steps"][1]["continue-on-error"] is True
+
+
+def _run_scan_step(
+    tmp_path: Path, **env: str
+) -> tuple[subprocess.CompletedProcess[str], list[str]]:
+    """Run the action's Scan step in bash with a fake `probe` that records its arguments."""
+    step = next(s for s in load_action()["runs"]["steps"] if s.get("name") == "Scan")
+    fake = tmp_path / "bin" / "probe"
+    fake.parent.mkdir()
+    fake.write_text('#!/bin/sh\nprintf \'%s\\n\' "$@" > "$ARGS_OUT"\nexit 0\n')
+    fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    out = tmp_path / "github-output"
+    out.touch()
+    args_out = tmp_path / "args"
+    base = {
+        "PATH": f"{fake.parent}:{os.environ['PATH']}",
+        "ARGS_OUT": str(args_out),
+        "GITHUB_OUTPUT": str(out),
+        "IN_MODE": "quick",
+        "IN_FAIL_ON": "high",
+        "IN_SARIF_ANCHOR": "README.md",
+        "IN_MIN_SCORE": "0",
+        "USE_SANDBOX": "false",
+    }
+    done = subprocess.run(  # noqa: S603
+        ["bash", "-e", "-c", step["run"]],  # noqa: S607
+        env={**base, **env},
+        cwd=tmp_path,
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=False,
+    )
+    return done, args_out.read_text().splitlines() if args_out.exists() else []
+
+
+def test_action_with_an_image_but_no_sandbox_uses_the_command(tmp_path: Path) -> None:
+    done, args = _run_scan_step(
+        tmp_path, IN_IMAGE="ghcr.io/me/server:1", IN_COMMAND="python server.py --flag"
+    )
+    assert done.returncode == 0, done.stderr
+    assert args[args.index("--") :] == ["--", "python", "server.py", "--flag"]
+    assert "--image" not in args  # the image only runs in the sandbox
+
+
+def test_action_with_an_image_but_no_sandbox_and_no_other_target_fails_clearly(
+    tmp_path: Path,
+) -> None:
+    done, args = _run_scan_step(tmp_path, IN_IMAGE="ghcr.io/me/server:1")
+    assert done.returncode == 2 and args == []  # Probe never started
+    assert "sandbox" in done.stdout + done.stderr
+    assert "exit_code=2" in (tmp_path / "github-output").read_text()
