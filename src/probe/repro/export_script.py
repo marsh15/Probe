@@ -24,6 +24,8 @@ from probe.wire.session import (
 )
 
 _CONTROL = re.compile(r"[\x00-\x1f\x7f]+")
+_SECRET_PLACEHOLDER = re.compile(r"\{secret:([A-Za-z_][A-Za-z0-9_]*)\}")
+_DOUBLE_QUOTED = re.compile(r'(["\\$`])')
 _CLIENT_INFO = {"name": "probe-repro", "version": "1"}
 _STDIO_LINGER_S = 3  # keep stdin open so the server can answer before it sees end of input
 
@@ -31,6 +33,23 @@ _STDIO_LINGER_S = 3  # keep stdin open so the server can answer before it sees e
 def _comment(text: object, limit: int = 300) -> str:
     one_line = _CONTROL.sub(" ", str(text)).strip()
     return one_line[:limit]
+
+
+def _sh(text: str) -> str:
+    """One shell word. A ``{secret:NAME}`` placeholder becomes ``"${NAME}"``, read from the
+    user's environment when the script runs (and the script stops if it is not set); no secret
+    value is ever written into the script."""
+    if not _SECRET_PLACEHOLDER.search(text):
+        return shlex.quote(text)
+    parts: list[str] = []
+    last = 0
+    for match in _SECRET_PLACEHOLDER.finditer(text):
+        parts.append(_DOUBLE_QUOTED.sub(r"\\\1", text[last : match.start()]))
+        name = match.group(1)
+        parts.append(f"${{{name}:?{name} is not set}}")
+        last = match.end()
+    parts.append(_DOUBLE_QUOTED.sub(r"\\\1", text[last:]))
+    return '"' + "".join(parts) + '"'
 
 
 def _json(value: Any) -> str:
@@ -145,10 +164,12 @@ def _stdio_runner(bundle: ReproBundle) -> tuple[list[str], str | None]:
         words = ["docker", "run", "-i", "--rm"]
         for key, value in sorted(env.items()):
             words += ["-e", f"{key}={value}"]
-        return notes, shlex.join([*words, image, *(command or [])])
+        for name in bundle.run.secret_env:  # `-e NAME` takes the value from the user's environment
+            words += ["-e", name]
+        return notes, " ".join(_sh(word) for word in [*words, image, *(command or [])])
     if command:
         assignments = [f"{k}={v}" for k, v in sorted(env.items())]
-        return notes, shlex.join(["env", *assignments, *command])
+        return notes, " ".join(_sh(word) for word in ["env", *assignments, *command])
     return notes, None
 
 
@@ -226,6 +247,32 @@ def _legacy_http_handshake(bundle: ReproBundle, url: str) -> list[str]:
     ]
 
 
+_MCP_HEADERS = ("mcp-protocol-version", "mcp-session-id", "mcp-method")
+
+
+def _raw_http(step: Mapping[str, Any], mcp_url: str, version: str, legacy: bool) -> str:
+    """One recorded raw request: to the URL it went to, with the live session in legacy scripts.
+
+    The recorded headers are sent as they are (a check may have left one out on purpose). A step
+    with no MCP header at all was recorded without them (older reports), so it gets the protocol
+    version and, for a legacy target, the session from the handshake.
+    """
+    own_url = step.get("url")
+    target = own_url if isinstance(own_url, str) and own_url else mcp_url
+    recorded = {str(k): str(v) for k, v in (step.get("headers") or {}).items()}
+    names = {name.lower() for name in recorded}
+    method = str(step.get("method", "POST"))
+    on_mcp_endpoint = target == mcp_url
+    with_session = False
+    if legacy and on_mcp_endpoint:
+        with_session = "mcp-session-id" in names or not names & set(_MCP_HEADERS)
+        recorded = {k: v for k, v in recorded.items() if k.lower() != "mcp-session-id"}
+    if on_mcp_endpoint and method == "POST" and not names & set(_MCP_HEADERS):
+        recorded["MCP-Protocol-Version"] = version
+    headers = [f"{k}: {v}" for k, v in recorded.items()]
+    return _curl(target, headers, str(step.get("body", "")), method, with_session=with_session)
+
+
 def _http_script(bundle: ReproBundle) -> str:
     steps, skipped = _runnable_steps(bundle, stdio=False)
     url = bundle.target.url or ((bundle.profile.get("target") or {}).get("http") or {}).get("url")
@@ -244,9 +291,7 @@ def _http_script(bundle: ReproBundle) -> str:
         next_id = 2
     for step in steps:
         if step["kind"] == "raw_http":
-            headers = [f"{k}: {v}" for k, v in (step.get("headers") or {}).items()]
-            method = str(step.get("method", "POST"))
-            lines.append(_curl(url, headers, str(step.get("body", "")), method))
+            lines.append(_raw_http(step, url, version, legacy))
             continue
         message = _message(bundle, next_id, step)
         next_id += 1

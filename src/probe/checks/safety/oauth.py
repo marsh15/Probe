@@ -33,6 +33,14 @@ _BROAD = frozenset({"*", "admin", "all", "full_access"})
 _MANY = 20
 _PRM_PATH = "/.well-known/oauth-protected-resource"
 _AS_PATH = "/.well-known/oauth-authorization-server"
+_PING = b'{"jsonrpc":"2.0","id":1,"method":"ping"}'
+_PING_HEADERS = {"Content-Type": "application/json", "Accept": "application/json"}
+
+
+def _get_step(url: str) -> dict[str, Any]:
+    return raw_http_step({"Accept": "application/json"}, b"", method="GET", url=url)
+
+
 _CHALLENGE_SCOPE = re.compile(r'scope="([^"]*)"')
 
 
@@ -128,13 +136,12 @@ class OauthScopesMinimal(Check):
             return CheckOutcome.na("needs an HTTP target")
         origin = _origin(transport.url)
         try:
-            prm = await self._get(ctx, origin + _PRM_PATH)
+            prm_url = origin + _PRM_PATH
+            prm = await self._get(ctx, prm_url)
             if _json(prm) is None:  # the path-suffixed form for an endpoint under a path
-                prm = await self._get(ctx, origin + _PRM_PATH + urlsplit(transport.url).path)
-            challenge = await ctx.raw_http(
-                {"Content-Type": "application/json", "Accept": "application/json"},
-                b'{"jsonrpc":"2.0","id":1,"method":"ping"}',
-            )
+                prm_url = origin + _PRM_PATH + urlsplit(transport.url).path
+                prm = await self._get(ctx, prm_url)
+            challenge = await ctx.raw_http(_PING_HEADERS, _PING)
         except RequestTimeout:
             return CheckOutcome.error("the server did not answer the metadata requests")
         document = _json(prm)
@@ -147,7 +154,14 @@ class OauthScopesMinimal(Check):
         if broad or len(scopes) > _MANY:
             what = f"broad scopes {broad}" if broad else f"{len(scopes)} scopes"
             findings.append(
-                self._finding(ctx, f"The server advertises {what}", "prm", prm, Severity.MEDIUM)
+                self._finding(
+                    ctx,
+                    f"The server advertises {what}",
+                    "prm",
+                    prm,
+                    Severity.MEDIUM,
+                    step=_get_step(prm_url),
+                )
             )
         asked = _CHALLENGE_SCOPE.search(challenge.headers.get("www-authenticate", ""))
         if asked and len(scopes) > 1 and set(asked.group(1).split()) >= set(scopes):
@@ -158,6 +172,7 @@ class OauthScopesMinimal(Check):
                     "challenge",
                     challenge,
                     Severity.MEDIUM,
+                    step=raw_http_step(_PING_HEADERS, _PING),
                 )
             )
         findings += await self._authorization_server(ctx, document or {})
@@ -185,10 +200,12 @@ class OauthScopesMinimal(Check):
                     "as-skipped",
                     None,
                     Severity.INFO,
+                    step=None,  # nothing was requested
                 )
             ]
+        as_url = urljoin(issuer, _AS_PATH)
         try:
-            result = await self._get(ctx, urljoin(issuer, _AS_PATH))
+            result = await self._get(ctx, as_url)
         except RequestTimeout:
             return []
         metadata = _json(result)
@@ -202,6 +219,7 @@ class OauthScopesMinimal(Check):
                     "as-iss",
                     result,
                     Severity.LOW,
+                    step=_get_step(as_url),
                 )
             ]
         return []
@@ -213,6 +231,8 @@ class OauthScopesMinimal(Check):
         case: str,
         result: RawHttpResult | None,
         severity: Severity,
+        *,
+        step: dict[str, Any] | None,
     ) -> Finding:
         observed = (
             {"status": result.status, "body": result.body[:600].decode("utf-8", "replace")}
@@ -226,7 +246,7 @@ class OauthScopesMinimal(Check):
             title=title,
             message=title,
             case_id=f"oauth:{case}",
-            steps=[raw_http_step({"Accept": "application/json"}, b"", method="GET")],
+            steps=[step] if step else [],
             expect={"scopes": "narrow"},
             observations=observed,
         )

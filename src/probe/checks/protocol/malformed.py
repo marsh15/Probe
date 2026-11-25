@@ -124,12 +124,15 @@ class MalformedJsonrpcHandled(Check):
             before = len(transport.events())
             await ctx.raw_stdio(body + b"\n", case_id=case_id)
             return await self._stdio_codes(transport, before), None
-        headers = {
+        result = await ctx.raw_http(self._http_headers(ctx), body)
+        return error_codes(result), result.status
+
+    @staticmethod
+    def _http_headers(ctx: ScanContext) -> dict[str, str]:
+        return {
             **http_transport(ctx).base_headers(),
             **ctx.client.headers_for({"method": "tools/list"}),
         }
-        result = await ctx.raw_http(headers, body)
-        return error_codes(result), result.status
 
     @staticmethod
     async def _stdio_codes(transport: StdioTransport, before: int) -> list[int]:
@@ -147,7 +150,7 @@ class MalformedJsonrpcHandled(Check):
     def _step(self, ctx: ScanContext, body: bytes) -> dict[str, object]:
         if isinstance(ctx.client.transport, StdioTransport):
             return raw_stdio_step(body + b"\n")
-        return raw_http_step({"Content-Type": "application/json"}, body)
+        return raw_http_step(self._http_headers(ctx), body)
 
     def _finding(
         self, ctx: ScanContext, case_id: str, body: bytes, codes: list[int], status: int | None

@@ -426,6 +426,19 @@ async def test_malformed_input_over_http(
     assert len(result.findings) == 3
 
 
+async def test_malformed_http_steps_record_the_headers_that_were_sent(
+    tmp_path: Path, http_fake: tuple[str, ServerState]
+) -> None:
+    http_fake[1].garbage = "ignore"
+    async with http_scan(http_fake, tmp_path, server=ToolsServer()) as scan:
+        result = await scan.run(MalformedJsonrpcHandled)
+    assert result.findings
+    for finding in result.findings:
+        [step] = finding.repro.steps
+        names = {name.lower() for name in step["headers"]}
+        assert {"content-type", "mcp-protocol-version", "mcp-method"} <= names, step["headers"]
+
+
 async def test_batches_are_not_tried_against_versions_that_allowed_them(tmp_path: Path) -> None:
     server = EraServer(modern=False, legacy=True, legacy_version="2025-03-26")
     async with scripted_scan(lambda: server, tmp_path, era="legacy") as scan:
