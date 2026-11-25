@@ -7,7 +7,7 @@ from typing import Annotated
 
 import typer
 
-from probe.cli.run import _fail, _parse_env
+from probe.cli.run import _fail, _io_exit_code, _parse_env
 from probe.cli.summary import EXIT_INTERNAL, EXIT_SANDBOX, EXIT_UNAVAILABLE, EXIT_USAGE
 from probe.engine.runscan import SandboxUnavailable, UsageError
 from probe.repro.bundle import BundleError, load_bundle
@@ -47,8 +47,11 @@ def repro(
     except BundleError as exc:
         raise _fail(str(exc), EXIT_USAGE) from exc
     if export is not None:
-        export.write_text(export_script(bundle), encoding="utf-8")
-        export.chmod(0o755)
+        try:
+            export.write_text(export_script(bundle), encoding="utf-8")
+            export.chmod(0o755)
+        except OSError as exc:
+            raise _fail(f"could not write script {export}: {exc}", _io_exit_code(exc)) from exc
         typer.echo(f"script: {export}")
     if no_run:
         raise typer.Exit(EXIT_REPRODUCED)

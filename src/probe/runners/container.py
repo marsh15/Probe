@@ -4,7 +4,7 @@ import asyncio
 import contextlib
 import math
 import time
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 
@@ -130,6 +130,23 @@ class ContainerRunner:
                 raise
         return await self.start()
 
+    async def reset_data(self, restore: Callable[[], Awaitable[None]]) -> Transport:
+        """Stop every target before restoring fixtures, then open a fresh main instance."""
+        async with self._lock:
+            if self._stopped or self.deadline_exceeded:
+                raise TargetUnavailable("container runner has stopped")
+            try:
+                for instance in [*self._extras, *([self._main] if self._main else [])]:
+                    await self._stop_instance(instance, kill=True)
+                self._extras.clear()
+                self._main = None
+                await restore()
+                self._main = await self._spawn()
+                return self._main.transport
+            except BaseException:
+                await self._cleanup(kill=True)
+                raise
+
     async def second_instance(self) -> Transport | None:
         async with self._lock:
             if self._main is None or self._stopped or self.deadline_exceeded:
@@ -203,9 +220,10 @@ class ContainerRunner:
         instance = next(i for i in self._extras if i.transport is transport)
         try:
             # EOF first; terminating docker start is not evidence the container stopped.
-            await instance.transport.close(grace_s=5, kill_after_s=0)  # type: ignore[call-arg]
+            closed = await instance.transport.close(grace_s=5, kill_after_s=0)  # type: ignore[call-arg]
             state = await self._state(instance)
-            terminated = state.running
+            # docker start forwards SIGTERM, so attachment escalation also forced the target.
+            terminated = state.running or closed.terminated
             if state.running:
                 await _docker(lambda: instance.container.kill(signal="SIGTERM"))
                 deadline = time.monotonic() + 5
@@ -215,7 +233,8 @@ class ContainerRunner:
             return CloseResult(state.exit_code, terminated, state.running)
         finally:
             await self._stop_instance(instance, kill=True)
-            self._extras.remove(instance)
+            if instance in self._extras:
+                self._extras.remove(instance)
 
     async def logs(self) -> str:
         if self._main is not None:

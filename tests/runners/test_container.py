@@ -10,6 +10,7 @@ from probe.engine.outcomes import Transport as TransportKind
 from probe.runners.base import Runner, TargetUnavailable
 from probe.runners.container import ContainerRunner
 from probe.sandbox.docker_env import DockerEnv
+from probe.wire.transport_base import CloseResult
 from tests.sandbox.fakes import Client
 
 
@@ -19,6 +20,7 @@ class Attachment:
 
     async def close(self, **kwargs):
         self.closed = True
+        return CloseResult(0, terminated=False, killed=False)
 
     def stderr_tail(self, n=4096):
         return "attach stderr"
@@ -517,4 +519,79 @@ async def test_deadline_removes_target_while_attachment_is_in_flight(
     finally:
         release.set()
         await asyncio.gather(start, return_exceptions=True)
+        await runner.stop()
+
+
+async def test_shutdown_reports_attachment_sigterm_as_forced_exit(boundary, monkeypatch):
+    _client, env, _argv = boundary
+    runner = ContainerRunner("img", sandbox=env)
+    await runner.start()
+    transport = await runner.second_instance()
+    instance = runner._extras[-1]
+
+    async def close(**kwargs):
+        # docker start forwards the attachment's SIGTERM and the server exits cleanly.
+        instance.container.attrs["State"]["Running"] = False
+        return CloseResult(0, terminated=True, killed=False)
+
+    async def second():
+        return transport
+
+    def kill(**kwargs):
+        instance.container.attrs["State"]["Running"] = False
+
+    monkeypatch.setattr(transport, "close", close)
+    monkeypatch.setattr(runner, "second_instance", second)
+    monkeypatch.setattr(instance.container, "kill", kill)
+    try:
+        result = await runner.check_shutdown()
+        assert result.terminated
+    finally:
+        await runner.stop()
+
+
+async def test_shutdown_tolerates_deadline_clearing_extras(boundary, monkeypatch):
+    _client, env, _ = boundary
+    runner = ContainerRunner("img", sandbox=env)
+    await runner.start()
+    transport = await runner.second_instance()
+    instance = runner._extras[-1]
+
+    async def close(**kwargs):
+        runner._extras.clear()
+        instance.container.attrs["State"]["Running"] = False
+        return CloseResult(0, terminated=False, killed=False)
+
+    async def second():
+        return transport
+
+    monkeypatch.setattr(transport, "close", close)
+    monkeypatch.setattr(runner, "second_instance", second)
+    try:
+        await runner.check_shutdown()
+    finally:
+        await runner.stop()
+
+
+async def test_fixture_reset_stops_all_targets_before_restore_and_restarts(boundary):
+    client, env, _ = boundary
+    runner = ContainerRunner("img", sandbox=env)
+    await runner.start()
+    await runner.second_instance()
+    old = [runner._main, *runner._extras]
+    calls = []
+
+    async def restore():
+        assert all(instance.container.removed for instance in old)
+        assert not client.containers.list()
+        assert env.ready  # Fixtures and volumes survive the target restart.
+        calls.append("restored")
+
+    try:
+        fresh = await runner.reset_data(restore)
+        assert calls == ["restored"]
+        assert runner._main.transport is fresh
+        assert not runner._extras
+        assert (await runner.state()).running
+    finally:
         await runner.stop()

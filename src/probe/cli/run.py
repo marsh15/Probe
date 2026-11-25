@@ -31,6 +31,18 @@ def _fail(message: str, code: int = EXIT_USAGE) -> "typer.Exit":
     return typer.Exit(code)
 
 
+def _io_exit_code(exc: OSError) -> int:
+    bad_path = isinstance(
+        exc,
+        FileNotFoundError
+        | FileExistsError
+        | NotADirectoryError
+        | IsADirectoryError
+        | PermissionError,
+    )
+    return EXIT_USAGE if bad_path else EXIT_INTERNAL
+
+
 def _parse_env(pairs: list[str]) -> dict[str, str]:
     env: dict[str, str] = {}
     for pair in pairs:
@@ -152,18 +164,23 @@ def run(
         raise _fail(str(exc)) from exc
     except SandboxUnavailable as exc:
         raise _fail(str(exc), EXIT_SANDBOX) from exc
+    except OSError as exc:
+        raise _fail(f"could not access scan files: {exc}", _io_exit_code(exc)) from exc
     except Exception as exc:
         if verbose:
             raise
         raise _fail(f"internal error: {type(exc).__name__}: {exc}", EXIT_INTERNAL) from exc
-    path = write_report(report, out)
-    write_bundles(report, config, out)
-    for fmt in formats:
-        if fmt != "json":  # report.json is always written above
-            (out / FILE_NAMES[fmt]).write_text(
-                render(report, fmt, anchor=sarif_anchor, badge_style=badge_style),  # type: ignore[arg-type]
-                encoding="utf-8",
-            )
+    try:
+        path = write_report(report, out)
+        write_bundles(report, config, out)
+        for fmt in formats:
+            if fmt != "json":  # report.json is always written above
+                (out / FILE_NAMES[fmt]).write_text(
+                    render(report, fmt, anchor=sarif_anchor, badge_style=badge_style),  # type: ignore[arg-type]
+                    encoding="utf-8",
+                )
+    except OSError as exc:
+        raise _fail(f"could not write scan outputs: {exc}", _io_exit_code(exc)) from exc
     render_summary(report, console, verbose=verbose, quiet=quiet)
     console.print(f"report: {path}", highlight=False)
     raise typer.Exit(exit_code_for(report, fail_on, min_score))

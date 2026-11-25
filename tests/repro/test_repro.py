@@ -240,3 +240,49 @@ def test_stdio_script_shows_the_bug_on_the_real_refserver(stdio_command: Any) ->
     assert "resultType" in answer("") and "notes_get" in answer("")
     buggy = answer("b03")
     assert "notes_get" in buggy and "resultType" not in buggy
+
+
+def test_export_io_error_is_usage_error(tmp_path, monkeypatch):
+    from importlib import import_module
+
+    monkeypatch.setattr(import_module("probe.cli.repro"), "load_bundle", lambda *a: bundle_with())
+    result = runner.invoke(
+        app,
+        [
+            "repro",
+            str(tmp_path / "report.json"),
+            "--finding",
+            "f" * 16,
+            "--export-script",
+            str(tmp_path / "missing" / "out.sh"),
+            "--no-run",
+        ],
+    )
+    assert result.exit_code == 2, result.output
+    assert "script" in result.output.lower()
+
+
+def test_export_disk_failure_is_internal_error(tmp_path, monkeypatch):
+    from importlib import import_module
+
+    module = import_module("probe.cli.repro")
+    monkeypatch.setattr(module, "load_bundle", lambda *a: bundle_with())
+
+    def failed_write(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(Path, "write_text", failed_write)
+    result = runner.invoke(
+        app,
+        [
+            "repro",
+            str(tmp_path / "report.json"),
+            "--finding",
+            "f" * 16,
+            "--export-script",
+            str(tmp_path / "out.sh"),
+            "--no-run",
+        ],
+    )
+    assert result.exit_code == 4
+    assert "disk full" in result.output

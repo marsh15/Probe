@@ -1,5 +1,6 @@
 """Schema checks on the caching fields of modern list results."""
 
+import sys
 from typing import Any
 
 from probe.checks.base import Applicability, Check, CheckOutcome
@@ -102,6 +103,17 @@ class CacheFieldsPresent(Check):
         )
 
 
+def _ttl_text(ttl: int | float) -> str:
+    return str(ttl) if ttl > sys.float_info.max else f"{ttl:g}"
+
+
+def _ttl_hours(ttl: int | float) -> str:
+    # Integer division avoids overflowing a float on hostile JSON integers.
+    if isinstance(ttl, int) and ttl > sys.float_info.max:
+        return str(ttl // 3_600_000)
+    return f"{ttl / 3_600_000:.0f}"
+
+
 @register
 class CacheTtlSane(Check):
     meta = CheckMeta(
@@ -123,7 +135,7 @@ class CacheTtlSane(Check):
         remediation="Use a ttlMs of at most 24 hours (86400000) for list results.",
     )
 
-    def _ttls(self, ctx: ScanContext) -> list[tuple[str, float]]:
+    def _ttls(self, ctx: ScanContext) -> list[tuple[str, int | float]]:
         results: list[tuple[str, dict[str, Any]]] = []
         if ctx.client.discover_result is not None:
             results.append(("server/discover", ctx.client.discover_result))
@@ -146,10 +158,9 @@ class CacheTtlSane(Check):
                     self,
                     ctx,
                     severity=Severity.LOW,
-                    title=f"{method} ttlMs is {ttl:g} ms",
+                    title=f"{method} ttlMs is {_ttl_text(ttl)} ms",
                     message=(
-                        f"{method} may be cached for {ttl / 3_600_000:.0f} hours; "
-                        "the sane limit is 24."
+                        f"{method} may be cached for {_ttl_hours(ttl)} hours; the sane limit is 24."
                     ),
                     case_id=f"cache-ttl:{method}",
                     steps=[request_step(method)],

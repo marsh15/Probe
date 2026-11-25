@@ -264,3 +264,38 @@ def test_llm_flag_without_a_key_is_a_usage_error(
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     result = run(tmp_path, "--llm")
     assert result.exit_code == 2 and "ANTHROPIC_API_KEY" in result.output
+
+
+@pytest.mark.parametrize("operation", ["write_report", "write_bundles", "render"])
+def test_output_io_errors_exit_internal(tmp_path, monkeypatch, operation):
+    from importlib import import_module
+
+    def broken(*args, **kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(import_module("probe.cli.run"), operation, broken)
+    result = run(tmp_path, "--only", "schema.tools_list_valid")
+    assert result.exit_code == 4, result.output
+    assert "disk full" in result.output
+
+
+@pytest.mark.parametrize("operation", ["write_report", "write_bundles", "render"])
+@pytest.mark.parametrize(
+    "error", [FileNotFoundError, NotADirectoryError, IsADirectoryError, PermissionError]
+)
+def test_output_path_errors_exit_usage(tmp_path, monkeypatch, operation, error):
+    from importlib import import_module
+
+    def broken(*args, **kwargs):
+        raise error("bad user path")
+
+    monkeypatch.setattr(import_module("probe.cli.run"), operation, broken)
+    result = run(tmp_path, "--only", "schema.tools_list_valid")
+    assert result.exit_code == 2, result.output
+    assert "bad user path" in result.output
+
+
+def test_output_directory_is_a_file_exits_usage(tmp_path):
+    (tmp_path / "out").write_text("occupied")
+    result = run(tmp_path, "--only", "schema.tools_list_valid")
+    assert result.exit_code == 2, result.output

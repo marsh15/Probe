@@ -275,9 +275,14 @@ def resolve_profile(profile: Profile, *, token: str, environ: Mapping[str, str])
             secrets.append(secret["value"])
     for identity in data["auth"]["identities"]:
         identity["token"] = fill(identity["token"], f"auth.identities.{identity['name']}")
-    return ResolvedProfile(
-        Profile.model_validate(data), tuple(dict.fromkeys(s for s in secrets if s))
-    )
+    try:
+        resolved = Profile.model_validate(data)
+    except ValidationError as exc:
+        problems = "; ".join(
+            f"{'.'.join(str(p) for p in e['loc'])}: {e['msg']}" for e in exc.errors()
+        )
+        raise ProfileError(f"resolved profile: {problems}") from exc
+    return ResolvedProfile(resolved, tuple(dict.fromkeys(s for s in secrets if s)))
 
 
 def parse_profile(text: str, source: str = "profile") -> Profile:

@@ -7,6 +7,7 @@ import json
 import os
 import re
 import stat
+import threading
 import time
 import uuid
 from collections.abc import Callable, Iterator, Sequence
@@ -272,6 +273,8 @@ class DockerEnv:
         self.seed_name = f"probe-seed-{self.scan_id}"
         self.containers: list[Any] = []
         self.ready = False
+        self._closing = False
+        self._resource_lock = threading.RLock()
 
     def create(self) -> Self:
         if self.ready:
@@ -322,18 +325,21 @@ class DockerEnv:
             raise
 
     def _container(self, role: str, spec: dict[str, Any]) -> Any:
-        if not self.ready:
-            raise RuntimeError("sandbox must be created first")
-        image = self.client.images.get(spec["image"])
-        declared = set(image.attrs.get("Config", {}).get("Volumes") or {})
-        mounted = {config["bind"] for config in spec.get("volumes", {}).values()}
-        if declared - mounted:
-            raise ValueError("image declares volumes that would create unowned anonymous volumes")
-        spec["image"] = image.id  # pin the inspected local image, avoiding tag replacement
-        spec["name"] = f"probe-{role}-{self.scan_id}-{uuid.uuid4().hex[:12]}"
-        container = self.client.containers.create(**spec)
-        self.containers.append(container)
-        return container
+        with self._resource_lock:
+            if self._closing or not self.ready:
+                raise RuntimeError("sandbox is closing or must be created first")
+            image = self.client.images.get(spec["image"])
+            declared = set(image.attrs.get("Config", {}).get("Volumes") or {})
+            mounted = {config["bind"] for config in spec.get("volumes", {}).values()}
+            if declared - mounted:
+                raise ValueError(
+                    "image declares volumes that would create unowned anonymous volumes"
+                )
+            spec["image"] = image.id  # pin the inspected local image, avoiding tag replacement
+            spec["name"] = f"probe-{role}-{self.scan_id}-{uuid.uuid4().hex[:12]}"
+            container = self.client.containers.create(**spec)
+            self.containers.append(container)
+            return container
 
     def create_target(
         self,
@@ -549,35 +555,37 @@ class DockerEnv:
         return f"http://127.0.0.1:{int(bindings[0]['HostPort'])}"
 
     def close(self) -> list[str]:
-        errors: list[str] = []
-        for container in list(reversed(self.containers)):
-            try:
-                self.remove_container(container)
-            except Exception as exc:
-                errors.append(f"{container.name}: {exc}")
-        for kind, network in list(reversed(self.networks.items())):
-            try:
-                remove_owned(network, self.scan_id)
-                del self.networks[kind]
-            except Exception as exc:
-                errors.append(f"{network.name}: {exc}")
-        if self.volume is not None:
-            try:
-                remove_owned(self.volume, self.scan_id)
-                self.volume = None
-            except Exception as exc:
-                errors.append(f"{self.names['data']}: {exc}")
-        if self.seed_volume is not None:
-            try:
-                remove_owned(self.seed_volume, self.scan_id)
-                self.seed_volume = None
-            except Exception as exc:
-                errors.append(f"{self.seed_name}: {exc}")
-        if not errors and self.lease is not None:
-            self.allocator.release(self.lease)
-            self.lease = None
-        self.ready = False
-        return errors
+        with self._resource_lock:
+            self._closing = True
+            errors: list[str] = []
+            for container in list(reversed(self.containers)):
+                try:
+                    self.remove_container(container)
+                except Exception as exc:
+                    errors.append(f"{container.name}: {exc}")
+            for kind, network in list(reversed(self.networks.items())):
+                try:
+                    remove_owned(network, self.scan_id)
+                    del self.networks[kind]
+                except Exception as exc:
+                    errors.append(f"{network.name}: {exc}")
+            if self.volume is not None:
+                try:
+                    remove_owned(self.volume, self.scan_id)
+                    self.volume = None
+                except Exception as exc:
+                    errors.append(f"{self.names['data']}: {exc}")
+            if self.seed_volume is not None:
+                try:
+                    remove_owned(self.seed_volume, self.scan_id)
+                    self.seed_volume = None
+                except Exception as exc:
+                    errors.append(f"{self.seed_name}: {exc}")
+            if not errors and self.lease is not None:
+                self.allocator.release(self.lease)
+                self.lease = None
+            self.ready = False
+            return errors
 
     def __enter__(self) -> Self:
         return self.create()
