@@ -355,6 +355,7 @@ async def test_without_llm_the_experiment_is_skipped_and_the_report_has_no_llm_b
     assert statuses(report)["behavior.agent_recovery"] is not Status.PASS  # nothing to judge
 
 
+@pytest.mark.timeout(400)  # two full standard scans of the refserver, ~1 min each when idle
 async def test_an_injected_judge_fills_the_llm_block_and_leaves_the_score_alone(
     tmp_path: Path, stdio_command: Any
 ) -> None:

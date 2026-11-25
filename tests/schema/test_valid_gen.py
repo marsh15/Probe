@@ -195,7 +195,9 @@ def stuck_draw(*args, **kwargs):
 
 
 @pytest.mark.skipif("fork" not in multiprocessing.get_all_start_methods(), reason="fork injection")
-@pytest.mark.parametrize("budget", [0.1, 5.0])
+# 0.5 s, not less: the worker computes the minimal fallback itself (a hostile regex can hold
+# the GIL), and forkserver start-up alone can exceed 0.1 s on a loaded CI runner.
+@pytest.mark.parametrize("budget", [0.5, 5.0])
 def test_stuck_draw_is_killed_and_partial_draws_are_discarded(monkeypatch, budget):
     monkeypatch.setattr(valid_gen, "_draw_candidates", stuck_draw)
     tool = classify_tool("stuck", {"type": "object"})
