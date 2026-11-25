@@ -116,6 +116,8 @@ def conclude(
     if unreproduced:
         cases = ", ".join(o.case.id for o in unreproduced[:3])
         return CheckOutcome.error(f"the target stopped on {cases} but it did not happen again")
+    if book is not None and kind in book.truncated:
+        return CheckOutcome.error(f"the {kind} campaign stopped before every case ran")
     return CheckOutcome()
 
 

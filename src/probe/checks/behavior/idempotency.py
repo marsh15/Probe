@@ -181,7 +181,6 @@ def _what(diff: Any) -> str:
         ("files removed", diff.removed),
         ("database tables changed", diff.sqlite_changed),
         ("backend records changed", diff.collections_changed),
-        ("backend writes", diff.backend_writes),
     ):
         if items:
             parts.append(f"{len(items)} {label}")

@@ -16,6 +16,7 @@ With TOOL_EXTRA=1 two more tools exist: ``list_items`` (read, paged, structured 
   accept_bogus  an unknown cursor is accepted
   big_output    the largest page is 2 MiB of text
   empty_error   a search with no match is a JSON-RPC error
+  search_unavailable  every search is a JSON-RPC error
   bad_output    structuredContent does not satisfy outputSchema
   no_mirror     structuredContent has no JSON text block
   racy          the answer says how many calls were in flight (calls run on threads)
@@ -109,6 +110,8 @@ def error(id_: Any, code: int, message: str) -> None:
 
 
 def list_items(id_: Any, arguments: dict[str, Any]) -> None:
+    if EXTRA_BEHAVIOR == "search_unavailable":
+        return error(id_, -32603, "search unavailable")
     cursor, query = arguments.get("cursor"), arguments.get("query")
     if cursor not in (None, "c3", "c6") and EXTRA_BEHAVIOR != "accept_bogus":
         return error(id_, -32602, "Invalid cursor")

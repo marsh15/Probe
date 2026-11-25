@@ -86,6 +86,8 @@ class MetaTolerated(Check):
         findings = []
         tested = 0
         for tool in ctx.callable_tools():
+            if tool.kind != "read":
+                continue
             args = await arguments(ctx, tool)
             if args is None:
                 continue
@@ -118,5 +120,5 @@ class MetaTolerated(Check):
         return (
             CheckOutcome(findings)
             if tested
-            else CheckOutcome.na("could not establish a successful baseline call")
+            else CheckOutcome.na("could not establish a successful baseline for a read tool")
         )

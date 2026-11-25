@@ -132,8 +132,6 @@ class InvalidInputRejected(Check):
             if o.case.tool in trusted
             and not (o.case.arguments is None and not required[o.case.tool])
         ]
-        if not malformed:
-            return CheckOutcome.na("could not establish a successful baseline call")
         bad: dict[str, list[Verdict]] = {}
         for o in malformed:
             if changed_anything(o.diff):
@@ -152,7 +150,12 @@ class InvalidInputRejected(Check):
             case_prefix="invalid-input",
             expect={"result": "an error, and no change in state"},
         )
-        return CheckOutcome(findings)
+        verdict = conclude(findings, [], book, "malformed")
+        if verdict.findings or verdict.status is not None:
+            return verdict
+        if not malformed:
+            return CheckOutcome.na("no malformed calls had a successful baseline")
+        return conclude([], [], book, "valid")
 
 
 @register
@@ -265,7 +268,7 @@ class ErrorsActionable(Check):
         schemas = {p.tool.name: p.tool.input_schema for p in book.plans}
         bad = [o for o in failed if not actionable(o.text(), _vocabulary(schemas[o.case.tool]))]
         if len(bad) / len(failed) <= _SHARE_BAD:
-            return CheckOutcome()
+            return conclude([], [], book, "malformed")
         samples = [{"case": o.case.id, "message": clip(o.text(), 120)} for o in bad[:_SAMPLES]]
         return CheckOutcome(
             [

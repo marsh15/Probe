@@ -17,7 +17,9 @@ from probe.checks.context import ScanConfig
 from probe.checks.schema.output import OutputConforms, StructuredTextMirror
 from probe.engine.outcomes import Severity, Status
 from probe.sandbox.fixtures import FixtureSet, FixtureState
-from tests.checks.protocol.harness import stdio_scan, with_listing
+from tests.checks.protocol.harness import ToolsServer, http_scan, stdio_scan, with_listing
+from tests.wire.fake_eras import Reply, error, result
+from tests.wire.fake_http import serve
 
 SERVER = Path(__file__).parent / "tool_server.py"
 
@@ -75,6 +77,65 @@ async def test_each_defect_is_caught(
     assert fragment in text, text
 
 
+async def test_empty_match_requires_a_successful_base_call(tmp_path: Path) -> None:
+    async with scan_of(tmp_path, "search_unavailable") as scan:
+        await with_listing(scan)
+        scan.ctx.tools = [t for t in scan.ctx.tools if t.name == "list_items"]
+        result = await scan.run(EmptyResultOk)
+    assert result.status is Status.NA, (result.status, result.reason)
+    assert not result.findings
+
+
+@pytest.mark.parametrize(
+    ("kind", "limited_calls", "status"),
+    [
+        ("http", 7, Status.PASS),
+        ("http-with-matching-rpc-error", 7, Status.PASS),
+        ("rpc", 7, Status.PASS),
+        ("tool", 8, Status.NA),
+    ],
+)
+async def test_concurrency_ignores_rate_limited_calls(
+    kind: str, limited_calls: int, status: Status, tmp_path: Path
+) -> None:
+    class RateLimitedPeer(ToolsServer):
+        calls = 0
+
+        def handle(self, msg, headers):
+            if msg.get("method") == "tools/call":
+                self.calls += 1
+                if self.calls > 2 and (self.calls - 3) % 8 < limited_calls:
+                    if kind == "http":
+                        return Reply(status=429, headers={"Retry-After": "1"})
+                    if kind == "http-with-matching-rpc-error":
+                        return error(msg["id"], -32000, "request rejected", status=429)
+                    if kind == "rpc":
+                        return error(msg["id"], -32000, "Rate limit exceeded")
+                    return result(
+                        msg["id"],
+                        {
+                            "isError": True,
+                            "content": [{"type": "text", "text": "Too many requests"}],
+                        },
+                    )
+            return super().handle(msg, headers)
+
+    peer = RateLimitedPeer(
+        tools=[
+            {
+                "name": "get_items",
+                "inputSchema": {"type": "object"},
+                "annotations": {"readOnlyHint": True},
+            }
+        ]
+    )
+    async with serve() as fake, http_scan(fake, tmp_path, server=peer) as scan:
+        await with_listing(scan)
+        verdict = await scan.run(ConcurrencyConsistent)
+    assert verdict.status is status, (verdict.status, verdict.reason, verdict.findings)
+    assert peer.calls == 10
+
+
 async def test_missing_structured_content_is_an_output_failure(tmp_path: Path) -> None:
     async with scan_of(tmp_path, "no_mirror") as scan:
         await with_listing(scan)
@@ -126,6 +187,29 @@ async def test_an_idempotent_tool_that_repeats_its_write_fails(tmp_path: Path) -
 
 async def test_an_honest_idempotent_tool_passes(tmp_path: Path) -> None:
     assert (await replay(tmp_path, "clean", hint="1")).status is Status.PASS
+
+
+async def test_identical_backend_put_without_state_change_passes_replay(tmp_path: Path) -> None:
+    class PutFixtures(CounterFixtures):
+        snapshots = 0
+
+        async def snapshot(self) -> FixtureState:
+            self.snapshots += 1
+            state = await super().snapshot()
+            return FixtureState(
+                fs=state.fs,
+                log_length=self.snapshots,
+                requests=[{"method": "PUT", "sequence": self.snapshots, "path": "/c/items/1"}],
+            )
+
+    counter = tmp_path / "count"
+    counter.write_text("")
+    async with scan_of(tmp_path / "scan", TOOL_COUNT_FILE=str(counter), ADD_HINT="1") as scan:
+        await with_listing(scan)
+        scan.ctx.config = ScanConfig(mode="standard", allow_side_effects=True)
+        scan.ctx.fixtures = PutFixtures(counter)
+        result = await scan.run(ReplayIdempotent)
+    assert result.status is Status.PASS, [f.message for f in result.findings]
 
 
 async def test_repeating_without_a_promise_is_only_a_note(tmp_path: Path) -> None:

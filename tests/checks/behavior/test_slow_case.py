@@ -1,11 +1,16 @@
 """Recognizing a slow-capable tool from its schema, and the profile override."""
 
+from types import SimpleNamespace
 from typing import Any
+from unittest.mock import AsyncMock, Mock
 
 from probe.checks.behavior._slow import BLOCKING_SECONDS, CANCEL_SECONDS, _guess, slow_case
+from probe.checks.behavior.slow import NoHeadOfLineBlocking
+from probe.checks.context import ScanConfig
 from probe.config.profile import Profile
-from probe.engine.outcomes import ToolInfo
-from tests.engine.fakes import make_context
+from probe.engine.outcomes import Status, ToolInfo
+from probe.engine.scan import run_checks
+from tests.engine.fakes import DyingServer, FakeRunner, make_context
 
 
 def tool_with(name: str, properties: dict[str, Any], required: list[str] | None = None) -> ToolInfo:
@@ -68,3 +73,24 @@ async def test_the_profile_names_a_slow_case() -> None:
     ctx.profile = profile
     found = slow_case(ctx)
     assert found is not None and found.arguments == {"rows": 100000}
+
+
+async def test_head_of_line_scales_the_list_latency_limit(monkeypatch) -> None:
+    class SlowPeer(DyingServer):
+        def handle(self, msg, headers):
+            if msg.get("method") == "tools/call":
+                return None
+            return super().handle(msg, headers)
+
+    ctx, _ = await make_context(
+        tools=[tool_with("slow_report", {"seconds": {"type": "number"}})],
+        runner=FakeRunner(SlowPeer),
+        config=ScanConfig(timeout_scale=2),
+    )
+    clock = SimpleNamespace(time=Mock(side_effect=[0, 3]))
+    monkeypatch.setattr(
+        "probe.checks.behavior.slow.asyncio",
+        SimpleNamespace(get_running_loop=lambda: clock, sleep=AsyncMock()),
+    )
+    [result] = await run_checks(ctx, [NoHeadOfLineBlocking])
+    assert result.status is Status.PASS, [f.message for f in result.findings]

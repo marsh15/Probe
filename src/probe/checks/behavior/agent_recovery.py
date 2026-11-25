@@ -18,6 +18,8 @@ from probe.checks.context import ScanContext
 from probe.checks.protocol._support import ALL_MODES
 from probe.checks.registry import register
 from probe.checks.support import make_finding
+from probe.engine.budget import BudgetExhausted
+from probe.engine.crash import TargetCrashed, TargetUnstable
 from probe.engine.outcomes import (
     CheckMeta,
     DisclosureTier,
@@ -79,7 +81,6 @@ async def _attempt(
 ) -> bool:
     if proposal.args is None or not _fits(tool.input_schema, proposal.args):
         return False
-    ctx.budget.take()
     reply = await ctx.call(tool.name, proposal.args, case_id=f"recovery:{outcome.case.id}")
     return reply.ok
 
@@ -133,31 +134,36 @@ class AgentRecovery(Check):
                 args = outcome.case.arguments
                 with_error = await _ask(judge, tool, args, outcome.text(), tally)
                 without = await _ask(judge, tool, args, None, tally)
-                tally.cases += 1
-                tally.recovered_with_error += await _attempt(ctx, tool, outcome, with_error)
-                tally.recovered_without_error += await _attempt(ctx, tool, outcome, without)
-            except LlmBudgetExhausted:
+                recovered_with = await _attempt(ctx, tool, outcome, with_error)
+                recovered_without = await _attempt(ctx, tool, outcome, without)
+            except (BudgetExhausted, LlmBudgetExhausted, TargetUnstable):
                 tally.skipped += 1
                 break
-            except JudgeError:
+            except (JudgeError, TargetCrashed):
                 tally.skipped += 1
-        if tally.cases == 0:
-            reason = (
-                "the LLM budget ran out before any case ran"
+                if ctx.crashes.unstable:
+                    break
+                continue
+            tally.cases += 1
+            tally.recovered_with_error += recovered_with
+            tally.recovered_without_error += recovered_without
+        recovery_a = tally.rate(tally.recovered_with_error)
+        recovery_b = tally.rate(tally.recovered_without_error)
+        if tally.cases or tally.cost_usd or tally.cache_hits:
+            ctx.scratch[STATS_KEY] = {
+                "model": judge.model,
+                "recovery_rate": recovery_a,
+                "lift": round(recovery_a - recovery_b, 1),
+                "cases": tally.cases,
+                "cache_hits": tally.cache_hits,
+                "cost_usd": round(tally.cost_usd, 6),
+            }
+        if not tally.cases:
+            return CheckOutcome.na(
+                "no recovery case completed"
                 if tally.skipped
                 else "no malformed call produced an error to learn from"
             )
-            return CheckOutcome.na(reason)
-        recovery_a = tally.rate(tally.recovered_with_error)
-        recovery_b = tally.rate(tally.recovered_without_error)
-        ctx.scratch[STATS_KEY] = {
-            "model": judge.model,
-            "recovery_rate": recovery_a,
-            "lift": round(recovery_a - recovery_b, 1),
-            "cases": tally.cases,
-            "cache_hits": tally.cache_hits,
-            "cost_usd": round(tally.cost_usd, 6),
-        }
         summary = (
             f"An agent recovered from {tally.recovered_with_error} of {tally.cases} malformed "
             f"calls with the server's error message and {tally.recovered_without_error} without "

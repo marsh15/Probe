@@ -15,6 +15,7 @@ from probe.checks.behavior.input_handling import (
     actionable,
 )
 from probe.checks.behavior.survival import SurvivesCampaign
+from probe.engine.budget import Budget
 from probe.engine.outcomes import Severity, Status
 from tests.checks.protocol.harness import Scan, stdio_scan, with_listing
 
@@ -94,6 +95,23 @@ async def test_generic_error_messages_are_flagged(tmp_path: Path) -> None:
         result = await run(scan, ErrorsActionable)
     assert result.status is Status.FAIL
     assert result.findings[0].severity is Severity.LOW
+
+
+@pytest.mark.parametrize("check", [InvalidInputRejected, ErrorsActionable])
+async def test_partial_malformed_campaign_cannot_pass(check: Any, tmp_path: Path) -> None:
+    from probe.checks.behavior._campaign import campaign, outcomes
+
+    async with scan_of("clean", tmp_path) as scan:
+        await with_listing(scan)
+        book = await campaign(scan.ctx)
+        assert len(book.plans[0].malformed) > 3
+        if check is InvalidInputRejected:
+            await outcomes(scan.ctx, "valid")
+        scan.ctx.budget = Budget(3)
+        result = await scan.run(check)
+        assert "malformed" in book.truncated
+    assert result.status is Status.ERROR, result.reason
+    assert not result.findings
 
 
 async def test_a_server_that_never_crashes_survives(tmp_path: Path) -> None:

@@ -182,7 +182,8 @@ class TasksLifecycle(Check):
                 "; ".join(shape.problems),
                 tool.name,
             )
-        deadline = min(request_timeout(ctx.config.mode, ctx.config.timeout_scale) * 4, 30.0)
+        scale = ctx.config.timeout_scale
+        deadline = min(request_timeout(ctx.config.mode, scale) * 4, 30.0 * scale)
         polled = await wait_for_terminal(
             run.send, shape or task, deadline_s=deadline, policy=input_policy(ctx)
         )
@@ -225,7 +226,9 @@ class TasksLifecycle(Check):
                 tool.name,
             )
             return
-        polled = await wait_for_terminal(run.send, second, deadline_s=_SETTLE_S)
+        polled = await wait_for_terminal(
+            run.send, second, deadline_s=_SETTLE_S * ctx.config.timeout_scale
+        )
         if polled.task is not None and polled.task.problems:
             run.fail(
                 "cancel-shape",

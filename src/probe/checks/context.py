@@ -334,7 +334,7 @@ class ScanContext:
             return False
         return await self.liveness()
 
-    async def liveness(self) -> bool:
+    async def liveness(self, *, case_id: str | None = None) -> bool:
         """Is the target still answering? Any reply, even an error, counts as alive.
 
         A dead or hung target is recorded as a crash and restarted. Not budgeted.
@@ -342,11 +342,13 @@ class ScanContext:
         if self._dead_for_good:
             return False
         try:
-            await self.client.request("tools/list", timeout=LIVENESS_TIMEOUT_S)
+            await self.client.request(
+                "tools/list", timeout=LIVENESS_TIMEOUT_S * self.config.timeout_scale
+            )
         except (TransportClosed, RequestTimeout, HttpRequestFailed) as exc:
             if isinstance(exc, HttpRequestFailed) and exc.status is not None:
                 return True  # it answered over HTTP, just not with a JSON-RPC response
-            await self._handle_death(None, reason=type(exc).__name__)
+            await self._handle_death(case_id, reason=type(exc).__name__)
             return False
         return True
 

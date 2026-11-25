@@ -143,6 +143,19 @@ async def test_meta_does_not_blame_metadata_for_state_that_changed_since_the_bas
     assert out.status == Status.NA, out.reason
 
 
+async def test_meta_does_not_repeat_a_non_idempotent_write():
+    peer = Peer()
+    peer.healthy_calls = 1
+    out, _, _ = await verdict(
+        MetaTolerated,
+        runner=FakeRunner(lambda: peer),
+        tools=[tool("create_note", "write")],
+        config=ScanConfig(allow_side_effects=True),
+    )
+    assert out.status == Status.NA, out.reason
+    assert peer.calls == 0
+
+
 @pytest.mark.parametrize("check", [TracePropagated, LogsNoSecrets])
 async def test_fixture_checks_skip_without_fixtures(check):
     out, _, _ = await verdict(check)
@@ -186,6 +199,8 @@ async def test_burst_shrinks_with_an_info_observation():
     "kind,status",
     [
         ("ok", Status.PASS),
+        ("status-in-success", Status.PASS),
+        ("backend-5xx", Status.FAIL),
         ("rate", Status.PASS),
         ("error", Status.FAIL),
         ("garbled", Status.FAIL),
@@ -202,7 +217,18 @@ async def test_burst_response_shapes(kind, status):
 
     response = ResultResponse(1, good)
     reply = Exchange(response)
-    if kind in {"rate", "error"}:
+    if kind in {"status-in-success", "backend-5xx"}:
+        reply = Exchange(
+            ResultResponse(
+                1,
+                {
+                    **good,
+                    "isError": kind == "backend-5xx",
+                    "content": [{"type": "text", "text": "status=503"}],
+                },
+            )
+        )
+    elif kind in {"rate", "error"}:
         reply = Exchange(
             ResultResponse(
                 1,
@@ -274,15 +300,17 @@ async def test_only_secret_sentinel_in_logs_fails(source):
     sensitive.param_roles["token"] = "sensitive_param"
     sensitive.input_schema = {"type": "object", "properties": {"token": {"type": "string"}}}
     ctx, runner = await make_context(tools=[sensitive], fixtures=fixtures)
-    sentinel = f"probe-sensitive-{fixtures.token}"
+    sentinel = ""
     if source == "stderr":
         ctx.client.transport.stderr_tail = lambda n=4096: sentinel
     if source == "container":
-        runner.logs = AsyncMock(return_value=sentinel)
+        runner.logs = AsyncMock(side_effect=lambda: sentinel)
     original = ctx.call
 
     async def call(name, arguments, **kwargs):
-        assert arguments["token"] == sentinel
+        nonlocal sentinel
+        sentinel = arguments["token"]
+        assert sentinel.startswith(f"probe-sensitive-{fixtures.token}")
         reply = await original(name, arguments, **kwargs)
         if source == "notification":
             ctx.client.transport._receive(
@@ -302,6 +330,40 @@ async def test_only_secret_sentinel_in_logs_fails(source):
 async def test_logs_na_without_sensitive_callable_parameters():
     out, _, _ = await verdict(LogsNoSecrets, fixtures=Fixtures())
     assert out.status == Status.NA
+
+
+@pytest.mark.parametrize("source", ["stderr", "container", "notification"])
+async def test_logs_attribute_a_secret_only_to_the_tool_that_received_it(source):
+    fixtures = Fixtures()
+    tools = [tool(name, flags=["sensitive_param"]) for name in ("read_first", "read_second")]
+    for sensitive in tools:
+        sensitive.param_roles["token"] = "sensitive_param"
+        sensitive.input_schema = {"type": "object", "properties": {"token": {"type": "string"}}}
+    ctx, runner = await make_context(tools=tools, fixtures=fixtures)
+    logged = ""
+    if source == "stderr":
+        ctx.client.transport.stderr_tail = lambda n=4096: logged
+    if source == "container":
+        runner.logs = AsyncMock(side_effect=lambda: logged)
+    original = ctx.call
+
+    async def call(name, arguments, **kwargs):
+        nonlocal logged
+        reply = await original(name, arguments, **kwargs)
+        if name == "read_first":
+            logged = arguments["token"]
+            if source == "notification":
+                ctx.client.transport._receive(
+                    parse_line(
+                        encode(Notification("notifications/message", {"data": logged}).to_obj())
+                    )
+                )
+        return reply
+
+    ctx.call = call
+    [out] = await run_checks(ctx, [LogsNoSecrets])
+    assert out.status == Status.FAIL
+    assert [finding.tool for finding in out.findings] == ["read_first"]
 
 
 @pytest.mark.parametrize("killed,status", [(False, Status.PASS), (True, Status.FAIL)])

@@ -224,6 +224,8 @@ class EmptyResultOk(Check):
             for name in self._queries(plan.tool)[:1]:
                 if base is None or not _valid(plan.tool, {**base, name: needle}):
                     continue
+                if not (await run_case(ctx, _case(plan.tool, "no-match-baseline", 0, base))).ok:
+                    continue
                 outcome = await run_case(
                     ctx, _case(plan.tool, "no-match", 0, {**base, name: needle})
                 )
@@ -239,7 +241,7 @@ class EmptyResultOk(Check):
                     continue
                 bad.setdefault(plan.tool.name, []).append(Verdict(outcome, reason))
         if not judged:
-            return CheckOutcome.na("no query tool accepted a made-up search term")
+            return CheckOutcome.na("no eligible query tool had a successful baseline call")
         findings = tool_findings(
             self,
             ctx,

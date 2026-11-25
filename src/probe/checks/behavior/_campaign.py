@@ -63,6 +63,7 @@ class Outcome:
     hung: bool = False
     slow: bool = False  # no answer in time, but the target is alive
     reproduced: bool = False  # the crash or hang happened again when the case was repeated
+    retry_crashed: bool = False  # the repeat of a timed-out request crashed instead
     diff: StateDiff | None = None
 
     @property
@@ -129,7 +130,7 @@ class Campaign:
     plans: list[ToolPlan] = field(default_factory=list)
     skipped_tools: list[str] = field(default_factory=list)
     outcomes: dict[CaseKind, list[Outcome]] = field(default_factory=dict)
-    truncated: set[CaseKind] = field(default_factory=set)  # stopped early: budget spent
+    truncated: set[CaseKind] = field(default_factory=set)  # stopped early: budget or failed retry
     unstable: set[CaseKind] = field(default_factory=set)  # stopped early: the target kept dying
     notes: list[str] = field(default_factory=list)
 
@@ -210,7 +211,8 @@ async def campaign(ctx: ScanContext) -> Campaign:
 async def _send(ctx: ScanContext, case: Case) -> Outcome:
     outcome = Outcome(case)
     params = outcome.params
-    timeout = min(request_timeout(ctx.config.mode, ctx.config.timeout_scale), _CASE_TIMEOUT_S)
+    scale = ctx.config.timeout_scale
+    timeout = min(request_timeout(ctx.config.mode, scale), _CASE_TIMEOUT_S * scale)
     try:
         exchange = await ctx.exchange("tools/call", params, timeout=timeout, case_id=case.id)
     except TargetCrashed:
@@ -224,14 +226,18 @@ async def _send(ctx: ScanContext, case: Case) -> Outcome:
     if not exchange.timed_out:
         return outcome
     # Taking long is not hanging: a slow tool that still answers other requests is merely slow.
-    if await ctx.liveness():
+    if await ctx.liveness(case_id=case.id):
         outcome.slow = True
         return outcome
     outcome.hung = True
-    again = await ctx.exchange("tools/call", params, timeout=timeout, case_id=case.id)
+    try:
+        again = await ctx.exchange("tools/call", params, timeout=timeout, case_id=case.id)
+    except TargetCrashed:
+        outcome.retry_crashed = True
+        return outcome
     outcome.reproduced = again.timed_out
     if again.timed_out:
-        await ctx.liveness()
+        await ctx.liveness(case_id=case.id)
     return outcome
 
 
@@ -252,25 +258,24 @@ def changed_anything(diff: StateDiff | None) -> bool:
         diff.changed
         or diff.added
         or diff.removed
-        or diff.backend_writes
         or diff.sqlite_changed
         or diff.collections_changed
     )
 
 
 async def outcomes(ctx: ScanContext, kind: CaseKind) -> list[Outcome]:
-    """Every planned case of ``kind``, run once per scan. Stops early when the budget is spent;
-    ``Campaign.truncated`` then names the kind."""
+    """Run and cache the cases of ``kind``, recording when the campaign is interrupted."""
     book = await campaign(ctx)
     if kind in book.outcomes:
         return book.outcomes[kind]
     done: list[Outcome] = []
     book.outcomes[kind] = done  # a target that becomes unstable mid-way keeps what it has
+    slow_tool_ms = _SLOW_TOOL_S * ctx.config.timeout_scale * 1000
     for plan in book.plans:
         watch = kind == "malformed" and plan.tool.kind in WRITE_KINDS
         spent_ms = 0.0
         for case in plan.cases(kind):
-            if spent_ms > _SLOW_TOOL_S * 1000:
+            if spent_ms > slow_tool_ms:
                 book.notes.append(
                     f"{plan.tool.name}: slow, so its remaining {kind} cases were skipped"
                 )
@@ -281,11 +286,14 @@ async def outcomes(ctx: ScanContext, kind: CaseKind) -> list[Outcome]:
                 book.truncated.add(kind)
                 return done
             except TargetUnstable:
+                book.unstable.add(kind)
                 if not done:
                     raise
-                book.unstable.add(kind)
                 return done
             done.append(outcome)
+            if outcome.retry_crashed:
+                book.truncated.add(kind)
+                return done
             spent_ms += outcome.elapsed_ms
             if kind == "valid" and outcome.response is not None:
                 ctx.record_baseline(

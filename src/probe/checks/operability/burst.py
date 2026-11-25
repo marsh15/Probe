@@ -39,11 +39,11 @@ def problem(reply: Exchange, version: str) -> str | None:
     problems = definition_problems(result, "CallToolResult", version)
     if problems:
         return f"garbled tool result: {'; '.join(problems)}"
-    if isinstance(result, dict):
+    if isinstance(result, dict) and result.get("isError") is True:
         text = json.dumps(result.get("content", []), ensure_ascii=False)
         if _SERVER_ERROR.search(text):
             return "burst call reported a backend 5xx error"
-        if result.get("isError") is True and not _RATE.search(text):
+        if not _RATE.search(text):
             return _UNEXPLAINED_ERROR
     return None
 

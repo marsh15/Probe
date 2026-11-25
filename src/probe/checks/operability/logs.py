@@ -28,27 +28,30 @@ class LogsNoSecrets(Check):
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         if ctx.fixtures is None:
             return CheckOutcome.na("no fixtures")
-        sentinel = f"probe-sensitive-{ctx.fixtures.token}"
         findings = []
         tested = 0
-        notifications: list[str] = []
+        sentinel: str | None = None
+        notification_has_sentinel = False
 
         async def collect() -> None:
+            nonlocal notification_has_sentinel
             async for notification in ctx.client.transport.notifications():
-                if notification.method == "notifications/message":
+                if sentinel is not None and notification.method == "notifications/message":
                     text = json.dumps(notification.params, ensure_ascii=False)
                     if sentinel in text:
-                        notifications.append("notifications/message")
+                        notification_has_sentinel = True
 
         collector = asyncio.create_task(collect())
         try:
-            for tool in ctx.callable_tools():
+            for index, tool in enumerate(ctx.callable_tools()):
                 if "sensitive_param" not in tool.flags:
                     continue
                 names = [k for k, role in tool.param_roles.items() if role == "sensitive_param"]
                 args = await arguments(ctx, tool)
                 if not names or args is None:
                     continue
+                sentinel = f"probe-sensitive-{ctx.fixtures.token}-{index:08x}"
+                notification_has_sentinel = False
                 args.update(dict.fromkeys(names, sentinel))
                 try:
                     await ctx.call(tool.name, args, case_id=f"secret-log:{slug(tool.name)}")
@@ -56,11 +59,13 @@ class LogsNoSecrets(Check):
                     break
                 tested += 1
                 await asyncio.sleep(0)  # let the notification consumer and stderr reader drain
-                sources = list(notifications)
+                sources = []
                 if sentinel in ctx.client.transport.stderr_tail(STDERR_RING_BYTES):
                     sources.append("stderr")
                 if sentinel in await ctx.runner.logs():
                     sources.append("runner logs")
+                if notification_has_sentinel:
+                    sources.append("notifications/message")
                 if sources:
                     findings.append(
                         observation(
