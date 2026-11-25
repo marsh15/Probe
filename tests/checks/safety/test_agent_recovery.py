@@ -4,10 +4,16 @@ from pathlib import Path
 
 import pytest
 
+from probe.checks.behavior._campaign import SCRATCH_KEY, Campaign, Outcome
 from probe.checks.behavior.agent_recovery import STATS_KEY, AgentRecovery
 from probe.engine.outcomes import Status
+from probe.engine.scan import run_checks
 from probe.llm import FakeJudge
+from probe.schema.cases import Case
+from probe.wire.jsonrpc import ErrorObject, ErrorResponse
+from probe.wire.session import Exchange
 from tests.checks.safety.scan import safety_scan
+from tests.engine.fakes import make_context, tool
 
 
 async def run(sentinel_data: Path, tmp_path: Path, bug: str, judge: FakeJudge | None) -> tuple:
@@ -60,6 +66,38 @@ async def test_without_a_judge_the_check_is_skipped(sentinel_data: Path, tmp_pat
     result, stats = await run(sentinel_data, tmp_path, "", None)
     assert result.status is Status.SKIPPED and stats is None
     assert "--llm" in (result.reason or "")
+
+
+@pytest.mark.parametrize("interruption", ["budget", "crash"])
+async def test_recovery_keeps_completed_pairs_when_a_later_attempt_is_interrupted(
+    interruption: str,
+) -> None:
+    names = ["read_it", "boom" if interruption == "crash" else "read_more"]
+    tools = [tool(name) for name in names]
+    for read in tools:
+        read.input_schema = {"type": "object", "required": ["name"]}
+    ctx, _ = await make_context(
+        tools=tools, budget_calls=1 if interruption == "budget" else 4, llm=FakeJudge()
+    )
+    ctx.scratch[SCRATCH_KEY] = Campaign(
+        outcomes={
+            "malformed": [
+                Outcome(
+                    Case(name, "malformed", "missing-name", 0, {}),
+                    exchange=Exchange(ErrorResponse(1, ErrorObject(-32602, "name is required"))),
+                )
+                for name in names
+            ]
+        }
+    )
+
+    [result] = await run_checks(ctx, [AgentRecovery])
+    assert result.status is Status.PASS, result.reason
+    assert result.calls == ctx.budget.used == (1 if interruption == "budget" else 2)
+    assert len(ctx.crashes.events) == (1 if interruption == "crash" else 0)
+    assert ctx.scratch[STATS_KEY]["cases"] == 1
+    assert ctx.scratch[STATS_KEY]["recovery_rate"] == 100
+    assert "1 case(s) were not run" in result.findings[0].message
 
 
 @pytest.mark.parametrize("quick", [True])

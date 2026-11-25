@@ -9,6 +9,7 @@ import shutil
 import sys
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -18,6 +19,7 @@ from probe.checks.behavior.slow import CancellationHonored, NoHeadOfLineBlocking
 from probe.checks.behavior.stateless import StatelessConsistent
 from probe.checks.behavior.tasks import TasksLifecycle
 from probe.engine.outcomes import Status
+from probe.wire.tasks import wait_for_terminal
 from tests.checks.protocol.harness import stdio_scan, with_listing
 from tests.conftest import refserver_env
 
@@ -68,3 +70,22 @@ async def test_each_bug_fails_its_check(bug: str, seeded_data: Path, tmp_path: P
     result = results[check.meta.id]
     assert result.status is Status.FAIL, describe(results)
     assert result.findings[0].repro.steps, "a finding must say how to reproduce it"
+
+
+async def test_task_lifecycle_scales_the_polling_cap(
+    seeded_data: Path, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    wait = AsyncMock(wraps=wait_for_terminal)
+    monkeypatch.setattr("probe.checks.behavior.tasks.wait_for_terminal", wait)
+    argv = [sys.executable, "-m", "refserver", "stdio"]
+    data = tmp_path / "data"
+    shutil.copytree(seeded_data, data)
+    async with stdio_scan(argv, tmp_path / "scan", env=refserver_env(data), mode="deep") as scan:
+        scan.ctx.config = dataclasses.replace(
+            scan.ctx.config, allow_side_effects=True, timeout_scale=2
+        )
+        await with_listing(scan)
+        result = await scan.run(TasksLifecycle)
+    assert result.status is Status.PASS, describe({result.check_id: result})
+    assert wait.await_args_list[0].kwargs["deadline_s"] == 60.0
+    assert wait.await_args_list[1].kwargs["deadline_s"] == 10.0

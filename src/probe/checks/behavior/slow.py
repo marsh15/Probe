@@ -155,18 +155,20 @@ class NoHeadOfLineBlocking(Check):
         case = slow_case(ctx, BLOCKING_SECONDS)
         if case is None:
             return CheckOutcome.na("no slow-capable tool")
-        call = await start_call(ctx, case, timeout=case.seconds + 15)
+        scale = ctx.config.timeout_scale
+        list_limit = _LIST_LIMIT_S * scale
+        call = await start_call(ctx, case, timeout=case.seconds + 15 * scale)
         try:
             await asyncio.sleep(_CANCEL_AFTER_S)
             if call.task.done():
                 return CheckOutcome.na("the slow call finished too quickly to overlap")
             started = asyncio.get_running_loop().time()
-            exchange = await ctx.exchange("tools/list", timeout=case.seconds + 10)
+            exchange = await ctx.exchange("tools/list", timeout=case.seconds + 10 * scale)
             elapsed = asyncio.get_running_loop().time() - started
             await cancel_call(ctx, call)
         finally:
             await abandon(call)
-        if not exchange.timed_out and elapsed <= _LIST_LIMIT_S:
+        if not exchange.timed_out and elapsed <= list_limit:
             return CheckOutcome()
         return CheckOutcome(
             [
@@ -177,7 +179,7 @@ class NoHeadOfLineBlocking(Check):
                     title=f"tools/list waited for a slow {case.tool.name} call",
                     message=(
                         f"tools/list took {elapsed:.1f} s while {case.tool.name} was running "
-                        f"(limit {_LIST_LIMIT_S:.0f} s)"
+                        f"(limit {list_limit:g} s)"
                     ),
                     tool=case.tool.name,
                     case_id=f"head-of-line:{case.tool.name}",
@@ -187,7 +189,7 @@ class NoHeadOfLineBlocking(Check):
                         ),
                         request_step("tools/list"),
                     ],
-                    expect={"tools_list_s": f"under {_LIST_LIMIT_S:.0f}"},
+                    expect={"tools_list_s": f"under {list_limit:g}"},
                     observations=_observed(case, elapsed, exchange.timed_out),
                 )
             ]
