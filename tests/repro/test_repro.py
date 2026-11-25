@@ -240,3 +240,28 @@ def test_stdio_script_shows_the_bug_on_the_real_refserver(stdio_command: Any) ->
     assert "resultType" in answer("") and "notes_get" in answer("")
     buggy = answer("b03")
     assert "notes_get" in buggy and "resultType" not in buggy
+
+
+def test_bundle_redacts_secrets_in_command_url_env_and_export(tmp_path: Path) -> None:
+    from probe.config.profile import parse_profile
+    from probe.engine.runscan import RunConfig
+    from probe.report.models import ScanReport
+    from probe.repro.bundle import bundle_for
+    from tests.report.test_formats import load
+
+    secret = "fake-private-token-0123456789"
+    cfg = RunConfig(
+        out_dir=tmp_path,
+        command=["server", secret],
+        url=f"http://localhost/?key={secret}",
+        secret_env=["TOKEN"],
+        target_env={"TOKEN": secret, "OTHER": secret},
+        profile=parse_profile(
+            "version: 1\ntarget:\n  secrets:\n    KEY: {value: " + secret + ", real: true}\n"
+        ),
+    )
+    scan_report = load("buggy")
+    assert isinstance(scan_report, ScanReport)
+    bundle = bundle_for(scan_report.findings[0], scan_report, cfg)
+    assert secret not in bundle.model_dump_json()
+    assert secret not in export_script(bundle)

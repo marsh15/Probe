@@ -24,7 +24,6 @@ async def server() -> AsyncIterator[tuple[str, ServerState]]:
     "host",
     [
         "localhost",
-        "sub.localhost",
         "LOCALHOST.",
         "127.0.0.1",
         "127.9.9.9",
@@ -36,7 +35,6 @@ async def server() -> AsyncIterator[tuple[str, ServerState]]:
         "169.254.169.254",
         "fe80::1",
         "fd00::1",
-        "100.64.0.1",  # carrier-grade NAT: not global
     ],
 )
 async def test_local_and_private_addresses_are_recognized(host: str) -> None:
@@ -153,3 +151,19 @@ async def test_default_headers_are_sent(server: tuple[str, ServerState]) -> None
     await transport.request(Request(1, "x").to_obj(), timeout=5)
     assert server[1].seen[0]["headers"]["authorization"] == "Bearer t0ken"
     await runner.stop()
+
+
+@pytest.mark.parametrize(
+    "host",
+    ["100.64.0.1", "64:ff9b::a00:1", "2001::1", "192.0.0.1", "0.0.0.0"],  # noqa: S104
+)
+async def test_shared_and_transition_addresses_require_permission(host: str) -> None:
+    assert not await is_local_or_private(host)
+
+
+async def test_localhost_subdomains_are_resolved(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def external(*args: object, **kwargs: object) -> list[tuple[object, ...]]:
+        return [(socket.AF_INET, 0, 0, "", ("8.8.8.8", 0))]
+
+    monkeypatch.setattr(asyncio.get_running_loop(), "getaddrinfo", external)
+    assert not await is_local_or_private("host.localhost")

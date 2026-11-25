@@ -25,6 +25,7 @@ from probe.engine.outcomes import (
     Severity,
     Transport,
 )
+from probe.util.redact import REDACTED
 
 _MAX_FINDINGS = 10
 _TOOLS_TRIGGERED = 6
@@ -32,7 +33,10 @@ _FAULT_CALLS = 2
 _GENERIC = (
     ("AWS access key", re.compile(r"AKIA[0-9A-Z]{16}")),
     ("GitHub token", re.compile(r"gh[pousr]_[A-Za-z0-9]{36,}")),
-    ("private key", re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----")),
+    (
+        "private key",
+        re.compile(r"-----BEGIN ([A-Z ]*PRIVATE KEY)-----.*?(?:-----END \1-----|$)", re.DOTALL),
+    ),
     ("API key", re.compile(r"sk-[A-Za-z0-9]{20,}")),
 )
 _MIN_SECRET = 8
@@ -52,14 +56,25 @@ def _injected(ctx: ScanContext) -> list[str]:
 
 def _leaks(text: str, injected: list[str]) -> list[tuple[Severity, str, str]]:
     found: list[tuple[Severity, str, str]] = []
+    masked = text
+    for _, pattern in _GENERIC:
+        masked = pattern.sub(REDACTED, masked)
+
+    def sample(at: int) -> str:
+        prefix = text[:at]
+        for _, pattern in _GENERIC:
+            prefix = pattern.sub(REDACTED, prefix)
+        return excerpt(masked, len(prefix))
+
     for value in injected:
         at = text.find(value)
         if at >= 0:
-            found.append((Severity.HIGH, "injected secret", excerpt(text, at)))
+            found.append((Severity.HIGH, "injected secret", sample(at)))
     for label, pattern in _GENERIC:
         match = pattern.search(text)
         if match:
-            found.append((Severity.MEDIUM, label, excerpt(text, match.start())))
+            # Mask all matches before excerpting; a nearby credential must not leak either.
+            found.append((Severity.MEDIUM, label, sample(match.start())))
     return found
 
 

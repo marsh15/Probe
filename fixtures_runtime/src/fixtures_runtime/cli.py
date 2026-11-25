@@ -3,6 +3,7 @@
 import argparse
 import asyncio
 import json
+import os
 import signal
 import socket
 import sys
@@ -147,7 +148,14 @@ async def serve_relay(args):
     for signum in (signal.SIGINT, signal.SIGTERM):
         loop.add_signal_handler(signum, stop.set)
     try:
-        async with Relay(args.target_host, args.target_port, args.listen_host, args.listen_port):
+        async with Relay(
+            args.target_host,
+            args.target_port,
+            args.listen_host,
+            args.listen_port,
+            target_subnet=os.environ.get("PROBE_RELAY_TARGET_SUBNET"),
+            idle_timeout=float(os.environ.get("PROBE_RELAY_IDLE_TIMEOUT", "60")),
+        ):
             await stop.wait()
     finally:
         for signum in (signal.SIGINT, signal.SIGTERM):

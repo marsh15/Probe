@@ -17,8 +17,9 @@ from typing import Any
 from pydantic import Field
 
 from probe.engine.outcomes import Finding, StrictModel
-from probe.engine.runscan import TRACE_FILE, RunConfig
+from probe.engine.runscan import TRACE_FILE, RunConfig, _resolve, _secrets
 from probe.report.models import ScanReport
+from probe.util.redact import Redactor
 
 BUNDLE_DIR = "repro"
 BUNDLE_FILE = "repro.json"
@@ -71,7 +72,7 @@ class ReproBundle(StrictModel):
 
 def bundle_for(finding: Finding, report: ScanReport, cfg: RunConfig) -> ReproBundle:
     secret_names = set(cfg.secret_env)
-    return ReproBundle(
+    bundle = ReproBundle(
         finding_id=finding.finding_id,
         check_id=finding.check_id,
         tool=finding.tool,
@@ -104,6 +105,10 @@ def bundle_for(finding: Finding, report: ScanReport, cfg: RunConfig) -> ReproBun
         steps=finding.repro.steps,
         expect=finding.repro.expect,
     )
+
+    resolved, environ = _resolve(cfg)
+    redactor = Redactor(_secrets(cfg, resolved, environ))
+    return ReproBundle.model_validate(redactor.redact_json(bundle.model_dump(mode="json")))
 
 
 def _trace_excerpt(trace: Path, indexes: Iterable[int]) -> list[str]:

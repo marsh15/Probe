@@ -79,3 +79,11 @@ def test_command_string_is_not_an_argv():
 
 def test_docker_user_proxy_configuration_is_not_injected():
     assert target_spec("x", "image")["use_config_proxy"] is False
+
+
+def test_target_logs_have_bounded_rotation():
+    spec = target_spec("disk", "image")
+    assert spec["log_config"] == {
+        "Type": "json-file",
+        "Config": {"max-size": "10m", "max-file": "3"},
+    }

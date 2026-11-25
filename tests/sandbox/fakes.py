@@ -109,6 +109,9 @@ class Client:
             create_networking_config=lambda cfg: {"EndpointsConfig": cfg},
         )
 
+    def version(self):
+        return {"Version": "26.1.0"}
+
     def ping(self):
         return True
 

@@ -19,6 +19,7 @@ from probe.llm.judge import (
     build_prompt,
     render_user_message,
 )
+from probe.util.redact import Redactor
 
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 1024
@@ -41,16 +42,18 @@ class AnthropicJudge:
         cache: JudgeCache,
         budget: LlmBudget,
         model: str = MODEL,
+        redactor: Redactor | None = None,
     ) -> None:
         self._client = client
         self._cache = cache
         self.budget = budget
         self.model = model
+        self._redactor = redactor or Redactor(())
 
     async def propose_fix(
         self, tool: ToolInfo, failed_args: dict[str, Any], error_text: str | None
     ) -> JudgeResult:
-        prompt = build_prompt(tool, failed_args, error_text)
+        prompt = build_prompt(tool, failed_args, error_text, self._redactor)
         key = cache_key(self.model, prompt)
         hit = self._cache.get(key)
         if hit is not None and "raw" in hit:
@@ -86,8 +89,9 @@ class AnthropicJudge:
         raw = ""
         for block in getattr(response, "content", []):
             if getattr(block, "type", None) == "tool_use" and block.name == TOOL_NAME:
-                raw = json.dumps(block.input, sort_keys=True, default=str)
-                proposed = block.input.get("arguments") if isinstance(block.input, dict) else None
+                payload = self._redactor.redact_json(block.input)
+                raw = json.dumps(payload, sort_keys=True, default=str)
+                proposed = payload.get("arguments") if isinstance(payload, dict) else None
                 args = proposed if isinstance(proposed, dict) else None
                 break
         self._cache.put(key, {"args": args, "raw": raw, "model": self.model})

@@ -34,7 +34,7 @@ exit status with diagnostics.
   when cleanup is incomplete. Context-manager exit raises on cleanup failure or
   adds failure notes to the original exception.
 - `start_fixture("fakehttp", api_aliases=...)`, `start_fixture("canary")`, and
-  `start_fixture("relay", target_port=...)` attach both endpoints before starting
+  `start_fixture("relay", target_port=..., target_host=...)` attach both endpoints before starting
   the fixture. They use the separate argv flags agreed with the fixtures runtime.
   `control_url(container, port=9090)` returns the inspected loopback-published URL;
   use port 8080 for relay. This method does not assert application readiness.

@@ -1,15 +1,17 @@
 """safety.oauth_scopes_minimal
 
 Static: it reads the server's own protected-resource metadata and its 401 challenge. The
-authorization server is only asked when it is on this machine or a private network; Probe never
-contacts a remote third party on a target's behalf.
+authorization server is only asked on the target's origin, or on loopback for a local target.
+Probe never contacts a third party on a target's behalf.
 """
 
+import asyncio
 import ipaddress
 import json
 import re
+import socket
 from typing import Any
-from urllib.parse import urlsplit
+from urllib.parse import urljoin, urlsplit
 
 from probe.checks.base import Applicability, Check, CheckOutcome
 from probe.checks.context import ScanContext
@@ -39,15 +41,46 @@ def _origin(url: str) -> str:
     return f"{parts.scheme}://{parts.netloc}"
 
 
-def _is_local(url: str) -> bool:
-    host = urlsplit(url).hostname or ""
-    if host in ("localhost", "") or host.endswith(".localhost"):
-        return True
+async def _issuer_allowed(issuer: str, target: str) -> bool:
     try:
-        address = ipaddress.ip_address(host)
-    except ValueError:
+        parts = urlsplit(issuer)
+        target_parts = urlsplit(target)
+        if (
+            parts.scheme not in ("http", "https")
+            or not parts.hostname
+            or parts.username is not None
+            or parts.password is not None
+            or "?" in issuer
+            or "#" in issuer
+        ):
+            return False
+
+        def origin(url: str) -> tuple[str, str | None, int]:
+            parsed = urlsplit(url)
+            return (
+                parsed.scheme,
+                parsed.hostname,
+                parsed.port or (443 if parsed.scheme == "https" else 80),
+            )
+
+        async def addresses(host: str) -> list[ipaddress.IPv4Address | ipaddress.IPv6Address]:
+            try:
+                return [ipaddress.ip_address(host)]
+            except ValueError:
+                infos = await asyncio.get_running_loop().getaddrinfo(
+                    host, None, type=socket.SOCK_STREAM
+                )
+                return [ipaddress.ip_address(info[4][0]) for info in infos]
+
+        issuer_ips = await addresses(parts.hostname)
+        if not issuer_ips or any(ip.is_link_local for ip in issuer_ips):
+            return False
+        if origin(issuer) == origin(target):
+            return True
+        target_ips = await addresses(target_parts.hostname or "")
+        return bool(target_ips) and all(ip.is_loopback for ip in [*issuer_ips, *target_ips])
+    except (ValueError, OSError):
         return False
-    return address.is_loopback or address.is_private
 
 
 def _json(result: RawHttpResult | None) -> dict[str, Any] | None:
@@ -140,11 +173,14 @@ class OauthScopesMinimal(Check):
         issuer = servers[0] if servers and isinstance(servers[0], str) else None
         if issuer is None:
             return []
-        if not _is_local(issuer):
+        transport = ctx.client.transport
+        if not isinstance(transport, HttpTransport) or not await _issuer_allowed(
+            issuer, transport.url
+        ):
             return [
                 self._finding(
                     ctx,
-                    f"The authorization server {urlsplit(issuer).netloc} is not on this machine, "
+                    "The authorization server is outside the permitted origin, "
                     "so its metadata was not fetched",
                     "as-skipped",
                     None,
@@ -152,7 +188,7 @@ class OauthScopesMinimal(Check):
                 )
             ]
         try:
-            result = await self._get(ctx, issuer.rstrip("/") + _AS_PATH)
+            result = await self._get(ctx, urljoin(issuer, _AS_PATH))
         except RequestTimeout:
             return []
         metadata = _json(result)

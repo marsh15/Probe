@@ -126,3 +126,71 @@ async def test_a_stdio_server_has_no_oauth_to_judge(kind: str, tmp_path: Path) -
     async with scripted_scan(EraServer, tmp_path) as scan:
         out = await scan.run(OauthScopesMinimal)
     assert out.status is Status.NA
+
+
+@pytest.mark.parametrize(
+    "issuer",
+    [
+        "http://169.254.169.254/x?y=",
+        "http://169.254.169.254/x",
+        "http://[fe80::1]/x",
+        "http://10.2.3.4/issuer",
+        "http://127.0.0.1/issuer?x=",
+        "http://127.0.0.1/issuer#fragment",
+    ],
+)
+async def test_untrusted_oauth_issuer_is_never_requested(tmp_path: Path, issuer: str) -> None:
+    from unittest.mock import AsyncMock
+
+    from probe.wire.transport_http import HttpTransport
+
+    async with scripted_scan(EraServer, tmp_path) as scan:
+        scan.ctx.client.transport = HttpTransport("http://127.0.0.1:3000/mcp")
+        check = OauthScopesMinimal()
+        check._get = AsyncMock(return_value=None)
+        await check._authorization_server(scan.ctx, {"authorization_servers": [issuer]})
+        check._get.assert_not_awaited()
+
+
+async def test_generic_credential_excerpts_mask_all_matches(tmp_path: Path) -> None:
+    key = "AKIAFAKEFAKEFAKEFAKE"
+    token = "ghp_" + "A" * 36
+    out = await run_leak(tmp_path, f"key {key} token {token}")
+    assert out.findings
+    for finding in out.findings:
+        sample = finding.evidence.observations["excerpt"]
+        assert key not in sample and token not in sample
+        assert "[REDACTED]" in sample
+
+
+async def test_injected_evidence_does_not_expose_nearby_generic_credentials(tmp_path: Path) -> None:
+    key = "AKIAFAKEFAKEFAKEFAKE"
+    out = await run_leak(tmp_path, f"{SECRET} {key}")
+    assert out.findings
+    assert all(key not in f.evidence.observations["excerpt"] for f in out.findings)
+
+
+async def test_same_origin_oauth_issuer_uses_joined_metadata_url(tmp_path: Path) -> None:
+    from unittest.mock import AsyncMock
+
+    from probe.wire.transport_http import HttpTransport
+
+    async with scripted_scan(EraServer, tmp_path) as scan:
+        scan.ctx.client.transport = HttpTransport("http://127.0.0.1:3000/mcp")
+        check = OauthScopesMinimal()
+        check._get = AsyncMock(return_value=None)
+        await check._authorization_server(
+            scan.ctx, {"authorization_servers": ["http://127.0.0.1:3000/issuer"]}
+        )
+        check._get.assert_awaited_once_with(
+            scan.ctx, "http://127.0.0.1:3000/.well-known/oauth-authorization-server"
+        )
+
+
+def test_private_key_excerpt_masks_key_material() -> None:
+    from probe.checks.safety.secrets import _leaks
+
+    material = "FAKE_PRIVATE_KEY_MATERIAL_0123456789"
+    text = f"-----BEGIN PRIVATE KEY-----\n{material}\n-----END PRIVATE KEY-----"
+    leaks = _leaks(text, [])
+    assert leaks and all(material not in sample for _, _, sample in leaks)

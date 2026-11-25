@@ -194,20 +194,24 @@ runs:
         key: probe-report-${{ github.sha }}
 
     - name: Publish the badge
-      if: always() && inputs.badge == 'true' && github.event_name == 'push' && hashFiles('probe-out/badge.json') != ''
+      if: always() && inputs.badge == 'true' && github.event_name == 'push' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch) && hashFiles('probe-out/badge.json') != ''
       shell: bash
       env:
         BADGE_BRANCH: ${{ inputs.badge-branch }}
         GH_TOKEN: ${{ github.token }}
       run: |
         set -e
-        cp probe-out/badge.json "$RUNNER_TEMP/badge.json"
+        badge_dir=$(mktemp -d "$RUNNER_TEMP/probe-badge.XXXXXX")
+        trap 'rm -rf "$badge_dir"' EXIT
+        cp probe-out/badge.json "$badge_dir/badge-new.json"
+        git clone --no-checkout "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$badge_dir/repo"
+        cd "$badge_dir/repo"
         git config user.name "probe-badge"
         git config user.email "probe-badge@users.noreply.github.com"
         git fetch origin "$BADGE_BRANCH" 2>/dev/null && git checkout -B "$BADGE_BRANCH" FETCH_HEAD \
           || git checkout --orphan "$BADGE_BRANCH"
         git rm -rf . >/dev/null 2>&1 || true
-        cp "$RUNNER_TEMP/badge.json" badge.json
+        cp "$badge_dir/badge-new.json" badge.json
         git add badge.json
         git commit -m "Update the Probe badge" || exit 0
         git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" "$BADGE_BRANCH"

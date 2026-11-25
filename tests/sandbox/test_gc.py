@@ -65,3 +65,26 @@ def test_scoped_gc_never_releases_other_scans_lease(tmp_path):
     result = collect(client=client, cache_dir=tmp_path, now=10000, scan_id="selected")
     assert not result.leases
     assert path.exists()
+
+
+def test_gc_never_removes_resources_of_a_live_lease(tmp_path):
+    from probe.sandbox.docker_env import SubnetAllocator
+
+    allocator = SubnetAllocator(tmp_path, clock=lambda: 1)
+    allocator.reserve("live")
+    client = Client()
+    meta = {"probe.scan": "live", "probe.created": "1"}
+    resources = [
+        client.containers.create(name="probe-target-live-abcdef123456", labels=meta),
+        client.networks.create(name="probe-pub-live", labels=meta),
+        client.volumes.create(name="probe-data-live", labels=meta),
+    ]
+    result = collect(client=client, cache_dir=tmp_path, now=10000, scan_id="live")
+    assert not result.removed and not any(r.removed for r in resources)
+    assert (tmp_path / "live.json").exists()
+
+
+def test_doctor_refuses_unsupported_docker_engine(monkeypatch):
+    client = Client()
+    monkeypatch.setattr(client, "version", lambda: {"Version": "25.0.5"}, raising=False)
+    assert "26" in doctor(client=client).get("error", "")
