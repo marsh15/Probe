@@ -60,6 +60,9 @@ class CheckOutcome:
 
 class Check(ABC):
     meta: ClassVar[CheckMeta]
+    # False for a post-phase check that only reads what the scan already recorded, so it still
+    # runs after the target is declared unstable. Post checks that call the target are blocked.
+    drives_target: ClassVar[bool] = True
 
     def applicable(self, ctx: "ScanContext") -> Applicability:
         """Check-specific applicability, after the engine's own gating by ``meta``."""

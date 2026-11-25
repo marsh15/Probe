@@ -45,7 +45,7 @@ async def run_checks(
             )
             continue
         active = meta.phase in ACTIVE_PHASES
-        if active and ctx.crashes.unstable:
+        if ctx.crashes.unstable and (active or (meta.phase == "post" and instance.drives_target)):
             results.append(
                 CheckResult(check_id=meta.id, status=Status.ERROR, reason="target_unstable")
             )

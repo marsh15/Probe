@@ -34,6 +34,8 @@ class SurvivesCampaign(Check):
         ),
     )
 
+    drives_target = False  # it reports the crashes already recorded, even for an unstable target
+
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         events = ctx.crashes.events
         if not events:

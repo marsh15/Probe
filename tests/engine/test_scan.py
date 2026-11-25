@@ -388,6 +388,36 @@ async def test_three_crashes_make_the_target_unstable_and_stop_active_checks() -
     assert ran == ["protocol.static", "behavior.passive"]  # static and passive still run
 
 
+async def test_post_phase_checks_that_drive_the_target_are_blocked_once_it_is_unstable() -> None:
+    ran: list[str] = []
+
+    async def body(self: Check, ctx: ScanContext) -> CheckOutcome:
+        ran.append(self.meta.id)
+        return CheckOutcome()
+
+    reads_only = dummy("behavior.reads_only", body, phase="post")
+    reads_only.drives_target = False  # reports what already happened, like survives_campaign
+    ctx, _ = await make_context()
+    results = await run_checks(
+        ctx,
+        [
+            crashing("behavior.c1"),
+            crashing("behavior.c2"),
+            crashing("behavior.c3"),
+            dummy("behavior.drives", body, phase="post"),
+            reads_only,
+        ],
+    )
+    by_id = {r.check_id: r for r in results}
+    assert ctx.crashes.unstable
+    assert (by_id["behavior.drives"].status, by_id["behavior.drives"].reason) == (
+        Status.ERROR,
+        "target_unstable",
+    )
+    assert by_id["behavior.reads_only"].status is Status.PASS
+    assert ran == ["behavior.reads_only"]
+
+
 # --- liveness --------------------------------------------------------------------------
 
 
