@@ -84,6 +84,11 @@ warn_unused_configs = true
 module = ["jsonschema", "jsonschema.*", "jsonschema_specifications"]
 ignore_missing_imports = true
 
+[[tool.mypy.overrides]]
+# Optional `llm` extra: imported lazily, so a default install (and CI) lacks it.
+module = ["anthropic", "anthropic.*"]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
