@@ -23,6 +23,12 @@ jobs:
         run: python3 scripts/release_notes.py check "$GITHUB_REF_NAME"
       - name: The changelog must describe this version
         run: python3 scripts/release_notes.py notes "${GITHUB_REF_NAME#v}" > release-notes.md
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+      - name: Run the checks
+        run: make check
+        env:
+          UV_PYTHON: 3.13
       - name: Build sdist and wheel
         run: uv build
       - uses: actions/upload-artifact@v4
@@ -36,7 +42,7 @@ jobs:
 
   publish-pypi:
     name: Publish to PyPI
-    needs: build
+    needs: [build, images]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

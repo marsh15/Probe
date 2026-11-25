@@ -123,13 +123,19 @@ runs:
         if [ -n "$IN_PROFILE" ]; then args+=(--profile "$IN_PROFILE"); fi
         if [ "$IN_MIN_SCORE" != "0" ] && [ -n "$IN_MIN_SCORE" ]; then args+=(--min-score "$IN_MIN_SCORE"); fi
         if [ "$IN_LLM" = "true" ]; then args+=(--llm); fi
-        if [ "$USE_SANDBOX" = "true" ]; then args+=(--image "$IN_IMAGE" --sandbox)
-        elif [ -n "$IN_IMAGE" ]; then args+=(--image "$IN_IMAGE" --no-sandbox); fi
+        if [ "$USE_SANDBOX" = "true" ]; then
+          args+=(--image "$IN_IMAGE" --sandbox)
+        elif [ -n "$IN_IMAGE" ] && [ -z "$IN_COMMAND" ] && [ -z "$IN_URL" ]; then
+          # An image only runs in the sandbox, which is off here (no Docker, or not a Linux runner).
+          echo "::error::The image input needs the sandbox, which is off on this runner. Set the command or url input, or run on Linux with Docker."
+          echo "exit_code=2" >> "$GITHUB_OUTPUT"
+          exit 2
+        fi
         if [ -n "$IN_URL" ]; then args+=(--url "$IN_URL"); fi
         while IFS= read -r line; do
           if [ -n "$line" ]; then args+=(--target-env "$line"); fi
         done <<< "$IN_TARGET_ENV"
-        if [ -n "$IN_COMMAND" ] && [ -z "$IN_URL" ] && [ -z "$IN_IMAGE" ]; then
+        if [ -n "$IN_COMMAND" ] && [ -z "$IN_URL" ] && [ "$USE_SANDBOX" != "true" ]; then
           read -r -a words <<< "$IN_COMMAND"
           args+=(-- "${words[@]}")
         fi
