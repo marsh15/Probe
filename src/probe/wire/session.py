@@ -7,6 +7,7 @@ algorithm: probe ``server/discover``; a result or a recognized modern error mean
 (and never falls back); anything else, including silence, means legacy.
 """
 
+import asyncio
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from hashlib import sha256
@@ -20,7 +21,14 @@ from probe.wire.headers import (
     parse_x_mcp_headers,
     standard_headers,
 )
-from probe.wire.jsonrpc import METHOD_NOT_FOUND, Notification, Request, Response, ResultResponse
+from probe.wire.jsonrpc import (
+    METHOD_NOT_FOUND,
+    ErrorResponse,
+    Notification,
+    Request,
+    Response,
+    ResultResponse,
+)
 from probe.wire.limits import DEFAULT_REQUEST_TIMEOUT_S, ERA_PROBE_TIMEOUT_S
 from probe.wire.transport_base import Transport
 from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpResult
@@ -127,6 +135,8 @@ class Session:
         self._legacy_version = legacy_version
         self._counter = 0
         self._mirrors: dict[str, tuple[HeaderMirror, ...]] = {}
+        self._reinitialize_lock = asyncio.Lock()
+        self._session_generation = 0
         # What headers to send right now: None while no era is established (e.g. initialize).
         self._wire: tuple[Era, str] | None = None
         if isinstance(transport, HttpTransport):
@@ -173,13 +183,20 @@ class Session:
         """
         deadline = self._request_timeout if timeout is None else timeout
         for attempt in (0, 1):
-            message = self._build(method, params, meta)
+            async with self._reinitialize_lock:
+                message = self._build(method, params, meta)
+                generation = self._session_generation
+                had_session = (
+                    self.era == "legacy"
+                    and isinstance(self.transport, HttpTransport)
+                    and self.transport.session_id is not None
+                )
             try:
                 return await self.transport.request(message, deadline)
             except HttpRequestFailed as exc:
-                if attempt == 1 or not self._session_expired(exc):
+                if attempt == 1 or exc.status != 404 or not had_session:
                     raise
-            await self._reinitialize()
+            await self._reinitialize(generation)
         raise AssertionError("unreachable")  # pragma: no cover
 
     async def exchange(
@@ -195,14 +212,14 @@ class Session:
         Checks use it to look at status codes and failures, not just at JSON-RPC results.
         """
         deadline = self._request_timeout if timeout is None else timeout
-        message = self._build(method, params, meta)
+        async with self._reinitialize_lock:
+            message = self._build(method, params, meta)
         try:
-            response = await self.transport.request(message, deadline)
+            response, http = await self.transport.request_with_result(message, deadline)
         except RequestTimeout:
             return Exchange(None, None, timed_out=True)
         except HttpRequestFailed as exc:
             return Exchange(None, exc.result)
-        http = self.transport.last_result if isinstance(self.transport, HttpTransport) else None
         return Exchange(response, http)
 
     def build_request(
@@ -254,6 +271,7 @@ class Session:
                     self.x_mcp_header_errors[name] = errors
                     self._mirrors.pop(name, None)
                 else:
+                    self.x_mcp_header_errors.pop(name, None)
                     self._mirrors[name] = mirrors
             if over_http and errors:
                 continue
@@ -319,6 +337,14 @@ class Session:
             self._step("discover", "timeout")
             return _Legacy("timeout")
         except HttpRequestFailed as exc:
+            for reply in exc.result.responses:
+                if (
+                    isinstance(reply, ErrorResponse)
+                    and reply.id is None
+                    and reply.error.code in _MODERN_ERROR_CODES
+                ):
+                    self._step("discover", f"http {exc.status}: modern error {reply.error.code}")
+                    return _ModernError(reply.error.code, reply.error.data)
             if exc.status is None:
                 raise  # nothing answered at all: there is no era to find out
             self._step("discover", f"http {exc.status} without a modern error")
@@ -365,7 +391,8 @@ class Session:
         raise JsonRpcError(METHOD_NOT_FOUND, "Method not found")
 
     async def _initialize(self, version: str) -> None:
-        self._wire = None  # the handshake itself carries no version header
+        if self.era != "legacy":
+            self._wire = None  # discard headers from the initial modern probe
         params = {
             "protocolVersion": version,
             "capabilities": self.client_capabilities,
@@ -397,6 +424,8 @@ class Session:
                 tuple(self.negotiation),
             )
         self._step("initialize", f"ok {chosen}")
+        self._wire = ("legacy", chosen)
+        await self.transport.send(Notification("notifications/initialized").to_obj())
         self.era = "legacy"
         self.protocol_version = chosen
         self.initialize_result = result
@@ -404,22 +433,23 @@ class Session:
         self.server_info = _mapping(result.get("serverInfo"))
         instructions = result.get("instructions")
         self.instructions = instructions if isinstance(instructions, str) else None
-        self._wire = ("legacy", chosen)
-        await self.transport.send(Notification("notifications/initialized").to_obj())
 
-    def _session_expired(self, exc: HttpRequestFailed) -> bool:
-        return (
-            self.era == "legacy"
-            and exc.status == 404
-            and isinstance(self.transport, HttpTransport)
-            and self.transport.session_id is not None
-        )
-
-    async def _reinitialize(self) -> None:
-        self._step("reinitialize", "404 for a session the server no longer knows")
-        if isinstance(self.transport, HttpTransport):
-            self.transport.session_id = None
-        await self._initialize(self.protocol_version)
+    async def _reinitialize(self, generation: int) -> None:
+        transport = self.transport
+        if not isinstance(transport, HttpTransport):
+            raise AssertionError("legacy HTTP recovery requires an HTTP transport")
+        async with self._reinitialize_lock:
+            if generation != self._session_generation:
+                return  # Another request already recovered the expired session.
+            self._step("reinitialize", "404 for a session the server no longer knows")
+            session_id, wire = transport.session_id, self._wire
+            transport.session_id = None
+            try:
+                await self._initialize(self.protocol_version)
+            except BaseException:
+                transport.session_id, self._wire = session_id, wire
+                raise
+            self._session_generation += 1
 
     # --- building messages -------------------------------------------------------------
 
@@ -462,6 +492,8 @@ class Session:
         ):
             version = meta[META_VERSION]  # a deliberately different version must match its header
         if era == "legacy":
+            if message.get("method") == "initialize":
+                return {}
             return {"MCP-Protocol-Version": version} if version >= _LEGACY_HEADER_SINCE else {}
         headers = {"MCP-Protocol-Version": version}
         method = message.get("method")

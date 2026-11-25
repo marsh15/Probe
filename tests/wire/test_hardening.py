@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from probe.wire.errors import RequestTimeout, StdoutNoise, TransportClosed, UnmatchedResponse
-from probe.wire.jsonrpc import Request, ResultResponse, parse_line
+from probe.wire.jsonrpc import Notification, Request, ResultResponse, parse_line
 from probe.wire.recorder import Recorder, read_trace
 from probe.wire.transport_base import CloseResult, Transport
 from probe.wire.transport_stdio import StdioTransport
@@ -78,6 +78,20 @@ async def test_large_notifications_and_ids_have_byte_budgets() -> None:
     assert t.notifications_dropped > 0
     assert max(len(str(e.id)) for e in t.events() if isinstance(e, UnmatchedResponse)) <= 1024
     await t.close()
+
+
+async def test_late_notifications_cannot_evict_the_close_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("probe.wire.transport_base.MAX_QUEUED_NOTIFICATIONS", 1)
+    t = MemoryTransport()
+    queued = Notification("queued")
+    deliver(t, queued.to_obj())
+    await t.close()
+    deliver(t, Notification("late").to_obj())
+    async with asyncio.timeout(0.1):
+        assert [item async for item in t.notifications()] == [queued]
+        assert [item async for item in t.notifications()] == []
 
 
 async def test_bad_handler_result_gets_internal_error_reply() -> None:
