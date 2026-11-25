@@ -20,6 +20,7 @@ from probe.checks.protocol.parity import EraParity
 from probe.checks.protocol.passive import ErrorCodeRanges, ResultTypePresent, StdoutClean
 from probe.checks.protocol.unknown_method import UnknownMethodError
 from probe.checks.protocol.version import UnsupportedVersionError
+from probe.engine.crash import MAX_RESTARTS
 from probe.engine.outcomes import Severity, Status
 from probe.wire.jsonrpc import encode
 from tests.checks.protocol.harness import (
@@ -29,7 +30,7 @@ from tests.checks.protocol.harness import (
     scripted_scan,
     stdio_scan,
 )
-from tests.wire.fake_eras import PV, EraServer, Reply, error
+from tests.wire.fake_eras import PV, EraServer, Reply, error, result
 from tests.wire.fake_http import ServerState, serve
 
 
@@ -114,6 +115,23 @@ async def test_discover_is_na_for_a_legacy_only_server(tmp_path: Path) -> None:
     async with scripted_scan(lambda: EraServer(modern=False, legacy=True), tmp_path) as scan:
         result = await scan.run(DiscoverImplemented)
     assert (result.status, result.reason) == (Status.NA, "the server speaks legacy MCP only")
+
+
+async def test_discover_is_na_for_a_stateless_legacy_server_that_answers_without_initialize(
+    tmp_path: Path,
+) -> None:
+    class StatelessLegacy(ToolsServer):
+        """TS-SDK-style: no server/discover, tools/list answered with no modern marker."""
+
+        def _modern(self, id_: Any, method: str, *rest: Any) -> Any:
+            if method == "server/discover":
+                return error(id_, -32601, "Method not found")
+            return result(id_, {"tools": self.tools})
+
+    async with scripted_scan(lambda: StatelessLegacy(legacy=True), tmp_path) as scan:
+        assert scan.ctx.era.value == "legacy"
+        outcome = await scan.run(DiscoverImplemented)
+    assert outcome.status is Status.NA
 
 
 # --- protocol.unsupported_version_error --------------------------------------------------
@@ -233,6 +251,15 @@ async def test_error_32002_is_wrong_only_in_the_modern_era(tmp_path: Path) -> No
         assert (await scan.run(ErrorCodeRanges)).status is Status.PASS
 
 
+async def test_a_legacy_server_may_use_codes_in_the_implementation_defined_range(
+    tmp_path: Path,
+) -> None:
+    legacy = lambda: OddCodes(modern=False, legacy=True)  # noqa: E731
+    async with scripted_scan(legacy, tmp_path, era="legacy") as scan:
+        await scan.ctx.exchange("probe/reserved")  # -32050
+        assert (await scan.run(ErrorCodeRanges)).status is Status.PASS
+
+
 async def test_a_non_integer_error_code_fails(tmp_path: Path) -> None:
     async with scripted_scan(ToolsServer, tmp_path) as scan:
         scan.ctx.client.transport.push_raw(  # type: ignore[attr-defined]
@@ -298,6 +325,47 @@ async def test_header_mismatch_accepted_by_a_lenient_server_fails_both_cases(
         "header-mismatch:method",
         "header-mismatch:version",
     ]
+
+
+async def test_a_server_that_validates_the_version_header_first_passes_the_version_case(
+    tmp_path: Path, http_fake: tuple[str, ServerState]
+) -> None:
+    class VersionFirst(ToolsServer):
+        def _modern(self, id_: Any, method: str, *rest: Any) -> Any:
+            headers = rest[-1]
+            if headers and headers.get("mcp-protocol-version") not in self.modern_versions:
+                data = {"supported": list(self.modern_versions), "requested": "x"}
+                return error(id_, -32022, "Unsupported protocol version", data, status=400)
+            return super()._modern(id_, method, *rest)
+
+    async with http_scan(http_fake, tmp_path, server=VersionFirst()) as scan:
+        assert (await scan.run(HeaderMismatchRejected)).status is Status.PASS
+
+
+class Locked(ToolsServer):
+    """Answers normally until ``locked`` is set, then refuses every request."""
+
+    locked = False
+    refusal = 401
+
+    def handle(self, msg: dict[str, Any], headers: Any) -> Any:
+        if self.locked:
+            return Reply(status=self.refusal)
+        return super().handle(msg, headers)
+
+
+@pytest.mark.parametrize("check", [OriginValidated, RequiredHeadersEnforced])
+@pytest.mark.parametrize("refusal", [401, 503])
+async def test_tamper_checks_are_na_when_the_untampered_request_is_not_accepted(
+    tmp_path: Path, http_fake: tuple[str, ServerState], check: Any, refusal: int
+) -> None:
+    server = Locked()
+    server.refusal = refusal
+    async with http_scan(http_fake, tmp_path, server=server) as scan:
+        server.locked = True
+        result = await scan.run(check)
+    assert result.status is Status.NA
+    assert not result.findings
 
 
 async def test_header_checks_are_na_over_stdio(tmp_path: Path) -> None:
@@ -410,6 +478,16 @@ async def test_a_crash_that_does_not_reproduce_is_an_error_not_a_failure(tmp_pat
         result = await scan.run(MalformedJsonrpcHandled)
     assert result.status is Status.ERROR
     assert "did not reproduce" in (result.reason or "")
+
+
+async def test_a_crash_that_cannot_be_retried_is_an_error_not_a_reproduced_crash(
+    tmp_path: Path,
+) -> None:
+    async with stdio_scan(mini_argv("--garbage", "die"), tmp_path) as scan:
+        scan.ctx.crashes.restarts = MAX_RESTARTS  # no restart left: nothing can be re-sent
+        result = await scan.run(MalformedJsonrpcHandled)
+    assert result.status is Status.ERROR
+    assert not result.findings
 
 
 async def test_malformed_input_over_http(

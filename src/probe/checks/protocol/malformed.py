@@ -109,10 +109,9 @@ class MalformedJsonrpcHandled(Check):
             return self._finding(ctx, case_id, body, codes, status)
         # The server stopped answering after this input. Hold that against it only if the same
         # input does it again on a fresh instance.
-        try:
-            survived = await ctx.survives(partial(self._send, ctx, case_id, body))
-        except TargetUnstable:
-            survived = False  # it died again and cannot be restarted: reproduced
+        # TargetUnstable means no restart is left, so nothing was re-sent: the crash was not
+        # reproduced, and the caller reports an error rather than a finding.
+        survived = await ctx.survives(partial(self._send, ctx, case_id, body))
         return "not-reproduced" if survived else self._crash_finding(ctx, case_id, body)
 
     async def _send(

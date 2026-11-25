@@ -371,6 +371,7 @@ def generate_valid(
     process.start()
     writer.close()
     finished = False
+    crashed = False
     try:
         while (remaining := time_budget_s - (time.monotonic() - started)) > 0:
             if not reader.poll(remaining):
@@ -379,10 +380,12 @@ def generate_valid(
                 finished, received = reader.recv()
                 result = cast(GeneratedValid, received)
             except EOFError:
+                crashed = True
                 break
             if finished:
                 return result
-        result.notes.append("hypothesis draws timed out; used validated fallback values")
+        reason = "worker exited before finishing" if crashed else "draws timed out"
+        result.notes.append(f"hypothesis {reason}; used validated fallback values")
         return result
     finally:
         if process.is_alive():

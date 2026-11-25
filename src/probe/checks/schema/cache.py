@@ -135,15 +135,16 @@ class CacheTtlSane(Check):
         remediation="Use a ttlMs of at most 24 hours (86400000) for list results.",
     )
 
-    def _ttls(self, ctx: ScanContext) -> list[tuple[str, int | float]]:
-        results: list[tuple[str, dict[str, Any]]] = []
+    def _ttls(self, ctx: ScanContext) -> list[tuple[str, int | None, int | float]]:
+        """(method, page index of a paged list or None, ttlMs) for each result with a ttlMs."""
+        results: list[tuple[str, int | None, dict[str, Any]]] = []
         if ctx.client.discover_result is not None:
-            results.append(("server/discover", ctx.client.discover_result))
+            results.append(("server/discover", None, ctx.client.discover_result))
         if ctx.listing is not None:
-            results += [("tools/list", page) for page in ctx.listing.pages]
+            results += [("tools/list", i, page) for i, page in enumerate(ctx.listing.pages)]
         return [
-            (method, r["ttlMs"])
-            for method, r in results
+            (method, page, r["ttlMs"])
+            for method, page, r in results
             if isinstance(r.get("ttlMs"), int | float) and not isinstance(r["ttlMs"], bool)
         ]
 
@@ -151,7 +152,12 @@ class CacheTtlSane(Check):
         return Applicability.yes() if self._ttls(ctx) else Applicability.no("no ttlMs to judge")
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
-        too_long = sorted({(m, t) for m, t in self._ttls(ctx) if t > MAX_SANE_TTL_MS})
+        # One finding per (method, ttl), at the first page that has it. The page is part of the
+        # case id so that pages with different TTLs get different finding ids.
+        groups: dict[tuple[str, int | float], list[int | None]] = {}
+        for method, page, ttl in self._ttls(ctx):
+            if ttl > MAX_SANE_TTL_MS:
+                groups.setdefault((method, ttl), []).append(page)
         return CheckOutcome(
             [
                 make_finding(
@@ -162,11 +168,14 @@ class CacheTtlSane(Check):
                     message=(
                         f"{method} may be cached for {_ttl_hours(ttl)} hours; the sane limit is 24."
                     ),
-                    case_id=f"cache-ttl:{method}",
+                    case_id=f"cache-ttl:{method}"
+                    + ("" if pages[0] is None else f":page-{pages[0]}"),
                     steps=[request_step(method)],
                     expect={"ttlMs": f"<= {MAX_SANE_TTL_MS}"},
-                    observations={"ttlMs": ttl},
+                    observations={"ttlMs": ttl} | ({} if pages[0] is None else {"pages": pages}),
                 )
-                for method, ttl in too_long
+                for (method, ttl), pages in sorted(
+                    groups.items(), key=lambda item: (item[0][0], item[1][0] or 0)
+                )
             ]
         )

@@ -24,7 +24,7 @@ from probe.engine.outcomes import (
     Severity,
     Transport,
 )
-from probe.wire.session import HEADER_MISMATCH
+from probe.wire.session import HEADER_MISMATCH, UNSUPPORTED_PROTOCOL_VERSION
 
 EVIL_ORIGIN = "http://evil.probe.test"
 # A header version no server supports in either era. A real older version (say 2025-11-25) would
@@ -33,6 +33,13 @@ MISMATCHED_VERSION = "1999-01-01"
 # The version header appeared in this legacy revision; servers that still support clients older
 # than it may legitimately accept a request without the header.
 _HEADER_SINCE = "2025-06-18"
+_NO_CONTROL = "the server did not accept an untampered request, so a rejection proves nothing"
+
+
+async def _serves_valid_request(ctx: ScanContext) -> bool:
+    """Control for the tamper checks: is the untampered request accepted?"""
+    message, headers = valid_http_request(ctx, "tools/list")
+    return accepted(await ctx.raw_http(headers, json_body(message)))
 
 
 @register
@@ -62,7 +69,8 @@ class HeaderMismatchRejected(Check):
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
         findings: list[Finding] = []
-        # (case id, description, message, headers) built from one valid request each.
+        # (case id, description, message, headers, accepted codes) built from one valid request
+        # each. A server may check the version header first and answer -32022 for the bad one.
         call, call_headers = valid_http_request(
             ctx, "tools/call", {"name": "probe-header-mismatch", "arguments": {}}
         )
@@ -73,15 +81,17 @@ class HeaderMismatchRejected(Check):
                 "Mcp-Method says tools/list but the body is tools/call",
                 call,
                 with_header(call_headers, "Mcp-Method", "tools/list"),
+                (HEADER_MISMATCH,),
             ),
             (
                 "header-mismatch:version",
                 "MCP-Protocol-Version differs from the version in _meta",
                 listing,
                 with_header(list_headers, "MCP-Protocol-Version", MISMATCHED_VERSION),
+                (HEADER_MISMATCH, UNSUPPORTED_PROTOCOL_VERSION),
             ),
         ]
-        for case_id, description, message, headers in cases:
+        for case_id, description, message, headers, good_codes in cases:
             body = json_body(message)
             try:
                 result = await ctx.raw_http(headers, body)
@@ -90,7 +100,7 @@ class HeaderMismatchRejected(Check):
                     break  # report what was already found
                 raise
             codes = error_codes(result)
-            if result.status == 400 and HEADER_MISMATCH in codes:
+            if result.status == 400 and any(code in good_codes for code in codes):
                 continue
             findings.append(
                 make_finding(
@@ -99,12 +109,16 @@ class HeaderMismatchRejected(Check):
                     severity=Severity.MEDIUM,
                     title="Header/body mismatch was not rejected",
                     message=(
-                        f"{description}; expected HTTP 400 with -32020, got status "
+                        f"{description}; expected HTTP 400 with "
+                        f"{' or '.join(str(c) for c in good_codes)}, got status "
                         f"{result.status} and error codes {codes}"
                     ),
                     case_id=case_id,
                     steps=[raw_http_step(headers, body)],
-                    expect={"http_status": 400, "code": HEADER_MISMATCH},
+                    expect={
+                        "http_status": 400,
+                        "code": good_codes[0] if len(good_codes) == 1 else list(good_codes),
+                    },
                     observations={"http_status": result.status, "error_codes": codes},
                     excerpt=result.body.decode("utf-8", "replace"),
                 )
@@ -138,6 +152,10 @@ class RequiredHeadersEnforced(Check):
         older = any(v < _HEADER_SINCE for v in ctx.client.supported_versions)
         names = ["Mcp-Method"] if older else ["MCP-Protocol-Version", "Mcp-Method"]
         findings: list[Finding] = []
+        # A 401, a 5xx or a timeout also "does not accept" the tampered request. Judge only
+        # a server that serves the untampered one.
+        if not await _serves_valid_request(ctx):
+            return CheckOutcome.na(_NO_CONTROL)
         for name in names:
             message, headers = valid_http_request(ctx, "tools/list")
             tampered = without_header(headers, name)
@@ -191,6 +209,8 @@ class OriginValidated(Check):
     )
 
     async def run(self, ctx: ScanContext) -> CheckOutcome:
+        if not await _serves_valid_request(ctx):
+            return CheckOutcome.na(_NO_CONTROL)
         message, headers = valid_http_request(ctx, "tools/list")
         tampered = with_header(headers, "Origin", EVIL_ORIGIN)
         body = json_body(message)

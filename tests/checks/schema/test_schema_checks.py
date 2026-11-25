@@ -355,3 +355,23 @@ async def test_a_large_listing_without_cache_fields_is_still_caught(tmp_path: Pa
         result = await scan.run(CacheFieldsPresent)
     assert result.status is Status.FAIL
     assert "ttlMs is missing" in result.findings[0].message
+
+
+async def test_several_pages_with_different_ttls_give_distinct_finding_ids(tmp_path: Path) -> None:
+    async with scripted_scan(lambda: ToolsServer(tools=[GOOD]), tmp_path) as scan:
+        await with_listing(scan)
+        assert scan.ctx.listing is not None
+        scan.ctx.listing.pages[:] = [
+            {"tools": [], "ttlMs": 90_000_000, "cacheScope": "public"},
+            {"tools": [], "ttlMs": 100_000_000, "cacheScope": "public"},
+            {"tools": [], "ttlMs": 90_000_000, "cacheScope": "public"},
+            {"tools": [], "ttlMs": 1_000, "cacheScope": "public"},
+        ]
+        result = await scan.run(CacheTtlSane)
+    assert result.status is Status.FAIL
+    assert [f.repro.case_id for f in result.findings] == [
+        "cache-ttl:tools/list:page-0",
+        "cache-ttl:tools/list:page-1",
+    ]
+    assert len({f.finding_id for f in result.findings}) == 2
+    assert result.findings[0].evidence.observations["pages"] == [0, 2]
