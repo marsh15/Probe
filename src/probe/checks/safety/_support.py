@@ -15,7 +15,8 @@ from probe.engine.outcomes import ToolInfo
 from probe.schema.valid_gen import generate_valid
 from probe.wire.errors import RequestTimeout
 
-DEFAULT_ALLOWED_ROOT = "/data/allowed"
+SANDBOX_DATA_ROOT = "/data"
+DEFAULT_ALLOWED_ROOT = f"{SANDBOX_DATA_ROOT}/allowed"
 CANARY_DIR = "probe-canary"
 
 
@@ -27,8 +28,12 @@ def allowed_roots(ctx: ScanContext) -> list[str]:
 
 
 def data_root(ctx: ScanContext) -> str:
-    """The directory that holds the allowed root, the secret directory and the canary directory."""
-    return str(PurePosixPath(allowed_roots(ctx)[0]).parent)
+    """The directory that holds the allowed root, the secret directory and the canary directory.
+
+    The sandbox always puts these directly under /data, whatever allowed root the profile names
+    (it may be a subdirectory such as /data/allowed/notes). A fixture set that keeps its data
+    somewhere else, such as a local test fixture, says so with a ``data_root`` attribute."""
+    return str(getattr(ctx.fixtures, "data_root", SANDBOX_DATA_ROOT))
 
 
 def canary_dir(ctx: ScanContext) -> str:

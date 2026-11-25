@@ -130,9 +130,9 @@ Can the server be run and observed in production?
 - Disclosure: public
 - Spec: 2026-07-28/server/tools#annotations
 
-**Why it matters.** Clients ask the user before running a tool marked destructive. A tool that deletes or runs commands but says nothing, or says it is harmless, skips that question.
+**Why it matters.** Clients ask the user before running a tool marked destructive. A tool that deletes or runs commands but says it is read-only or not destructive skips that question.
 
-**How to fix.** Set destructiveHint: true (and readOnlyHint: false) on tools that delete, overwrite or execute.
+**How to fix.** Set destructiveHint: true (and readOnlyHint: false) on tools that delete, overwrite or execute, or leave the hints out so the spec default applies.
 
 ### safety.oauth_scopes_minimal
 

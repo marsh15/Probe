@@ -89,8 +89,8 @@ async def judge(*tools: Any) -> Any:
     return result
 
 
-async def test_a_deleting_tool_with_no_annotations_is_flagged() -> None:
-    result = await judge(named("purge_notes", {}))
+async def test_a_deleting_tool_that_says_it_is_not_destructive_is_flagged() -> None:
+    result = await judge(named("purge_notes", {"destructiveHint": False}))
     assert result.status is Status.FAIL and result.findings[0].tool == "purge_notes"
 
 

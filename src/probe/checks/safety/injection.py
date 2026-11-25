@@ -217,20 +217,29 @@ class ReadonlyEnforced(Check):
         allowed = ctx.profile.fixtures.fs.allowed_roots[0] if _has_fs(ctx) else "/data/allowed"
         try:
             for tool in ctx.callable_tools():
-                if tool.kind != "read":
+                if tool.kind != "read" or not {"sql_param", "command_param"} & set(
+                    tool.param_roles.values()
+                ):
                     continue
                 base = await valid_arguments(ctx, tool)
                 if base is None:
                     continue
+                # What an ordinary call changes by itself (access logs, WAL and cache files) is
+                # not the payload's doing.
+                baseline, _ = await _changed_by(ctx, tool, base, f"{slug(tool.name)}:baseline")
                 for name in [n for n, r in tool.param_roles.items() if r == "sql_param"]:
                     tested = True
                     for payload_id, sql in _SQL:
                         statement = sql.format(allowed=allowed)
-                        findings += await self._try(ctx, tool, base, name, payload_id, statement)
+                        findings += await self._try(
+                            ctx, tool, base, name, payload_id, statement, baseline
+                        )
                 for name in [n for n, r in tool.param_roles.items() if r == "command_param"]:
                     tested = True
                     option = f"--output={_marker(ctx)}"
-                    findings += await self._try(ctx, tool, base, name, "option-write", option)
+                    findings += await self._try(
+                        ctx, tool, base, name, "option-write", option, baseline
+                    )
         except (BudgetExhausted, TargetUnstable):
             if not findings:
                 return CheckOutcome.error("read-only campaign interrupted before a verdict")
@@ -246,10 +255,12 @@ class ReadonlyEnforced(Check):
         name: str,
         payload_id: str,
         value: str,
+        baseline: list[str],
     ) -> list[Finding]:
         arguments = {**base, name: value}
         case_id = f"{slug(tool.name)}:{slug(name)}:{payload_id}"
         changes, text = await _changed_by(ctx, tool, arguments, case_id)
+        changes = [c for c in changes if c not in baseline]
         if not changes:
             return []
         return [

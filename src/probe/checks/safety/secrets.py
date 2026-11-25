@@ -143,16 +143,20 @@ class NoSecretLeak(Check):
             return
         tried = 0
         for tool in ctx.callable_tools():
-            if tool.kind != "read" or tried >= _TOOLS_TRIGGERED:
+            if tool.kind != "read":
                 continue
+            if tried >= _TOOLS_TRIGGERED:
+                break
             arguments = await valid_arguments(ctx, tool)
             if arguments is None:
                 continue
-            tried += 1
             before = await fixtures.backend_log()
             cursor = max((r["sequence"] for r in before), default=0)
             await safe_call(ctx, tool.name, arguments, f"secret-baseline:{slug(tool.name)}")
             routes = sorted({r["path"] for r in await fixtures.backend_log(cursor)})
+            if not routes:
+                continue  # it never reached the backend, so there is nothing to fail there
+            tried += 1  # only tools that reach the backend use up the budget
             armed = False
             try:
                 for route in routes:

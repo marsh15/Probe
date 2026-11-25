@@ -128,11 +128,11 @@ class DestructiveAnnotated(Check):
         disclosure=DisclosureTier.PUBLIC,
         rationale=(
             "Clients ask the user before running a tool marked destructive. A tool that deletes "
-            "or runs commands but says nothing, or says it is harmless, skips that question."
+            "or runs commands but says it is read-only or not destructive skips that question."
         ),
         remediation=(
             "Set destructiveHint: true (and readOnlyHint: false) on tools that delete, overwrite "
-            "or execute."
+            "or execute, or leave the hints out so the spec default applies."
         ),
     )
 
@@ -145,15 +145,14 @@ class DestructiveAnnotated(Check):
             if guess not in ("destructive", "exec"):
                 continue
             hints = tool.annotations
-            if hints.get("destructiveHint") is True and hints.get("readOnlyHint") is not True:
+            # A tool that says nothing gets the spec default (destructiveHint true), which makes
+            # clients ask first; only an explicit claim to the contrary is wrong.
+            if hints.get("readOnlyHint") is True:
+                said = "marks it read-only"
+            elif hints.get("destructiveHint") is False:
+                said = "sets destructiveHint to false"
+            else:
                 continue
-            said = (
-                "marks it read-only"
-                if hints.get("readOnlyHint") is True
-                else "sets destructiveHint to false"
-                if hints.get("destructiveHint") is False
-                else "has no destructive annotation"
-            )
             findings.append(
                 make_finding(
                     self,

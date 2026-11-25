@@ -1,6 +1,8 @@
 """safety.path_contained"""
 
-import re
+import contextlib
+import json
+from collections.abc import Iterator
 from typing import Any
 
 from probe.checks.base import Check, CheckOutcome
@@ -31,8 +33,9 @@ from probe.engine.outcomes import (
 )
 
 _WRITES = frozenset({"write", "destructive", "exec", "unknown"})
-# What the file next to the allowed root says (the sandbox seed and the reference seed differ).
-_EVIL_MARKER = re.compile(r"outside (?:the )?allowed root")
+# What the file next to the allowed root holds (the sandbox seed and the reference seed differ).
+# A string must be exactly this to count: a refusal that quotes the root would match a phrase.
+_EVIL_CONTENT = frozenset({"outside allowed root", "outside the allowed root (prefix sibling)"})
 
 
 def _read_payloads(ctx: ScanContext) -> list[tuple[str, str]]:
@@ -49,11 +52,30 @@ def _read_payloads(ctx: ScanContext) -> list[tuple[str, str]]:
     return payloads[:4] if ctx.config.mode == "quick" else payloads
 
 
+def _strings(value: Any, depth: int = 0) -> Iterator[str]:
+    """Every string in a JSON value, and in the JSON a string itself holds (a tool's text block
+    often carries the real answer as an encoded object)."""
+    if isinstance(value, str):
+        yield value
+        if depth < 3 and value.lstrip()[:1] in ("{", "["):
+            with contextlib.suppress(ValueError):
+                yield from _strings(json.loads(value), depth + 1)
+    elif isinstance(value, dict):
+        for item in value.values():
+            yield from _strings(item, depth)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _strings(item, depth)
+
+
 def _leak(text: str, token: str) -> str | None:
     if f"PROBE-SENTINEL-{token}" in text:
         return f"PROBE-SENTINEL-{token}"
-    found = _EVIL_MARKER.search(text)
-    return found.group(0) if found else None
+    with contextlib.suppress(ValueError):
+        for found in _strings(json.loads(text)):
+            if found.strip() in _EVIL_CONTENT:
+                return found.strip()
+    return None
 
 
 @register
