@@ -13,7 +13,13 @@ import time
 from pathlib import Path
 
 import pytest
-from refserver.wire_bugs import _pump, apply_stdio_hooks, invalid_message_reply
+from refserver import bugs
+from refserver.wire_bugs import (
+    StdioMutationHook,
+    _pump,
+    apply_stdio_hooks,
+    invalid_message_reply,
+)
 
 MODERN = "2026-07-28"
 META = {
@@ -263,3 +269,137 @@ def test_malformed_input_is_answered_and_the_server_keeps_serving(data_root: Pat
     s.proc.stdin.flush()
     assert len(s.request(2, "tools/list", {"_meta": META})["result"]["tools"]) == 15  # type: ignore[index]
     assert s.close() == 0
+
+
+class ShortWriter:
+    """A sink that, like a pipe under pressure, accepts only a few bytes per write call."""
+
+    def __init__(self, chunk: int = 3) -> None:
+        self.chunk = chunk
+        self.data = bytearray()
+
+    def write(self, data: bytes | memoryview) -> int:
+        taken = bytes(data[: self.chunk])
+        self.data += taken
+        return len(taken)
+
+    def flush(self) -> None:
+        pass
+
+
+@pytest.mark.anyio
+async def test_pump_writes_every_byte_even_when_the_sink_takes_short_writes() -> None:
+    line = b'{"jsonrpc":"2.0","id":1,"result":{"big":"' + b"x" * 100 + b'"}}\n'
+    sink = ShortWriter()
+    await _pump(io.BytesIO(line), sink, "server_to_client", [], close_sink=False)  # type: ignore[arg-type]
+    assert bytes(sink.data) == line
+
+
+@pytest.mark.anyio
+async def test_pump_sends_replies_in_full_when_the_client_stream_takes_short_writes() -> None:
+    reply_to = ShortWriter()
+    await _pump(
+        io.BytesIO(b"not json at all\n"),
+        io.BytesIO(),
+        "client_to_server",
+        [],
+        close_sink=False,
+        reply_to=reply_to,  # type: ignore[arg-type]
+    )
+    assert json.loads(bytes(reply_to.data))["error"]["code"] == -32700
+
+
+def test_the_wire_streams_are_buffered_so_a_line_is_not_read_byte_by_byte() -> None:
+    code = (
+        "from refserver.wire_bugs import _claim_std_streams;"
+        "i, o = _claim_std_streams();"
+        "import io, sys;"  # fd 1 now points at stderr, as in the server
+        "print(isinstance(i, io.BufferedReader), file=sys.stderr)"
+    )
+    done = subprocess.run(
+        [sys.executable, "-c", code], input=b"", capture_output=True, check=True, timeout=30
+    )
+    assert done.stderr.strip() == b"True"
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        b'{"jsonrpc": "2.0", "id": true, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": false, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": 1.5, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": {"a": 1}, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": [1], "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": 1.5, "result": {}}',
+    ],
+)
+def test_invalid_id_types_get_invalid_request_with_a_null_id(line: bytes) -> None:
+    reply = invalid_message_reply(line + b"\n")
+    assert reply is not None
+    assert json.loads(reply) == {
+        "jsonrpc": "2.0",
+        "id": None,
+        "error": {"code": -32600, "message": "Invalid Request"},
+    }
+
+
+@pytest.mark.parametrize("params", ['"x"', "[1, 2]", "5", "true", "null"])
+def test_non_object_params_get_invalid_request_keeping_the_id(params: str) -> None:
+    line = (
+        b'{"jsonrpc": "2.0", "id": 4, "method": "tools/list", "params": ' + params.encode() + b"}"
+    )
+    reply = invalid_message_reply(line + b"\n")
+    assert reply is not None
+    assert json.loads(reply)["error"]["code"] == -32600
+    assert json.loads(reply)["id"] == 4
+
+
+@pytest.mark.parametrize(
+    "line",
+    [
+        b'{"jsonrpc": "2.0", "id": 0, "method": "tools/list"}',
+        b'{"jsonrpc": "2.0", "id": "", "method": "tools/list", "params": {}}',
+        b'{"jsonrpc": "2.0", "method": "notifications/initialized", "params": {"a": 1}}',
+    ],
+)
+def test_valid_id_and_params_are_still_left_to_the_sdk(line: bytes) -> None:
+    assert invalid_message_reply(line + b"\n") is None
+
+
+@pytest.mark.anyio
+async def test_invalid_ids_are_refused_before_the_tasks_layer_can_answer() -> None:
+    meta = {"io.modelcontextprotocol/protocolVersion": MODERN}
+    line = json.dumps(
+        {
+            "jsonrpc": "2.0",
+            "id": True,
+            "method": "tasks/get",
+            "params": {"_meta": meta, "taskId": "x"},
+        }
+    ).encode()
+    out = io.BytesIO()
+    hook = StdioMutationHook(frozenset())
+    await _pump(
+        io.BytesIO(line + b"\n"), io.BytesIO(), "client_to_server", [hook], False, reply_to=out
+    )
+    reply = json.loads(out.getvalue())
+    assert reply["id"] is None and reply["error"]["code"] == -32600
+
+
+@pytest.mark.anyio
+async def test_b08_still_answers_parseable_invalid_messages(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv(bugs.ENV_VAR, "b08")
+    bugs.load()
+    out, sink = io.BytesIO(), io.BytesIO()
+    await _pump(
+        io.BytesIO(b'{"id": 1, "method": "tools/list"}\n'),
+        sink,
+        "client_to_server",
+        [StdioMutationHook(bugs.active())],
+        False,
+        reply_to=out,
+    )
+    assert json.loads(out.getvalue())["error"]["code"] == -32600
+    assert sink.getvalue() == b""  # nothing invalid is forwarded to the SDK

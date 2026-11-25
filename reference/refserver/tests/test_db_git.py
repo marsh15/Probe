@@ -36,6 +36,27 @@ async def test_row_cap(client: Client) -> None:
     assert out["truncated"] is True
 
 
+RECURSIVE = (
+    "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < {limit}) "
+    "SELECT {select} FROM c"
+)
+
+
+async def test_read_only_recursive_cte_is_allowed(client: Client) -> None:
+    out = await call_json(client, "query_db", {"sql": RECURSIVE.format(limit=5, select="x")})
+    assert [r[0] for r in out["rows"]] == [1, 2, 3, 4, 5]
+
+
+async def test_runaway_recursive_cte_hits_the_time_limit(
+    client: Client, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr("refserver.tools.db.TIME_LIMIT", 0.3)
+    sql = RECURSIVE.format(limit=10**12, select="count(*)")
+    is_error, text = await call(client, "query_db", {"sql": sql})
+    assert is_error
+    assert "time limit" in text
+
+
 @pytest.mark.parametrize(
     "sql",
     [
@@ -50,6 +71,8 @@ async def test_row_cap(client: Client) -> None:
         "PRAGMA journal_mode = WAL",
         "PRAGMA writable_schema = 1",
         "VACUUM",
+        "WITH RECURSIVE c(x) AS (SELECT 1 UNION ALL SELECT x + 1 FROM c WHERE x < 3) "
+        "DELETE FROM notes WHERE id IN (SELECT x FROM c)",
         "REPLACE INTO notes (id, title, body, created_at, updated_at) "
         "VALUES (1, 'a', 'b', 'c', 'd')",
     ],

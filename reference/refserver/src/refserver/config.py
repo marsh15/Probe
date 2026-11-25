@@ -7,6 +7,9 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 DEFAULT_DATA = Path("/data")
+# Signs cursors and requestState. Fixed, so two instances of the clean server agree on every
+# token they issue; REFSERVER_SECRET overrides it.
+DEFAULT_SECRET = b"refserver-default-secret-v1"
 
 
 def parse_tokens(spec: str) -> dict[str, str]:
@@ -39,7 +42,7 @@ class Config:
             "allowed_root": data_root / "allowed",
             "db_path": data_root / "db" / "notes.db",
             "repo_path": data_root / "repo",
-            "secret": os.urandom(32),
+            "secret": DEFAULT_SECRET,
         }
         base.update(overrides)
         return cls(**base)  # type: ignore[arg-type]

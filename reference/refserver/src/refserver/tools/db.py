@@ -27,7 +27,12 @@ if TYPE_CHECKING:
 MAX_ROWS = 500
 MAX_BYTES = 256 * 1024
 TIME_LIMIT = 5.0
-_ALLOWED_ACTIONS = {sqlite3.SQLITE_SELECT, sqlite3.SQLITE_READ, sqlite3.SQLITE_FUNCTION}
+_ALLOWED_ACTIONS = {
+    sqlite3.SQLITE_SELECT,
+    sqlite3.SQLITE_READ,
+    sqlite3.SQLITE_FUNCTION,
+    sqlite3.SQLITE_RECURSIVE,  # read-only WITH RECURSIVE
+}
 
 
 def _authorizer(action: int, *_: object) -> int:

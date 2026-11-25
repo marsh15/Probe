@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import atexit
+import fcntl
 import logging
 import os
 import shutil
@@ -21,6 +22,45 @@ from refserver.seed.make_seed import make_seed
 
 log = logging.getLogger("refserver")
 
+SEED_DIR_PREFIX = "refserver-"
+LOCK_NAME = ".refserver-lock"
+_HELD_LOCKS: list[int] = []  # open for the life of the process, so the locks stay held
+
+
+def clean_stale_seed_dirs(parent: Path | None = None) -> None:
+    """Remove temporary seed dirs whose owner died without cleaning up (a crash, a signal).
+
+    Each live instance holds an flock on its dir's lock file, so a lock that can be taken means
+    the owner is gone. Dirs without a lock file (not made by this version) are left alone.
+    """
+    base = parent or Path(tempfile.gettempdir())
+    for path in base.glob(f"{SEED_DIR_PREFIX}*"):
+        lock = path / LOCK_NAME
+        try:
+            if path.is_symlink() or not path.is_dir() or path.stat().st_uid != os.getuid():
+                continue
+            fd = os.open(lock, os.O_RDWR)
+        except OSError:
+            continue
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            continue  # held: another instance is running on it
+        finally:
+            os.close(fd)
+        shutil.rmtree(path, ignore_errors=True)
+
+
+def make_seed_dir(parent: Path | None = None) -> Path:
+    """A fresh temporary dir for a seeded copy, locked for as long as this process lives."""
+    clean_stale_seed_dirs(parent)
+    root = Path(tempfile.mkdtemp(prefix=SEED_DIR_PREFIX, dir=parent))
+    fd = os.open(root / LOCK_NAME, os.O_RDWR | os.O_CREAT, 0o600)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    _HELD_LOCKS.append(fd)
+    atexit.register(shutil.rmtree, root, ignore_errors=True)
+    return root
+
 
 def prepare_data() -> Path:
     """Locate the seeded data root, or seed a throwaway one for local runs without /data."""
@@ -31,8 +71,7 @@ def prepare_data() -> Path:
         return root
     if (DEFAULT_DATA / "db" / "notes.db").is_file():
         return DEFAULT_DATA
-    root = Path(tempfile.mkdtemp(prefix="refserver-"))
-    atexit.register(shutil.rmtree, root, ignore_errors=True)
+    root = make_seed_dir()
     make_seed(root / "data", seed=int(os.environ.get("REFSERVER_SEED", "1")))
     print(f"refserver: no /data found; seeded a temporary copy at {root / 'data'}", file=sys.stderr)
     return root / "data"

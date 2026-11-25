@@ -59,8 +59,25 @@ def _literal_ip(host: str) -> IPAddress | None:
         return None
 
 
+_NAT64 = ipaddress.IPv6Network("64:ff9b::/96")
+
+
+def _embedded_ipv4(ip: IPAddress) -> IPAddress:
+    """The IPv4 address an IPv6 one wraps: IPv4-mapped, IPv4-compatible (::a.b.c.d) or NAT64.
+
+    ``is_global`` reports the last two as global whatever they wrap, so the wrapped address is
+    what must be vetted (and connected to)."""
+    if not isinstance(ip, ipaddress.IPv6Address):
+        return ip
+    if ip.ipv4_mapped:
+        return ip.ipv4_mapped
+    if int(ip) >> 32 == 0 or ip in _NAT64:
+        return ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
+    return ip
+
+
 def _require_global(ip: IPAddress, shown: str) -> IPAddress:
-    effective = ip.ipv4_mapped if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped else ip
+    effective = _embedded_ipv4(ip)
     if not effective.is_global:
         raise ToolError(
             f"blocked: {shown} resolves to non-public address {ip}; "

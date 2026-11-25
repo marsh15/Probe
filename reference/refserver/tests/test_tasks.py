@@ -7,7 +7,9 @@ from typing import Any
 from refserver.tasks_layer import (
     CAPABILITIES_META,
     EXTENSION_ID,
+    MAX_TASKS_PER_OWNER,
     PROTOCOL_VERSION_META,
+    TTL_MS,
     WORK_SECONDS,
     TasksLayer,
     TaskTable,
@@ -126,3 +128,62 @@ def test_discover_gets_the_extension_added() -> None:
     assert out["result"]["capabilities"]["extensions"] == {EXTENSION_ID: {}}
     assert "extensions" not in reply["result"]["capabilities"]  # the original is untouched
     assert TasksLayer.advertise("tools/list", reply) is reply
+
+
+def test_a_task_expires_after_its_ttl() -> None:
+    clock = Clock()
+    tasks = table(clock)
+    created = tasks.create([1])
+    clock.now += TTL_MS / 1000 - 1
+    assert tasks.get(created["taskId"]) is not None
+    clock.now += 2  # past the ttlMs the task advertised
+    assert tasks.get(created["taskId"]) is None
+    assert not tasks.cancel(created["taskId"])
+
+
+def test_expired_tasks_are_dropped_from_the_table() -> None:
+    clock = Clock()
+    tasks = table(clock)
+    for _ in range(5):
+        tasks.create([1])
+    clock.now += TTL_MS / 1000 + 1
+    tasks.create([1])
+    assert len(tasks._tasks) == 1
+
+
+def test_the_table_is_capped_per_owner_and_drops_the_oldest() -> None:
+    clock = Clock()
+    tasks = table(clock)
+    first = tasks.create([1], owner="alice")
+    other = tasks.create([1], owner="bob")
+    ids = []
+    for _ in range(MAX_TASKS_PER_OWNER):
+        clock.now += 0.001
+        ids.append(tasks.create([1], owner="alice")["taskId"])
+    assert len(tasks._tasks) <= 2 * MAX_TASKS_PER_OWNER
+    assert tasks.get(first["taskId"], owner="alice") is None  # the oldest went
+    assert tasks.get(ids[-1], owner="alice") is not None
+    assert tasks.get(other["taskId"], owner="bob") is not None  # bob's are not alice's to evict
+
+
+def test_tasks_are_scoped_to_the_identity_that_created_them() -> None:
+    tasks = table(Clock())
+    created = tasks.create([1], owner="alice")
+    assert tasks.get(created["taskId"], owner="alice") is not None
+    assert tasks.get(created["taskId"], owner="bob") is None
+    assert tasks.get(created["taskId"]) is None
+    assert not tasks.cancel(created["taskId"], owner="bob")
+    assert tasks.cancel(created["taskId"], owner="alice")
+
+
+def test_the_layer_hides_one_identitys_task_from_another() -> None:
+    layer = TasksLayer(frozenset())
+    created = layer.answer(export_call(), owner="alice")
+    assert created is not None
+    task_id = created["result"]["taskId"]
+    for method in ("tasks/get", "tasks/update", "tasks/cancel"):
+        reply = layer.answer(request(method, {"taskId": task_id}), owner="bob")
+        assert reply is not None and reply["error"]["code"] == -32602
+        assert "result" not in reply
+    mine = layer.answer(request("tasks/get", {"taskId": task_id}), owner="alice")
+    assert mine is not None and mine["result"]["taskId"] == task_id

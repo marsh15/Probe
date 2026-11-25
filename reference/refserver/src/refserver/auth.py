@@ -57,7 +57,8 @@ async def identity_tool_filter(
         return await call_next(ctx)
     if ctx.method == "tools/call":
         name = (ctx.params or {}).get("name")
-        if name in hidden:
+        # A name that is not a string cannot be hidden; the SDK rejects it with -32602.
+        if isinstance(name, str) and name in hidden:
             # Same answer the SDK gives for a tool that does not exist.
             return CallToolResult(
                 content=[TextContent(type="text", text=f"Unknown tool: {name}")], is_error=True

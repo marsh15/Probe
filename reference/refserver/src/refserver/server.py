@@ -118,4 +118,6 @@ def http_app(mcp: MCPServer) -> ASGIApp:
         allowed_origins=[f"http://{h}" for h in hosts] + [f"https://{h}" for h in hosts],
     )
     app = mcp.streamable_http_app(streamable_http_path="/mcp", transport_security=security)
-    return wire_bugs.WireBugMiddleware(app)
+    # The Tasks layer answers in front of `app`, so it repeats app's auth and transport checks.
+    guard = wire_bugs.TasksGuard(security, mcp._token_verifier)
+    return wire_bugs.WireBugMiddleware(app, guard=guard)

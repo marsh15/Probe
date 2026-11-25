@@ -18,24 +18,31 @@ from __future__ import annotations
 import json
 import os
 import sys
+import time
 from collections.abc import Callable
 from typing import IO, TYPE_CHECKING, Any, Literal
 
 import anyio
 import anyio.to_thread
+from mcp.server.auth.middleware.bearer_auth import AuthenticatedUser, BearerAuthBackend
 from mcp.server.stdio import stdio_server
+from mcp.server.transport_security import TransportSecurityMiddleware
+from starlette.requests import HTTPConnection, Request
 
 from refserver import bugs, mutations
-from refserver.tasks_layer import TasksLayer
+from refserver.tasks_layer import TASK_METHODS, TasksLayer
 
 if TYPE_CHECKING:
+    from mcp.server.auth.provider import TokenVerifier
     from mcp.server.mcpserver import MCPServer
+    from mcp.server.transport_security import TransportSecuritySettings
     from starlette.types import ASGIApp, Receive, Scope, Send
 
 Direction = Literal["client_to_server", "server_to_client"]
 # A stdio hook maps one NDJSON line (newline included) to zero or more lines to emit instead.
 StdioHook = Callable[[Direction, bytes], list[bytes]]
 HttpHook = Callable[["ASGIApp"], "ASGIApp"]
+TASK_REQUEST_METHODS = frozenset({"tools/call", *TASK_METHODS})
 
 
 STDOUT_NOISE = b"DEBUG: handling request\n"
@@ -114,6 +121,10 @@ class StdioMutationHook:
         return [out]
 
 
+def _may_be_task_request(message: Any) -> bool:
+    return isinstance(message, dict) and message.get("method") in TASK_REQUEST_METHODS
+
+
 def _is_cancellation(message: Any) -> bool:
     return isinstance(message, dict) and message.get("method") == "notifications/cancelled"
 
@@ -123,10 +134,10 @@ def stdio_hooks() -> list[StdioHook]:
     return [StdioMutationHook(bugs.active())]
 
 
-def http_hooks() -> list[HttpHook]:
+def http_hooks(guard: TasksGuard | None = None) -> list[HttpHook]:
     """ASGI wrappers for the active bugs, innermost first."""
     active = bugs.active()
-    return [lambda app: HttpMutationMiddleware(app, active)]
+    return [lambda app: HttpMutationMiddleware(app, active, guard)]
 
 
 def apply_stdio_hooks(direction: Direction, line: bytes, hooks: list[StdioHook]) -> list[bytes]:
@@ -139,10 +150,12 @@ def apply_stdio_hooks(direction: Direction, line: bytes, hooks: list[StdioHook])
 class WireBugMiddleware:
     """ASGI middleware applying `http_hooks()` around the SDK's Starlette app."""
 
-    def __init__(self, app: ASGIApp, hooks: list[HttpHook] | None = None) -> None:
+    def __init__(
+        self, app: ASGIApp, hooks: list[HttpHook] | None = None, guard: TasksGuard | None = None
+    ) -> None:
         self.inner = app
         wrapped = app
-        for hook in http_hooks() if hooks is None else hooks:
+        for hook in http_hooks(guard) if hooks is None else hooks:
             wrapped = hook(wrapped)
         self.app = wrapped
 
@@ -163,12 +176,49 @@ def _has_header(headers: list[tuple[bytes, bytes]], name: bytes) -> bool:
     return any(k.lower() == name for k, _ in headers)
 
 
+class TasksGuard:
+    """Who may be answered by the Tasks layer in front of the SDK app.
+
+    The SDK app checks the route, the bearer token and the Host/Origin headers; a Tasks request
+    never reaches it, so the same checks are repeated here, with the SDK's own code. A request
+    that fails any of them is not answered here but handed on, and the SDK app refuses it with
+    its usual 401, 421, 403 or 404.
+    """
+
+    def __init__(
+        self,
+        security: TransportSecuritySettings,
+        verifier: TokenVerifier | None,
+        path: str = "/mcp",
+    ) -> None:
+        self.security = TransportSecurityMiddleware(security)
+        self.verifier = verifier
+        self.path = path
+
+    async def check(self, scope: Scope) -> tuple[bool, str | None]:
+        """(allowed, identity); the identity is None when the server has no authentication."""
+        if scope.get("path") != self.path:
+            return False, None
+        if await self.security.validate_request(Request(scope), is_post=True) is not None:
+            return False, None
+        if self.verifier is None:
+            return True, None
+        authenticated = await BearerAuthBackend(self.verifier).authenticate(HTTPConnection(scope))
+        if authenticated is None or not isinstance(authenticated[1], AuthenticatedUser):
+            return False, None
+        token = authenticated[1].access_token
+        return True, token.subject or token.client_id
+
+
 class HttpMutationMiddleware:
     """Applies the HTTP request bugs (b05, b06, b08, b51) and the response bugs to POSTs."""
 
-    def __init__(self, app: ASGIApp, active: frozenset[str]) -> None:
+    def __init__(
+        self, app: ASGIApp, active: frozenset[str], guard: TasksGuard | None = None
+    ) -> None:
         self.app = app
         self.active = active
+        self.guard = guard
         self.state = mutations.MutationState()
         self.tasks = TasksLayer(active)
 
@@ -187,12 +237,14 @@ class HttpMutationMiddleware:
         message = _parse(body)
         if message is _UNPARSEABLE and "b08" in self.active:
             os._exit(CRASH_EXIT_CODE)
-        if (task_reply := self.tasks.answer(message)) is not None:
-            await self._send_json(send, task_reply)
-            return
         info = mutations.request_info(message)
         headers = list(scope["headers"])
         self._rewrite_request_headers(headers, message)
+        if self.guard is not None and _may_be_task_request(message):
+            allowed, owner = await self.guard.check({**scope, "headers": headers})
+            if allowed and (task_reply := self.tasks.answer(message, owner)) is not None:
+                await self._send_json(send, task_reply)
+                return
 
         sent = False
 
@@ -313,15 +365,32 @@ def invalid_message_reply(line: bytes) -> bytes | None:
         code, message = -32700, "Parse error"
     else:
         if isinstance(value, dict):
-            if isinstance(value.get("id"), str | int) and not isinstance(value.get("id"), bool):
-                request_id = value["id"]
+            raw_id = value.get("id")
+            id_ok = isinstance(raw_id, str | int) and not isinstance(raw_id, bool)
+            if id_ok:
+                request_id = raw_id
             has_method = isinstance(value.get("method"), str)
             has_reply = "result" in value or "error" in value
-            if value.get("jsonrpc") == "2.0" and (has_method or has_reply):
+            # An id is a string or an integer (null is tolerated); params, when present, an object.
+            well_formed = (id_ok or raw_id is None) and (
+                not has_method or isinstance(value.get("params", {}), dict)
+            )
+            if value.get("jsonrpc") == "2.0" and (has_method or has_reply) and well_formed:
                 return None
         # Arrays (batches are not supported) and anything else that is not a message.
     reply = {"jsonrpc": "2.0", "id": request_id, "error": {"code": code, "message": message}}
     return json.dumps(reply, separators=(",", ":")).encode() + b"\n"
+
+
+def _write_all(sink: IO[bytes], data: bytes) -> None:
+    """Write ``data`` completely: a raw pipe may accept fewer bytes than it was given."""
+    view = memoryview(data)
+    while view:
+        written = sink.write(view)
+        if written is None:  # a non-blocking sink that is full; wait for room
+            time.sleep(0.001)
+            continue
+        view = view[written:]
 
 
 async def _pump(
@@ -343,24 +412,25 @@ async def _pump(
             if not line:
                 return
             if reply_to is not None:
+                # b08 turns the shim off only for what it must crash on: a line that is not JSON.
+                skip_shim = bugs.is_on("b08") and is_unparseable(line)
+                if not skip_shim and (reply := invalid_message_reply(line)) is not None:
+                    if reply:
+                        _write_all(reply_to, reply)
+                        reply_to.flush()
+                    continue
                 for hook in hooks:
                     answer = getattr(hook, "answer", None)
                     if answer is not None and (direct := answer(line)) is not None:
-                        reply_to.write(direct)
+                        _write_all(reply_to, direct)
                         reply_to.flush()
                         break
                 else:
                     direct = None
                 if direct is not None:
                     continue
-            shim = reply_to is not None and not bugs.is_on("b08")
-            if shim and (reply := invalid_message_reply(line)) is not None:
-                if reply and reply_to is not None:
-                    reply_to.write(reply)
-                    reply_to.flush()
-                continue
             for out in apply_stdio_hooks(direction, line, hooks):
-                sink.write(out)
+                _write_all(sink, out)
             sink.flush()
     finally:
         if close_sink:
@@ -374,7 +444,7 @@ def _claim_std_streams() -> tuple[IO[bytes], IO[bytes]]:
     code lands on stderr instead of corrupting the protocol stream.
     """
     sys.stdout.flush()
-    wire_in = os.fdopen(os.dup(0), "rb", buffering=0)
+    wire_in = os.fdopen(os.dup(0), "rb")  # buffered: readline must not read one byte per syscall
     wire_out = os.fdopen(os.dup(1), "wb", buffering=0)
     devnull = os.open(os.devnull, os.O_RDONLY)
     os.dup2(devnull, 0)
@@ -397,7 +467,7 @@ async def run_stdio_proxy(
     server_in = os.fdopen(to_server_r, "r", encoding="utf-8", errors="replace")
     server_out = os.fdopen(from_server_w, "w", encoding="utf-8")
     proxy_to_server = os.fdopen(to_server_w, "wb", buffering=0)
-    proxy_from_server = os.fdopen(from_server_r, "rb", buffering=0)
+    proxy_from_server = os.fdopen(from_server_r, "rb")
     lowlevel = (
         mcp._lowlevel_server
     )  # no public API serves explicit streams through the dual-era loop

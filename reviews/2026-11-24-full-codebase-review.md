@@ -152,16 +152,16 @@ protocol expectations, and `--conformance` is undocumented.
 
 The clean server must be correct, or selfval reports false positives against Probe.
 
-- [ ] **important** `wire_bugs.py:190`: **on HTTP, Tasks-extension requests bypass auth, Host/Origin checks and routing** (answered before the Starlette app). *Fix:* answer tasks only after auth and transport security.
-- [ ] **important** `config.py:42`: each process signs cursors and requestState with a random key, so two clean instances return different cursors, giving a false positive in `stateless_consistent` and cross-instance "invalid cursor". *Fix:* a deterministic default secret, or set `REFSERVER_SECRET` in the image and profiles.
-- [ ] **important** `wire_bugs.py:342`: the stdio proxy reads one byte per syscall (`buffering=0` readline), about 0.9 s per MiB, so the proxied server looks slow to latency and timeout checks; short writes are also ignored. *Fix:* buffered reads; write until complete.
-- [ ] **important** `tools/db.py:30`: the clean `query_db` rejects read-only `WITH RECURSIVE` (SQLITE_RECURSIVE is not allowed by the authorizer), and the 5 s limit is unreachable. *Fix:* allow `sqlite3.SQLITE_RECURSIVE`.
-- [ ] **important** `tools/fetch.py:63`: the clean `fetch_url` SSRF guard lets through IPv4-compatible `::a.b.c.d` and NAT64 `64:ff9b::/96` addresses (both report `is_global`). *Fix:* unwrap or reject them.
-- [ ] **nit** `wire_bugs.py:356`: b08 also turns off the -32600/-32700 replies for *parseable* invalid messages, a second undocumented defect. *Fix:* skip the shim only for unparsable lines.
-- [ ] **nit** `wire_bugs.py:320`: the clean shim misses invalid id types (bool, object, array, float) and non-object params, which the SDK then drops silently. *Fix:* reply -32600.
-- [ ] **nit** `tasks_layer.py:82`: tasks never expire despite `ttlMs: 60000`, and the table is unbounded and shared across identities. *Fix:* expire and cap.
-- [ ] **nit** `__main__.py:35`: temp seeds are cleaned only by `atexit`, so crash bugs (`os._exit`) and signals leave about 8 MB per instance. *Fix:* clean stale dirs at startup.
-- [ ] **nit** `auth.py:60`: for identities with hidden tools, a non-string tool name raises TypeError, giving -32603 where -32602 is expected. *Fix:* check the type first.
+- [x] **important** `wire_bugs.py:190`: **on HTTP, Tasks-extension requests bypass auth, Host/Origin checks and routing** (answered before the Starlette app). *Fix:* answer tasks only after auth and transport security.
+- [x] **important** `config.py:42`: each process signs cursors and requestState with a random key, so two clean instances return different cursors, giving a false positive in `stateless_consistent` and cross-instance "invalid cursor". *Fix:* a deterministic default secret, or set `REFSERVER_SECRET` in the image and profiles.
+- [x] **important** `wire_bugs.py:342`: the stdio proxy reads one byte per syscall (`buffering=0` readline), about 0.9 s per MiB, so the proxied server looks slow to latency and timeout checks; short writes are also ignored. *Fix:* buffered reads; write until complete.
+- [x] **important** `tools/db.py:30`: the clean `query_db` rejects read-only `WITH RECURSIVE` (SQLITE_RECURSIVE is not allowed by the authorizer), and the 5 s limit is unreachable. *Fix:* allow `sqlite3.SQLITE_RECURSIVE`.
+- [x] **important** `tools/fetch.py:63`: the clean `fetch_url` SSRF guard lets through IPv4-compatible `::a.b.c.d` and NAT64 `64:ff9b::/96` addresses (both report `is_global`). *Fix:* unwrap or reject them.
+- [x] **nit** `wire_bugs.py:356`: b08 also turns off the -32600/-32700 replies for *parseable* invalid messages, a second undocumented defect. *Fix:* skip the shim only for unparsable lines.
+- [x] **nit** `wire_bugs.py:320`: the clean shim misses invalid id types (bool, object, array, float) and non-object params, which the SDK then drops silently. *Fix:* reply -32600.
+- [x] **nit** `tasks_layer.py:82`: tasks never expire despite `ttlMs: 60000`, and the table is unbounded and shared across identities. *Fix:* expire and cap.
+- [x] **nit** `__main__.py:35`: temp seeds are cleaned only by `atexit`, so crash bugs (`os._exit`) and signals leave about 8 MB per instance. *Fix:* clean stale dirs at startup.
+- [x] **nit** `auth.py:60`: for identities with hidden tools, a non-string tool name raises TypeError, giving -32603 where -32602 is expected. *Fix:* check the type first.
 
 ---
 

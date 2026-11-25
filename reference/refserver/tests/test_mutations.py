@@ -213,7 +213,8 @@ def test_b08_dies_on_unparseable_input_but_not_on_other_garbage(data_root: Path)
     assert run_stdio.returncode == 3  # type: ignore[attr-defined]
     lines = run_stdio(data_root, "b08", b'{"id": 1}', request(2, "tools/list"))
     assert run_stdio.returncode == 0  # type: ignore[attr-defined]
-    # An invalid request (as opposed to invalid JSON) does not crash it.
+    # An invalid request (as opposed to invalid JSON) does not crash it, and it is still refused.
+    assert json.loads(lines[0])["error"]["code"] == -32600
     assert json.loads(lines[-1])["id"] == 2
 
 

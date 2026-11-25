@@ -9,6 +9,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from contextlib import asynccontextmanager, contextmanager
 from pathlib import Path
+from types import SimpleNamespace
 
 import httpx
 import httpx2
@@ -17,6 +18,7 @@ import uvicorn
 from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.types import ElicitResult
+from refserver import auth
 from refserver.config import Config
 from refserver.server import build_server, http_app
 from refserver.wire_bugs import WireBugMiddleware
@@ -191,3 +193,109 @@ async def test_wire_middleware_applies_hooks(cfg: Config) -> None:
     with serving(WireBugMiddleware(inner, hooks=[tag_responses])) as url:
         response = await http_request("GET", url + "/mcp", headers={"accept": "text/event-stream"})
     assert response.headers["x-wire-hook"] == "1"
+
+
+# --- Tasks extension requests go through the same gates as every other request ---
+
+TASK_META = {
+    "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+    "io.modelcontextprotocol/clientCapabilities": {
+        "extensions": {"io.modelcontextprotocol/tasks": {}}
+    },
+}
+JSON_HEADERS = {"content-type": "application/json", "accept": "application/json, text/event-stream"}
+
+
+def export_body(rid: int = 1) -> dict[str, object]:
+    return {
+        "jsonrpc": "2.0",
+        "id": rid,
+        "method": "tools/call",
+        "params": {"_meta": TASK_META, "name": "long_export", "arguments": {"items": [1, 2]}},
+    }
+
+
+def task_get_body(task_id: str, rid: int = 2) -> dict[str, object]:
+    return {
+        "jsonrpc": "2.0",
+        "id": rid,
+        "method": "tasks/get",
+        "params": {"_meta": TASK_META, "taskId": task_id},
+    }
+
+
+def bearer(token: str, **extra: str) -> dict[str, str]:
+    return {**JSON_HEADERS, "authorization": f"Bearer {token}", **extra}
+
+
+@pytest.mark.parametrize("header", [None, "Bearer wrong-token"])
+async def test_tasks_requests_need_a_valid_token(authed_url: str, header: str | None) -> None:
+    headers = {**JSON_HEADERS, **({"authorization": header} if header else {})}
+    for body in (export_body(), task_get_body("whatever")):
+        response = await http_request("POST", f"{authed_url}/mcp", headers=headers, json=body)
+        assert response.status_code == 401, response.text
+        assert "taskId" not in response.text
+
+
+async def test_tasks_requests_get_the_origin_check(authed_url: str) -> None:
+    headers = bearer("tok-alice-123", origin="http://evil.example")
+    response = await http_request("POST", f"{authed_url}/mcp", headers=headers, json=export_body())
+    assert response.status_code == 403
+    assert "taskId" not in response.text
+
+
+async def test_tasks_requests_get_the_host_check(open_url: str) -> None:
+    headers = {**JSON_HEADERS, "host": "evil.example"}
+    response = await http_request("POST", f"{open_url}/mcp", headers=headers, json=export_body())
+    assert response.status_code == 421
+    assert "taskId" not in response.text
+
+
+async def test_tasks_requests_are_only_answered_on_the_mcp_route(open_url: str) -> None:
+    response = await http_request(
+        "POST", f"{open_url}/somewhere-else", headers=JSON_HEADERS, json=export_body()
+    )
+    assert response.status_code == 404
+    assert "taskId" not in response.text
+
+
+async def test_authenticated_tasks_still_work_and_belong_to_their_identity(
+    authed_url: str,
+) -> None:
+    alice, bob = bearer("tok-alice-123"), bearer("tok-bob-456")
+    created = await http_request("POST", f"{authed_url}/mcp", headers=alice, json=export_body())
+    assert created.status_code == 200
+    task_id = created.json()["result"]["taskId"]
+    mine = await http_request(
+        "POST", f"{authed_url}/mcp", headers=alice, json=task_get_body(task_id)
+    )
+    assert mine.json()["result"]["taskId"] == task_id
+    theirs = await http_request(
+        "POST", f"{authed_url}/mcp", headers=bob, json=task_get_body(task_id)
+    )
+    assert theirs.json()["error"]["code"] == -32602
+
+
+async def test_unauthenticated_server_still_answers_tasks(open_url: str) -> None:
+    response = await http_request(
+        "POST", f"{open_url}/mcp", headers=JSON_HEADERS, json=export_body()
+    )
+    assert response.json()["result"]["resultType"] == "task"
+
+
+@pytest.mark.parametrize("name", [["purge_notes"], {"a": 1}, 5, None, True])
+async def test_non_string_tool_name_is_left_to_the_sdk_to_reject_for_a_filtered_identity(
+    monkeypatch: pytest.MonkeyPatch, name: object
+) -> None:
+    """The filter must not raise (-32603) on a name it cannot look up; the SDK answers -32602."""
+    monkeypatch.setattr(auth, "current_identity", lambda: "bob")
+    reached = object()
+    seen = []
+
+    async def call_next(ctx: object) -> object:
+        seen.append(ctx)
+        return reached
+
+    ctx = SimpleNamespace(method="tools/call", params={"name": name, "arguments": {}})
+    assert await auth.identity_tool_filter(ctx, call_next) is reached  # type: ignore[arg-type]
+    assert seen == [ctx]

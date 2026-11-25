@@ -36,6 +36,12 @@ BLOCKED_LITERALS = [
     "http://[fe80::1]/",
     "http://[fd00::1]/",
     "http://100.64.0.1/",  # carrier-grade NAT
+    "http://[::7f00:1]/",  # IPv4-compatible 127.0.0.1
+    "http://[::127.0.0.1]/",
+    "http://[::a9fe:a9fe]/",  # IPv4-compatible 169.254.169.254
+    "http://[64:ff9b::7f00:1]/",  # NAT64 well-known prefix, embedded 127.0.0.1
+    "http://[64:ff9b::a9fe:a9fe]/",  # NAT64, embedded cloud metadata address
+    "http://[64:ff9b::a00:1]/",  # NAT64, embedded 10.0.0.1
 ]
 BAD_SCHEMES = [
     "file:///etc/passwd",
@@ -90,7 +96,15 @@ async def test_https_keeps_sni_hostname() -> None:
 
 
 @pytest.mark.parametrize(
-    "answers", [["10.1.2.3"], [PUBLIC_IP, "127.0.0.1"], ["::1"], ["169.254.169.254"]]
+    "answers",
+    [
+        ["10.1.2.3"],
+        [PUBLIC_IP, "127.0.0.1"],
+        ["::1"],
+        ["169.254.169.254"],
+        ["::7f00:1"],
+        ["64:ff9b::a9fe:a9fe"],
+    ],
 )
 async def test_hostname_resolving_to_private_is_blocked(answers: list[str]) -> None:
     rec = Recorder({})
