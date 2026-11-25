@@ -10,7 +10,8 @@ from probe.engine.outcomes import CheckMeta, DisclosureTier, Era, Family, Severi
 from probe.wire.errors import StdoutNoise
 
 _SAMPLE = 5
-# Codes -32023..-32099 are reserved for the spec and none are defined there yet.
+# Codes -32023..-32099 are reserved for the spec and none are defined there yet (modern era
+# only: in legacy MCP the whole -32000..-32099 range is implementation-defined).
 _RESERVED_LOW, _RESERVED_HIGH = -32099, -32023
 _LEGACY_RESOURCE_NOT_FOUND = -32002
 
@@ -120,7 +121,7 @@ class ErrorCodeRanges(Check):
             code = message["error"].get("code")
             if isinstance(code, bool) or not isinstance(code, int):
                 bad.append((record, "code is not an integer"))
-            elif _RESERVED_LOW <= code <= _RESERVED_HIGH:
+            elif ctx.era is Era.MODERN and _RESERVED_LOW <= code <= _RESERVED_HIGH:
                 bad.append((record, f"{code} is in the range reserved for the spec"))
             elif code == _LEGACY_RESOURCE_NOT_FOUND and ctx.era is Era.MODERN:
                 bad.append((record, "-32002 was replaced by -32602 in the modern era"))

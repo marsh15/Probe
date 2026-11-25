@@ -2,6 +2,7 @@
 
 import json
 import multiprocessing
+import os
 import subprocess
 import sys
 import threading
@@ -321,6 +322,20 @@ def test_minimal_skips_unsatisfiable_union_branches():
     result = generate_valid(tool, seed=1, mode="quick")
     assert result.cases[0].rule == "minimal"
     assert result.cases[0].arguments == {"ok": True}
+
+
+def crashing_draw(*args, **kwargs):
+    os._exit(3)
+
+
+@pytest.mark.skipif("fork" not in multiprocessing.get_all_start_methods(), reason="fork injection")
+def test_a_worker_crash_is_not_reported_as_a_draw_timeout(monkeypatch):
+    monkeypatch.setattr(valid_gen, "_draw_candidates", crashing_draw)
+    tool = classify_tool("crash", {"type": "object"})
+    result = generate_valid(tool, seed=1, mode="quick", time_budget_s=5.0)
+    assert [(case.rule, case.arguments) for case in result.cases] == [("minimal", {})]
+    assert any("worker exited" in note for note in result.notes)
+    assert not any("timed out" in note for note in result.notes)
 
 
 @pytest.mark.skipif("forkserver" not in multiprocessing.get_all_start_methods(), reason="POSIX")

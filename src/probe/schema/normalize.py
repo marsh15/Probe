@@ -62,7 +62,12 @@ def normalize(schema: Schema) -> NormalizationResult:
                     )
                 )
         # Draft 7 requires a match whenever contains is present; minContains: 0 does not.
-        if node.get("minContains") == 0:
+        min_contains = node.get("minContains")
+        if (
+            isinstance(min_contains, int | float)
+            and not isinstance(min_contains, bool)
+            and (min_contains == 0)
+        ):
             result.pop("contains", None)
         if "$schema" in result:
             result["$schema"] = _DRAFT7_URI

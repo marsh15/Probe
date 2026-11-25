@@ -118,10 +118,13 @@ class DiscoverImplemented(Check):
         finally:
             await close_fresh(fresh)
         response = outcome.response
+        # A legacy or stateless server may answer tools/list without initialize; only a
+        # modern-only marker (resultType) shows it really speaks the modern protocol.
         modern_capable = (
             isinstance(response, ResultResponse)
             and isinstance(response.result, dict)
             and isinstance(response.result.get("tools"), list)
+            and "resultType" in response.result
         )
         if not modern_capable:
             return CheckOutcome.na("the server speaks legacy MCP only")

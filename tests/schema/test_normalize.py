@@ -158,6 +158,12 @@ def test_normalization_is_idempotent_and_does_not_mutate_input():
     assert schema == original
 
 
+@pytest.mark.parametrize("value", [False, True])
+def test_a_boolean_min_contains_is_not_zero(value):
+    result = normalize({"type": "array", "contains": {"type": "integer"}, "minContains": value})
+    assert result.schema["contains"] == {"type": "integer"}
+
+
 def test_min_contains_zero_does_not_require_a_matching_item():
     result = normalize({"type": "array", "contains": False, "minContains": 0})
     assert "contains" not in result.schema

@@ -109,3 +109,27 @@ async def test_stable_equal_fails_only_when_both_runs_mismatch() -> None:
 
     assert await stable_equal(produce, now=NOW) is False
     assert calls == 2
+
+
+@pytest.mark.parametrize(
+    "key",
+    ["createdAt", "updatedAt", "elapsedMs", "durationMs", "duration_ms", "elapsed_seconds",
+     "requestId", "traceId", "startTime", "tookMs", "timestampMs"],
+)  # fmt: skip
+def test_camel_case_and_unit_suffixed_volatile_keys_lose_their_value(key: str) -> None:
+    assert norm({key: 123}) == {key: "<volatile>"}
+
+
+@pytest.mark.parametrize(
+    "key", ["timeout", "timeoutMs", "durationLimit", "retryAfterMs", "attendees", "stateAt0"]
+)
+def test_stable_keys_that_resemble_volatile_ones_are_kept(key: str) -> None:
+    assert norm({key: 123}) == {key: 123}
+
+
+def test_epoch_seconds_near_now_only() -> None:
+    assert norm({"n": int(NOW) + 3_600}) == {"n": "<epoch-s>"}
+    assert norm([int(NOW) - 86_000]) == ["<epoch-s>"]
+    assert norm({"n": NOW + 0.25}) == {"n": "<epoch-s>"}
+    assert norm({"n": int(NOW) + 90_000}) == {"n": int(NOW) + 90_000}
+    assert norm({"n": 1_700_000_000}) == {"n": 1_700_000_000}

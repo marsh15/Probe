@@ -52,7 +52,9 @@ def test_corpus_has_sixty_real_and_fifteen_synthetic_schemas():
     assert len(SCHEMAS) == 15
 
 
-@pytest.mark.timeout(3)
+# Only a hang guard (a draw takes about 0.5 s). An expiry inside @given surfaces as a Hypothesis
+# FlakyFailure, so under a loaded full-suite run a tight limit fails a correct test at random.
+@pytest.mark.timeout(30)
 @pytest.mark.parametrize(("name", "schema"), CASES, ids=[name for name, _ in CASES])
 def test_generated_then_validated_values_obey_original_schema(name, schema):
     original = deepcopy(schema)
