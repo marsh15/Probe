@@ -35,6 +35,7 @@ def seed_with_sentinel(directory: Path) -> Path:
 class LocalFixtures:
     def __init__(self, data: Path, pristine: Path) -> None:
         self.data, self.pristine = data, pristine
+        self.data_root = str(data)  # the sandbox's is /data; this copy lives in a temp directory
         self.token = TOKEN
         self.canary_ip = "127.0.0.1"
 

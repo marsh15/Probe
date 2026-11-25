@@ -102,11 +102,15 @@ class NoStackTraces(Check):
 
 
 _TAGS = re.compile("[\U000e0000-\U000e007f]")
-_ZERO_WIDTH = re.compile("[\u200b-\u200f\u2060\ufeff]")
+# ZWNJ, ZWJ, LRM and RLM (U+200C to U+200F) are left out: emoji sequences, Persian, Indic scripts
+# and right-to-left text need them.
+_ZERO_WIDTH = re.compile("[\u200b\u2060\ufeff]")
 _BIDI = re.compile("[\u202a-\u202e\u2066-\u2069]")
 _PHRASE = re.compile(
-    r"(?i)(ignore (all )?(previous|prior) instructions|you must now"
-    r"|<\s*important\s*>|system prompt)"
+    r"(?i)(ignore (all )?(previous|prior) instructions|you must now|<\s*important\s*>"
+    # "system prompt" alone is ordinary vocabulary; it counts when something is told to act on it
+    r"|\b(?:ignore|disregard|forget|override|reveal|disclose|leak|exfiltrate|repeat)\b"
+    r"[^.\n]{0,40}\bsystem prompt)"
 )
 
 
