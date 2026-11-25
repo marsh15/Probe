@@ -227,9 +227,7 @@ b48:
 b49:
   transports: [stdio]
   primary: [safety.destructive_annotated]
-  allowed_collateral: [behavior.idempotency_declared]
-  justification:
-    behavior.idempotency_declared: "a tool without annotations also lacks idempotentHint"
+  allowed_collateral: []
 b50:
   transports: [stdio]
   primary: [protocol.era_parity]
