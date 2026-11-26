@@ -252,7 +252,9 @@ print('isolated')
         assert not list(tmp_path.glob("*.json"))
 
 
-def test_sandbox_gc_real_owned_resources(tmp_path):
+def test_sandbox_gc_real_owned_resources(tmp_path, monkeypatch):
+    import probe.sandbox.docker_env as docker_env
+
     client = require_docker(IMAGE)
     scan = "t14-" + uuid.uuid4().hex[:12]
     env = DockerEnv(scan, client=client, cache_dir=tmp_path)
@@ -262,6 +264,11 @@ def test_sandbox_gc_real_owned_resources(tmp_path):
         env.create()
         target = env.create_target(IMAGE, command=["python", "-c", "import time; time.sleep(30)"])
         target.start()
+        # This process holds the scan's lease, so the scan is live and must be spared.
+        spared = collect(client=client, cache_dir=tmp_path, scan_id=scan)
+        assert not spared.errors and spared.removed == []
+        # Once the lease's owner is gone, the old resources are collected.
+        monkeypatch.setattr(docker_env, "_alive", lambda pid: False)
         result = collect(client=client, cache_dir=tmp_path, scan_id=scan)
         assert not result.errors
         assert target.name in result.removed

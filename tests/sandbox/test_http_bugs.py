@@ -112,5 +112,5 @@ def test_the_relay_port_is_published_on_loopback_only() -> None:
 
 
 def test_expected_yaml_names_the_http_bugs_this_file_covers() -> None:
-    assert HTTP_BUGS == ["b01", "b02", "b03", "b04", "b05", "b06", "b08", "b51"]
+    assert HTTP_BUGS == ["b01", "b02", "b03", "b04", "b05", "b06", "b08", "b14", "b43", "b51"]
     json.dumps(EXPECTED)  # sanity: plain data
