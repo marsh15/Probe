@@ -16,6 +16,18 @@ from probe.wire.transport_stdio import StdioTransport
 SERVER = Path(__file__).parent / "fake_servers" / "oversize.py"
 
 
+def peak_rss_bytes() -> int:
+    if sys.platform == "linux":
+        # Linux carries ru_maxrss across execve, so a child of a large pytest process would report
+        # the parent's peak. VmHWM belongs to this process's own address space.
+        for line in Path("/proc/self/status").read_text().splitlines():
+            if line.startswith("VmHWM:"):
+                return int(line.split()[1]) * 1024
+    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    # ru_maxrss is bytes on macOS and KiB elsewhere.
+    return peak if sys.platform == "darwin" else peak * 1024
+
+
 async def main() -> None:
     transport = await StdioTransport.spawn([sys.executable, str(SERVER), str(32 * 1024 * 1024)])
     try:
@@ -23,9 +35,7 @@ async def main() -> None:
     finally:
         await transport.close()
     [event] = [e for e in transport.events() if isinstance(e, OversizeMessage)]
-    peak = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    # ru_maxrss is bytes on macOS and KiB on Linux.
-    peak_bytes = peak if sys.platform == "darwin" else peak * 1024
+    peak_bytes = peak_rss_bytes()
     result = response.unwrap()
     print(
         json.dumps(

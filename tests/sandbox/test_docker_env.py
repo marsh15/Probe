@@ -265,7 +265,13 @@ def test_close_racing_inspector_creation_reclaims_volume_and_lease(tmp_path, mon
         cleanup = pool.submit(close)
         assert closing.wait(2)
         release.set()
-        inspector.result(timeout=5)
+        # Either outcome is correct: the inspector is created before close() takes the lock (and
+        # close reclaims it), or close() wins between the data holder and the inspector and the
+        # inspector is refused. What matters is that nothing is left behind.
+        try:
+            inspector.result(timeout=5)
+        except RuntimeError as exc:
+            assert "closing" in str(exc)
         assert cleanup.result(timeout=5) == []
     assert not client.containers.list()
     assert not client.volumes.list()

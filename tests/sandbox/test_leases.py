@@ -30,7 +30,8 @@ def test_fifo_lease_is_preserved_and_cannot_block_reservation(tmp_path):
     process = ctx.Process(target=reject_nonregular_record, args=(tmp_path, queue))
     process.start()
     try:
-        process.join(3)
+        # A spawn child re-imports probe; on a loaded runner that alone can take several seconds.
+        process.join(30)
         assert not process.is_alive(), "opening a nonregular lease blocked the allocator"
         assert process.exitcode == 0
         assert "ambiguous subnet lease" in queue.get(timeout=1)
