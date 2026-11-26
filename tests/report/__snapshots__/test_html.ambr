@@ -766,7 +766,7 @@
   <section id="metadata" aria-labelledby="h-metadata">
     <h2 id="h-metadata">Scan metadata</h2>
     <dl>
-      <dt>scan id</dt><dd class="mono">de5178cbbfaa</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">62.8 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.1</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
+      <dt>scan id</dt><dd class="mono">de5178cbbfaa</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">62.8 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.2</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
     </dl>
   </section>
   </main>
@@ -1412,7 +1412,7 @@
   <section id="metadata" aria-labelledby="h-metadata">
     <h2 id="h-metadata">Scan metadata</h2>
     <dl>
-      <dt>scan id</dt><dd class="mono">409deab06062</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">63.6 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.1</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
+      <dt>scan id</dt><dd class="mono">409deab06062</dd><dt>scan key</dt><dd class="mono">99178337e9711cfa11c2c384e03bbe40a3e1747df348d0c6569deecb47d35f59</dd><dt>mode</dt><dd class="mono">standard</dd><dt>seed</dt><dd class="mono">0</dd><dt>status</dt><dd class="mono">completed</dd><dt>duration</dt><dd class="mono">63.6 s</dd><dt>platform</dt><dd class="mono">darwin/arm64</dd><dt>sandbox</dt><dd class="mono">no (none)</dd><dt>image digest</dt><dd class="mono">none</dd><dt>profile hash</dt><dd class="mono">e4e35434052137fe45630494574da8cab84f0ce69ceba46850c726d34e2e8208</dd><dt>catalog version</dt><dd class="mono">0.2</dd><dt>scoring version</dt><dd class="mono">1.0</dd><dt>calls</dt><dd class="mono">353</dd>
     </dl>
   </section>
   </main>

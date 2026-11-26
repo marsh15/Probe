@@ -14,6 +14,7 @@ from probe.engine.outcomes import CheckResult
 from probe.engine.scan import run_checks
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import UrlRunner
+from probe.wire.limits import STARTUP_TIMEOUT_S
 from probe.wire.recorder import Recorder
 from probe.wire.session import Session
 from tests.engine.fakes import FakeRunner, tool
@@ -84,7 +85,8 @@ async def _context(
     session = await Session.open(
         transport,
         era=era,  # type: ignore[arg-type]
-        probe_timeout=3,
+        # Discovery must also allow a real stdio process to finish starting.
+        probe_timeout=STARTUP_TIMEOUT_S if isinstance(runner, LocalStdioRunner) else 3,
         request_timeout=10,
     )
     return ScanContext(

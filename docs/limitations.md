@@ -18,3 +18,7 @@
 - **Protocol eras.** Probe speaks the 2026-07-28 stateless protocol and the legacy
   initialize-based versions. Era-specific checks stay in the coverage denominator, so a
   legacy-only server has lower coverage by design.
+- **Official conformance.** The official MCP suite runs against sandboxed HTTP servers in
+  standard and deep mode (`protocol.official.conformance`). Profiles with bearer auth are
+  ineligible because the pinned suite versions cannot take a baseline token. Harness and
+  Host errors do not count as findings. Use `--no-conformance` to skip the suite.

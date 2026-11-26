@@ -18,12 +18,17 @@ and hostile requests, so only test servers you own or may test).
 | `--target-env KEY=VALUE` | Set an environment variable for the server (merged over the profile). |
 | `--secret-env NAME` | Treat this variable's value as a secret: it is redacted from every artifact. |
 | `--image REF`, `--sandbox/--no-sandbox` | Run the target in the hardened Docker sandbox (default when an image is given, here or in the profile). An HTTP profile is reached through a loopback-only relay. |
+| `--conformance/--no-conformance`, `--conformance-image REF` | Run or skip the official MCP suite for sandboxed HTTP targets in standard and deep mode, and optionally select a different suite image. |
 | `--allow-side-effects` | Also call tools that may write. Without it only read tools are called. |
 | `--fail-on critical\|high\|medium\|low\|none` | The lowest finding severity that makes the run fail (default high). |
 | `--min-score NUMBER` | Require an overall score from 0 through 100. An ungraded scan fails any requested minimum. |
 | `--out DIR` | Where artifacts go (default `./probe-out`). |
 | `--seed`, `--timeout-scale` | Reproducibility and slow servers. |
 | `-v`, `-q` | List every check result, or only the summary table. |
+
+The official suite uses the time remaining in the scan and respects `--timeout-scale`.
+Probe reports it as not applicable if the image cannot be pulled or the profile configures
+bearer credentials. The pinned suite versions lack a baseline bearer-token option.
 
 ## Output
 

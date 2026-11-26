@@ -30,6 +30,11 @@ class Budget:
         return self._limit - self.used
 
     @property
+    def remaining_seconds(self) -> float:
+        local = float("inf") if self._deadline is None else max(0.0, self._deadline - self._clock())
+        return min(local, self._parent.remaining_seconds) if self._parent is not None else local
+
+    @property
     def expired(self) -> bool:
         return self._deadline is not None and self._clock() >= self._deadline
 

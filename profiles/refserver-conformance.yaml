@@ -1,0 +1,8 @@
+# The reference server with an unauthenticated HTTP endpoint for the official suite.
+version: 1
+name: refserver
+target:
+  transport: http
+  image: probe-refserver:dev
+  command: ["refserver", "http", "--port", "3000"]
+  http: {port: 3000, path: /mcp}

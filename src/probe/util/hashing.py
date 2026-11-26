@@ -40,6 +40,7 @@ def scan_key(
     profile_hash: str,
     mode: str,
     seed: int,
+    conformance: bool = True,
 ) -> str:
     """Content address of a scan: the same inputs always give the same key."""
     return canonical_hash(
@@ -51,5 +52,6 @@ def scan_key(
             "profile_hash": profile_hash,
             "mode": mode,
             "seed": seed,
+            "conformance": conformance,
         }
     )

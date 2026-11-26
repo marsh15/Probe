@@ -18,7 +18,13 @@ from probe.cli.summary import (
 )
 from probe.config.modes import MODES
 from probe.config.profile import Profile, ProfileError, load_profile
-from probe.engine.runscan import RunConfig, SandboxUnavailable, UsageError, run_scan
+from probe.engine.runscan import (
+    DEFAULT_CONFORMANCE_IMAGE,
+    RunConfig,
+    SandboxUnavailable,
+    UsageError,
+    run_scan,
+)
 from probe.report.json_out import write_report
 from probe.report.outputs import FILE_NAMES, FORMATS, render
 from probe.repro.bundle import write_bundles
@@ -78,6 +84,16 @@ def run(
     llm_cache: Annotated[
         Path | None, typer.Option(help="Directory for cached judge answers.")
     ] = None,
+    conformance: Annotated[
+        bool,
+        typer.Option(
+            "--conformance/--no-conformance",
+            help="Run the official MCP conformance suite (HTTP targets in the sandbox).",
+        ),
+    ] = True,
+    conformance_image: Annotated[
+        str, typer.Option(help="Docker image for the official MCP conformance suite.")
+    ] = DEFAULT_CONFORMANCE_IMAGE,
     sarif_anchor: Annotated[
         str, typer.Option(help="File that SARIF results are attached to.")
     ] = "README.md",
@@ -154,6 +170,8 @@ def run(
         secret_env=secret_env or [],
         target_env=_parse_env(target_env or []),
         llm=llm,
+        conformance=conformance,
+        conformance_image=conformance_image,
         llm_budget_usd=llm_budget_usd,
         llm_cache=llm_cache,
     )

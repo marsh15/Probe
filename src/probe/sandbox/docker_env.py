@@ -605,9 +605,10 @@ class DockerEnv:
             self.remove_container(helper)
 
     def remove_container(self, container: Any) -> None:
-        remove_owned(container, self.scan_id, container=True)
-        if container in self.containers:
-            self.containers.remove(container)
+        with self._resource_lock:
+            remove_owned(container, self.scan_id, container=True)
+            if container in self.containers:
+                self.containers.remove(container)
 
     def control_url(self, container: Any, port: int = 9090) -> str:
         """Loopback URL for an existing published control endpoint; never a data IP."""

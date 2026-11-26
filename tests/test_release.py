@@ -75,7 +75,7 @@ def test_release_runs_only_on_version_tags_and_publishes_with_trusted_publishing
 def test_release_builds_multi_arch_images_to_ghcr() -> None:
     wf = load_workflow()
     names = {entry["name"] for entry in wf["jobs"]["images"]["strategy"]["matrix"]["include"]}
-    assert names == {"refserver", "fixtures"}
+    assert names == {"refserver", "fixtures", "conformance"}
     text = (ROOT / ".github" / "workflows" / "release.yml").read_text()
     assert "linux/amd64,linux/arm64" in text and "ghcr.io" in text
     # nothing is published unless the package built and its version matched the tag

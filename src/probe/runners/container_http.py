@@ -66,6 +66,10 @@ class ContainerHttpRunner(ContainerRunner):
         self.relay_idle_timeout_s = max(startup_timeout_s, request_timeout_s) + 10
         self._relay: Any = None
 
+    def conformance_url(self) -> str:
+        """The suite's local relay forwards to the target on the private network."""
+        return f"http://127.0.0.1:{self.port}{self.path}"
+
     async def second_instance(self) -> Transport | None:
         """None: an HTTP server is stateless per request, so a new connection serves instead."""
         return None

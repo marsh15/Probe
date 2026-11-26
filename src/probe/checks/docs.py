@@ -7,6 +7,7 @@ drift from the code.
 from collections.abc import Iterable
 
 import probe.checks.behavior
+import probe.checks.official
 import probe.checks.operability
 import probe.checks.protocol
 import probe.checks.safety
