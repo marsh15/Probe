@@ -189,7 +189,14 @@ def test_partial_initial_headers_do_not_extend_deadline(tmp_path, listener):
                     chunk = client.recv(1)
                 except TimeoutError:
                     assert time.monotonic() < deadline, "dripped headers postponed the deadline"
-                    client.sendall(b"x")
+                    try:
+                        client.sendall(b"x")
+                    except (BrokenPipeError, ConnectionResetError):
+                        break  # closed while we were dripping, inside the deadline just checked
+                except ConnectionResetError:
+                    # Closing with a dripped byte still unread makes the kernel send RST, not FIN.
+                    assert time.monotonic() < deadline, "the reset came after the deadline"
+                    break
                 else:
                     assert chunk == b""
                     break
@@ -225,7 +232,14 @@ def test_last_admitted_connection_serves_then_keepalive_headers_expire(tmp_path,
                     chunk = client.recv(1)
                 except TimeoutError:
                     assert time.monotonic() < deadline, "keepalive drips postponed header deadline"
-                    client.sendall(b"x")
+                    try:
+                        client.sendall(b"x")
+                    except (BrokenPipeError, ConnectionResetError):
+                        break  # closed while we were dripping, inside the deadline just checked
+                except ConnectionResetError:
+                    # Closing with a dripped byte still unread makes the kernel send RST, not FIN.
+                    assert time.monotonic() < deadline, "the reset came after the deadline"
+                    break
                 else:
                     assert chunk == b""
                     break
