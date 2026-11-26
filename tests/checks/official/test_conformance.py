@@ -249,3 +249,16 @@ async def test_partial_suite_keeps_valid_findings(broken: str) -> None:
 @pytest.mark.parametrize("mode", ["standard", "deep"])
 def test_it_runs_in_standard_and_deep_only(mode: str) -> None:
     assert mode in OfficialConformance.meta.modes and "quick" not in OfficialConformance.meta.modes
+
+
+@pytest.mark.parametrize(
+    "broken", ["@@PROBE-SCENARIO@@ server-other\n{not json\n", "@@PROBE-ERROR@@ harness broke\n"]
+)
+async def test_an_incomplete_run_with_only_passes_is_an_error_not_a_pass(broken: str) -> None:
+    passing = (
+        "@@PROBE-SCENARIO@@ server-initialize\n"
+        '[{"id": "initialize", "status": "SUCCESS"}]\n'
+        "@@PROBE-END@@ 0\n"
+    )
+    outcome = await run(context(FakeRunner(broken + passing)))
+    assert outcome.status is Status.ERROR and outcome.findings == []

@@ -247,6 +247,9 @@ class OfficialConformance(Check):
         ]
         if findings:
             return CheckOutcome(findings)
+        if stream.error is not None:
+            # Some of the run could not be read, so the passes we did see are not a clean bill.
+            return CheckOutcome.error(stream.error)
         if any(c.host_rejection for c in failures):
             return CheckOutcome.error("the target rejected the suite's HTTP Host")
         if failures:
