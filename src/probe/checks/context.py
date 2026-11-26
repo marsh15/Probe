@@ -102,7 +102,7 @@ class ScanContext:
         fixtures: Fixtures | None = None,
         profile: Any = None,
         llm: Judge | None = None,
-        conformance: ConformanceRunner | None = None,
+        conformance: "ConformanceRunner | None" = None,
         trace: Recorder | None = None,
         auth_identities: Sequence[str] = (),
         second_instance_supported: bool = True,
