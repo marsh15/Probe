@@ -28,6 +28,7 @@ import probe.checks.schema  # noqa: F401 - registers the schema checks
 from probe import __version__
 from probe.checks.base import Check
 from probe.checks.context import ScanConfig, ScanContext
+from probe.checks.official.conformance import OfficialConformance
 from probe.checks.registry import PHASE_ORDER, REGISTRY
 from probe.config.modes import settings_for
 from probe.config.profile import (
@@ -65,6 +66,7 @@ from probe.runners.container import ContainerRunner
 from probe.runners.container_http import ContainerHttpRunner
 from probe.runners.local_stdio import LocalStdioRunner
 from probe.runners.url import PermissionRequired, UrlRunner
+from probe.sandbox.conformance import ContainerConformanceRunner
 from probe.sandbox.docker_env import DockerEnv
 from probe.scoring import compute_score
 from probe.util.hashing import scan_key
@@ -96,6 +98,9 @@ class SandboxUnavailable(Exception):
     """A sandboxed scan was requested but Docker cannot be used (exit code 5)."""
 
 
+DEFAULT_CONFORMANCE_IMAGE = f"ghcr.io/marsh15/conformance:{__version__}"
+
+
 @dataclass(frozen=True)
 class RunConfig:
     out_dir: Path
@@ -120,6 +125,8 @@ class RunConfig:
     llm_budget_usd: float = 2.0
     llm_cache: Path | None = None
     judge: Judge | None = None  # a ready judge (tests); overrides what --llm would build
+    conformance: bool = True  # --no-conformance turns the official suite off
+    conformance_image: str = DEFAULT_CONFORMANCE_IMAGE
 
 
 def select_checks(
@@ -283,6 +290,7 @@ def _key(cfg: RunConfig, profile_hash: str, sandboxed: bool) -> str:
         profile_hash=profile_hash,
         mode=cfg.mode,
         seed=cfg.seed,
+        conformance=cfg.conformance,
     )
 
 
@@ -372,6 +380,7 @@ async def _connect(
     seconds: float,
     judge: Judge | None = None,
 ) -> ScanContext:
+    budget = Budget(calls, seconds)
     fixtures = None
     if isinstance(runner, ContainerRunner) and _fixtures_requested(cfg):
         fixtures = FixtureSet(
@@ -420,11 +429,12 @@ async def _connect(
             listing.tools,
             cfg.profile.classifier_view([str(t.get("name")) for t in listing.tools]),
         ),
-        budget=Budget(calls, seconds),
+        budget=budget,
         listing=listing,
         profile=resolved.profile,
         trace=recorder,
         llm=judge,
+        conformance=_conformance_runner(cfg, runner),
         fixtures=fixtures,
         auth_identities=[i.name for i in resolved.profile.auth.identities],
         second_instance_supported=_has_second_instance(runner),
@@ -438,6 +448,12 @@ async def _connect(
 
         fixtures.reset_target = reset_target
     return ctx
+
+
+def _conformance_runner(cfg: RunConfig, runner: Runner) -> ContainerConformanceRunner | None:
+    if not cfg.conformance or not isinstance(runner, ContainerHttpRunner):
+        return None
+    return ContainerConformanceRunner(runner.sandbox, cfg.conformance_image)
 
 
 def _has_second_instance(runner: Runner) -> bool:
@@ -455,7 +471,11 @@ def _image_digest(runner: Runner) -> str | None:
 
 
 async def _scan(cfg: RunConfig, ctx: ScanContext, started: datetime, scan_id: str) -> ScanReport:
-    selected, excluded = select_checks(cfg.only, cfg.skip, cfg.profile.checks.skip)
+    conformance_id = OfficialConformance.meta.id
+    skip = cfg.skip if cfg.conformance else (*cfg.skip, conformance_id)
+    selected, excluded = select_checks(cfg.only, skip, cfg.profile.checks.skip)
+    if not cfg.conformance:
+        excluded[conformance_id] = "disabled by --no-conformance"
     results = await run_checks(ctx, selected)
     results += [
         CheckResult(check_id=check_id, status=Status.SKIPPED, reason=reason)

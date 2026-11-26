@@ -67,7 +67,8 @@ def owned(resource: Any, scan_id: str | None = None) -> bool:
         return True
     return (
         re.fullmatch(
-            rf"probe-(?:target|fakehttp|canary|relay|inspect|init)-{re.escape(scan)}-[a-f0-9]{{12}}",
+            rf"probe-(?:target|fakehttp|canary|relay|inspect|init|conformance)"
+            rf"-{re.escape(scan)}-[a-f0-9]{{12}}",
             name,
         )
         is not None

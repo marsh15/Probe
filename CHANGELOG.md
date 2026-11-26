@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `protocol.official.conformance` runs the official MCP conformance suite (pinned image under `images/conformance`) against HTTP servers in the sandbox and reports each failed scenario check; `--no-conformance` turns it off, a failure in the suite's own harness is an error and never a finding
 - A tag-triggered release workflow (PyPI trusted publishing, multi-architecture GHCR images, GitHub release from the changelog; `docs/releasing.md`) and a GitHub Action with SARIF upload, job summary, base-branch diff and an optional badge, drafted under `integrations/github-action/`
 - README quickstart, a command-line reference, limitations and FAQ pages, and `scripts/check_cli_docs.py` (part of `make docs-check`), which fails when a command or option is not documented
 - Optional `--llm` experiment `behavior.agent_recovery`: a cached, budgeted model call measures whether the server's error messages help an agent fix malformed calls (recovery rate and lift, no score weight); `--llm-budget-usd`, `--llm-cache` (see docs/llm.md)

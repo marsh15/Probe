@@ -21,6 +21,8 @@ sandbox).
 | `--allow-side-effects` | Also call tools that may write (outside a sandbox). |
 | `--only GLOB`, `--skip GLOB` | Select checks by id. Repeatable. |
 | `--timeout-scale X` | Multiply every timeout. |
+| `--conformance`, `--no-conformance` | Enable (default) or skip the official MCP suite for sandboxed HTTP targets in standard and deep mode. |
+| `--conformance-image REF` | Override the suite image. The default is `ghcr.io/marsh15/conformance:<probe-version>`. Probe pulls it if it is absent locally. |
 | `--out DIR` | Output directory, default `probe-out`. |
 | `--format LIST` | `json,html,sarif,md,badge`; default `json,html`. See [report.md](report.md). |
 | `--sarif-anchor FILE`, `--badge-style grade\|coverage` | See [report.md](report.md). |

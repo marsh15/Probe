@@ -28,6 +28,7 @@ from probe.wire.transport_http import HttpRequestFailed, HttpTransport, RawHttpR
 from probe.wire.transport_stdio import StdioTransport
 
 if TYPE_CHECKING:
+    from probe.checks.official.conformance import ConformanceRunner
     from probe.sandbox.fixtures import FixtureState, StateDiff
 
 LIVENESS_TIMEOUT_S = 5.0
@@ -101,6 +102,7 @@ class ScanContext:
         fixtures: Fixtures | None = None,
         profile: Any = None,
         llm: Judge | None = None,
+        conformance: ConformanceRunner | None = None,
         trace: Recorder | None = None,
         auth_identities: Sequence[str] = (),
         second_instance_supported: bool = True,
@@ -120,6 +122,7 @@ class ScanContext:
         self.fixtures = fixtures
         self.profile = profile
         self.llm = llm
+        self.conformance = conformance  # runs the official suite in the sandbox, or None
         self.trace = trace
         self.auth_identities = tuple(auth_identities)
         self.second_instance_supported = second_instance_supported

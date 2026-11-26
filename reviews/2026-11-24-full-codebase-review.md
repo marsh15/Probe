@@ -54,11 +54,11 @@ Themes:
 
 ## 2. Engine, config, scoring, schema, classify, util
 
-- [ ] **important** `engine/runscan.py:420` (T36): the conformance suite gets no bearer token, so auth-protected servers fail every scenario (high for auth ones, capping the grade at B). *Fix:* pass the baseline identity, or NA under bearer auth.
-- [ ] **important** `engine/runscan.py:123` (T36): the default image `probe-conformance:dev` is never published, and images are never pulled, so installed users get ERROR on every sandboxed HTTP scan. *Fix:* default to the released versioned tag and pull it, NA when missing, add `--conformance-image`.
-- [ ] **important** `engine/runscan.py:410` (T36): the suite timeout (300 s) ignores the scan budget, the mode's wall clock and `--timeout-scale`, and can double a standard scan. *Fix:* cap it at the remaining budget.
+- [x] **important** `engine/runscan.py:420` (T36): the conformance suite gets no bearer token, so auth-protected servers fail every scenario (high for auth ones, capping the grade at B). *Fix:* pass the baseline identity, or NA under bearer auth.
+- [x] **important** `engine/runscan.py:123` (T36): the default image `probe-conformance:dev` is never published, and images are never pulled, so installed users get ERROR on every sandboxed HTTP scan. *Fix:* default to the released versioned tag and pull it, NA when missing, add `--conformance-image`.
+- [x] **important** `engine/runscan.py:410` (T36): the suite timeout (300 s) ignores the scan budget, the mode's wall clock and `--timeout-scale`, and can double a standard scan. *Fix:* cap it at the remaining budget.
 - [x] **important** `engine/scan.py:48` (T36): post-phase checks still run after the target is declared unstable, so the conformance suite reports connection failures as findings. *Fix:* ERROR `target_unstable` for post-phase checks that drive the target.
-- [ ] **important** `engine/versions.py:4` (T36): a new check was added without bumping `CATALOG_VERSION`, and `--no-conformance` is not part of `scan_key`, so corpus results with different check sets share a key. *Fix:* bump the version and add the setting to the key.
+- [x] **important** `engine/versions.py:4` (T36): a new check was added without bumping `CATALOG_VERSION`, and `--no-conformance` is not part of `scan_key`, so corpus results with different check sets share a key. *Fix:* bump the version and add the setting to the key.
 - [x] **pre-existing** `config/profile.py:278`: a profile secret that resolves to an empty string raises pydantic ValidationError, which isn't converted to ProfileError, so `probe run` exits 4 (internal error) instead of 2 with a profile message. *Fix:* catch ValidationError in `resolve_profile`.
 - [x] **pre-existing** `engine/runscan.py:344`: `_redacted` replaces secrets in every string, including enum, literal and datetime fields, then re-validates. A short secret such as `2026` or `http` corrupts `started_at` or `transport`, validation fails, and no report is written. *Fix:* redact free-text fields only, or fall back on validation failure.
 - [x] **pre-existing** `engine/runscan.py:308`: the Recorder (opens `trace.jsonl`) is created before `_make_runner`, which can raise UsageError or SandboxUnavailable outside the `try`/`finally`, so the file handle leaks. *Fix:* create the runner inside the `try`, or the recorder after it.
@@ -98,16 +98,16 @@ Themes:
 T36 must not be committed until these are fixed. It also has 5 failing tests: the clean-refserver
 protocol expectations, and `--conformance` is undocumented.
 
-- [ ] **important** `sandbox/conformance.py:37`: the container is named `probe-conformance-…`, but `owned()` in `sandbox/spec.py` accepts only target, fakehttp, canary, relay, inspect and init, so teardown refuses to remove it. The network and lease are left behind and "sandbox cleanup incomplete" is raised. *Fix:* add `conformance` to `owned()`.
-- [ ] **important** `runners/container_http.py:70`: the suite calls `http://target:<port>`, so its requests carry the host name `target`. DNS-rebinding protection (the refserver's `_allowed_hosts`, the SDK defaults) rejects it, giving FAILs on clean servers. *Fix:* send the suite's traffic through the relay with a localhost Host, or treat 421/403 Host rejections as ERROR.
-- [ ] **important** `checks/official/conformance.py:142`: no auth is passed to the suite (see 2).
-- [ ] **important** `checks/official/conformance.py:32`: the timeout is outside the scan budget (see 2).
-- [ ] **important** `checks/official/conformance.py:189`: no liveness check before running the suite (see 2).
-- [ ] **important** `engine/runscan.py:123`: the `:dev` image is never published (see 2).
-- [ ] **important** `checks/official/conformance.py:196`: one unreadable `checks.json` (or any `@@PROBE-ERROR@@`) turns the result into ERROR and drops real failures from the other scenarios. *Fix:* emit findings for what parsed; ERROR only if nothing parsed.
-- [ ] **nit** `sandbox/conformance.py:36`: HOME is `/home/probe`, which the replaced tmpfs no longer mounts on a read-only root. *Fix:* HOME=/tmp.
-- [ ] **nit** `checks/official/conformance.py:178`: `--no-conformance` is reported as NA when it should be SKIPPED.
-- [ ] **nit** `checks/official/conformance.py:147`: any scenario name containing "auth" (for example "author") becomes HIGH. *Fix:* match on a token boundary.
+- [x] **important** `sandbox/conformance.py:37`: the container is named `probe-conformance-…`, but `owned()` in `sandbox/spec.py` accepts only target, fakehttp, canary, relay, inspect and init, so teardown refuses to remove it. The network and lease are left behind and "sandbox cleanup incomplete" is raised. *Fix:* add `conformance` to `owned()`.
+- [x] **important** `runners/container_http.py:70`: the suite calls `http://target:<port>`, so its requests carry the host name `target`. DNS-rebinding protection (the refserver's `_allowed_hosts`, the SDK defaults) rejects it, giving FAILs on clean servers. *Fix:* send the suite's traffic through the relay with a localhost Host, or treat 421/403 Host rejections as ERROR.
+- [x] **important** `checks/official/conformance.py:142`: no auth is passed to the suite (see 2).
+- [x] **important** `checks/official/conformance.py:32`: the timeout is outside the scan budget (see 2).
+- [x] **important** `checks/official/conformance.py:189`: no liveness check before running the suite (see 2).
+- [x] **important** `engine/runscan.py:123`: the `:dev` image is never published (see 2).
+- [x] **important** `checks/official/conformance.py:196`: one unreadable `checks.json` (or any `@@PROBE-ERROR@@`) turns the result into ERROR and drops real failures from the other scenarios. *Fix:* emit findings for what parsed; ERROR only if nothing parsed.
+- [x] **nit** `sandbox/conformance.py:36`: HOME is `/home/probe`, which the replaced tmpfs no longer mounts on a read-only root. *Fix:* HOME=/tmp.
+- [x] **nit** `checks/official/conformance.py:178`: `--no-conformance` is reported as NA when it should be SKIPPED.
+- [x] **nit** `checks/official/conformance.py:147`: any scenario name containing "auth" (for example "author") becomes HIGH. *Fix:* match on a token boundary.
 
 ### 5b. Safety checks and LLM judge
 
@@ -146,7 +146,7 @@ protocol expectations, and `--conformance` is undocumented.
 - [x] **important** `integrations/github-action/action.yml:197`: the badge updates from any branch push, and publishing it runs `git checkout --orphan` / `git rm -rf .` **in the caller's workspace**. *Fix:* default branch only; use a temp clone or worktree.
 - [x] **important** `cli/run.py:167` (also `cli/repro.py:50`): I/O errors after the scan (writing reports, bundles or the export script) escape as tracebacks with exit 1, which means "findings at threshold" (or "not reproduced"). *Fix:* map them to exit 4 (or 2 for a bad path).
 - [x] **important** `report/text.py:5`: `md_text` doesn't stop GFM autolinks or @mentions, so a hostile server name can ping teams and show live links in a PR comment. *Fix:* escape `@` and break autolinks, or use code spans.
-- [ ] **important** `.github/workflows/release.yml:67`: the published conformance image is never used by installed Probe (see 2 and 5a).
+- [x] **important** `.github/workflows/release.yml:67`: the published conformance image is never used by installed Probe (see 2 and 5a).
 
 ## 8. Reference server (`reference/refserver`)
 

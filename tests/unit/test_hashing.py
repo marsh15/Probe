@@ -81,5 +81,6 @@ def test_scan_key_changes_with_every_input() -> None:
         {"profile_hash": "q" * 64},
         {"mode": "deep"},
         {"seed": 1},
+        {"conformance": False},
     ):
         assert _key(**override) != base, override

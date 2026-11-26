@@ -1,0 +1,21 @@
+@@PROBE-SCENARIO@@ server-initialize-2026-12-01T10-00-00-000Z
+[
+  {"id": "server-initialize", "name": "ServerInitialize", "description": "Server responds to initialize",
+   "status": "SUCCESS", "timestamp": "2026-12-01T10:00:00.000Z",
+   "specReferences": [{"id": "MCP-Lifecycle", "url": "https://modelcontextprotocol.io/specification/lifecycle"}]},
+  {"id": "server-protocol-version", "name": "ServerProtocolVersion", "description": "Version negotiated",
+   "status": "FAILURE", "errorMessage": "Server returned protocolVersion 1999-01-01",
+   "specReferences": [{"id": "MCP-Lifecycle"}]}
+]
+@@PROBE-SCENARIO@@ server-auth-metadata-2026-12-01T10-00-05-000Z
+[
+  {"id": "auth-resource-metadata", "name": "ResourceMetadata", "status": "FAILURE",
+   "errorMessage": "No /.well-known/oauth-protected-resource"},
+  {"id": "auth-note", "name": "Note", "status": "INFO"}
+]
+@@PROBE-SCENARIO@@ server-tools-list-2026-12-01T10-00-09-000Z
+[
+  {"id": "tools-list", "name": "ToolsList", "status": "SUCCESS"},
+  {"id": "tools-skipped", "name": "Skipped", "status": "SKIPPED"}
+]
+@@PROBE-END@@ 1

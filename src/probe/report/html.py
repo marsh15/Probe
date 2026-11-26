@@ -17,6 +17,7 @@ from jinja2 import Environment, FileSystemLoader, StrictUndefined, select_autoes
 from markupsafe import Markup
 
 import probe.checks.behavior
+import probe.checks.official
 import probe.checks.operability
 import probe.checks.protocol
 import probe.checks.safety

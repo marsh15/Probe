@@ -30,3 +30,9 @@ the nightly workflow (`.github/workflows/selfval-nightly.yml`) runs the sandbox 
 2. Add an entry to `tests/selfval/expected.yaml`: the transports it runs on, the check that must
    fail, and any other check that may fail because of it (with the reason).
 3. Add a detection test next to the check's other tests.
+
+## The official suite is not part of the accuracy gate
+
+`probe selfval` runs every scan with `--no-conformance`: it measures Probe's own checks, which
+are deterministic. The nightly workflow runs the official suite against the clean reference
+server in a separate job and uploads the result for reading.

@@ -9,6 +9,7 @@ import jsonschema
 import pytest
 from typer.testing import CliRunner
 
+from probe.cli import run as run_module
 from probe.cli.app import app
 from tests.checks.protocol.harness import mini_argv
 
@@ -27,6 +28,27 @@ def report(tmp_path: Path) -> dict[str, Any]:
     data = json.loads((tmp_path / "out" / "report.json").read_text())
     jsonschema.validate(data, REPORT_SCHEMA)
     return data
+
+
+def test_conformance_cli_override_and_skip_result(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    original = run_module.run_scan
+    configs = []
+
+    async def run_scan(config: Any) -> Any:
+        configs.append(config)
+        return await original(config)
+
+    monkeypatch.setattr(run_module, "run_scan", run_scan)
+    check_id = "protocol.official.conformance"
+    result = run(
+        tmp_path, "--only", check_id, "--no-conformance", "--conformance-image", "example/suite:1"
+    )
+    assert result.exit_code == 0, result.output
+    assert configs[0].conformance_image == "example/suite:1"
+    check = next(r for r in report(tmp_path)["results"] if r["check_id"] == check_id)
+    assert (check["status"], check["reason"]) == ("skipped", "disabled by --no-conformance")
 
 
 def test_findings_at_the_threshold_exit_1_and_are_listed(tmp_path: Path) -> None:

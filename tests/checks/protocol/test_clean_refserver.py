@@ -28,6 +28,7 @@ STDIO_MODERN = {
     "protocol.error_code_ranges": P,
     "protocol.result_type_present": P,
     "protocol.stdout_clean": P,
+    "protocol.official.conformance": NA,  # sandboxed HTTP only
 }
 STDIO_LEGACY = {
     **{check: NA for check in STDIO_MODERN},
@@ -50,6 +51,7 @@ HTTP_MODERN = {
     "protocol.error_code_ranges": P,
     "protocol.result_type_present": P,
     "protocol.stdout_clean": NA,  # stdio only
+    "protocol.official.conformance": NA,  # a URL target has no sandbox
 }
 HTTP_LEGACY = {
     **{check: NA for check in HTTP_MODERN},

@@ -104,6 +104,7 @@ async def run_job(setup: Setup, job: Job) -> JobResult:
                     mode=setup.mode,
                     seed=job.seed,
                     target_env=_bug_env(job),
+                    conformance=False,  # selfval measures Probe's own checks, not the suite's
                 )
             )
     except Exception as exc:  # one broken job must not hide the others

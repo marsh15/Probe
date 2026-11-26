@@ -32,3 +32,32 @@ jobs:
         with:
           name: selfval
           path: selfval-out/selfval
+
+  # Not part of the accuracy gate: the official suite against the clean reference server over
+  # HTTP, so its results can be read and triaged.
+  conformance:
+    name: official conformance on the clean reference server
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.4.0
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+      - name: Build the images
+        run: |
+          docker build -t probe-refserver:dev reference/refserver
+          docker build -t probe-fixtures:dev fixtures_runtime
+          docker build -t probe-conformance:dev images/conformance
+      - name: Scan over HTTP, only the delegated suite
+        run: >
+          uv run probe run --image probe-refserver:dev --profile profiles/refserver-conformance.yaml
+          --conformance-image probe-conformance:dev
+          --mode standard --only 'protocol.official.*' --fail-on none --out conformance-out
+        env:
+          UV_PYTHON: 3.13
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conformance
+          path: conformance-out/
